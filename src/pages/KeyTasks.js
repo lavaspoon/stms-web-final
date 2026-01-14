@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Search, Calendar, AlertCircle, CheckCircle, Clock, XCircle, Check } from 'lucide-react';
 import useUserStore from '../store/userStore';
 import TaskRegisterModal from '../components/TaskRegisterModal';
+import { getTasksByType } from '../api/taskApi';
 import './KeyTasks.css';
 
 function KeyTasks() {
@@ -12,9 +13,60 @@ function KeyTasks() {
     const [filterStatus, setFilterStatus] = useState('all');
     const [viewMode, setViewMode] = useState('list'); // 'list' or 'gantt'
     const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+    const [tasks, setTasks] = useState([]);
+    const [loading, setLoading] = useState(false);
 
-    // 임시 데이터 (추후 API 연동)
-    const tasks = [
+    // 과제 목록 조회
+    const loadTasks = async () => {
+        try {
+            setLoading(true);
+            const data = await getTasksByType('중점추진');
+
+            // 백엔드 데이터를 화면 포맷으로 변환
+            const formattedTasks = data.map(task => ({
+                id: task.taskId,
+                category1: task.category1,
+                category2: task.category2,
+                name: task.taskName,
+                description: task.description,
+                status: task.status || 'inProgress',
+                isInputted: task.isInputted === 'Y',
+                manager: task.managers && task.managers.length > 0 ? task.managers[0].mbName : '-',
+                managers: task.managers || [],
+                deptName: task.deptName || '-',
+                startDate: task.startDate,
+                endDate: task.endDate,
+                performance: {
+                    type: task.performanceType,
+                    evaluation: task.evaluationType,
+                    metric: task.metric
+                },
+                achievement: task.achievement || 0,
+                months: [] // 간트차트 데이터는 별도 처리 필요
+            }));
+
+            setTasks(formattedTasks);
+        } catch (error) {
+            console.error('과제 목록 조회 실패:', error);
+            alert('과제 목록을 불러오는데 실패했습니다.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // 컴포넌트 마운트 시 과제 목록 로드
+    useEffect(() => {
+        loadTasks();
+    }, []);
+
+    // 과제 등록 완료 후 목록 새로고침
+    const handleModalClose = () => {
+        setIsRegisterModalOpen(false);
+        loadTasks(); // 목록 새로고침
+    };
+
+    // 임시 데이터 (API 연동 전 백업)
+    const sampleTasks = [
         {
             id: 1,
             category1: '디지털 혁신',
@@ -105,7 +157,8 @@ function KeyTasks() {
             stopped: { text: '중단', className: 'status-badge stopped', icon: XCircle },
         };
 
-        const config = statusConfig[status];
+        // status가 없거나 정의되지 않은 경우 기본값 사용
+        const config = statusConfig[status] || statusConfig.inProgress;
         const Icon = config.icon;
 
         return (
@@ -343,9 +396,15 @@ function KeyTasks() {
                 </div>
             )}
 
+            {loading && (
+                <div className="loading-state">
+                    <p>데이터를 불러오는 중...</p>
+                </div>
+            )}
+
             <TaskRegisterModal
                 isOpen={isRegisterModalOpen}
-                onClose={() => setIsRegisterModalOpen(false)}
+                onClose={handleModalClose}
                 taskType="중점추진"
             />
         </div>

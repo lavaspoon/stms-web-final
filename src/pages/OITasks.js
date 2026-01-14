@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, AlertCircle, CheckCircle, Clock, XCircle, Check } from 'lucide-react';
 import useUserStore from '../store/userStore';
 import TaskRegisterModal from '../components/TaskRegisterModal';
+import { getTasksByType } from '../api/taskApi';
 import './OITasks.css';
 
 function OITasks() {
@@ -11,9 +12,59 @@ function OITasks() {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
     const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+    const [tasks, setTasks] = useState([]);
+    const [loading, setLoading] = useState(false);
 
-    // 임시 데이터 (추후 API 연동)
-    const tasks = [
+    // 과제 목록 조회
+    const loadTasks = async () => {
+        try {
+            setLoading(true);
+            const data = await getTasksByType('OI');
+
+            // 백엔드 데이터를 화면 포맷으로 변환
+            const formattedTasks = data.map(task => ({
+                id: task.taskId,
+                category1: task.category1,
+                category2: task.category2,
+                name: task.taskName,
+                description: task.description,
+                status: task.status || 'inProgress',
+                isInputted: task.isInputted === 'Y',
+                manager: task.managers && task.managers.length > 0 ? task.managers[0].mbName : '-',
+                managers: task.managers || [],
+                deptName: task.deptName || '-',
+                startDate: task.startDate,
+                endDate: task.endDate,
+                performance: {
+                    type: task.performanceType,
+                    evaluation: task.evaluationType,
+                    metric: task.metric
+                },
+                achievement: task.achievement || 0
+            }));
+
+            setTasks(formattedTasks);
+        } catch (error) {
+            console.error('과제 목록 조회 실패:', error);
+            alert('과제 목록을 불러오는데 실패했습니다.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // 컴포넌트 마운트 시 과제 목록 로드
+    useEffect(() => {
+        loadTasks();
+    }, []);
+
+    // 과제 등록 완료 후 목록 새로고침
+    const handleModalClose = () => {
+        setIsRegisterModalOpen(false);
+        loadTasks(); // 목록 새로고침
+    };
+
+    // 임시 데이터 (API 연동 전 백업)
+    const sampleTasks = [
         {
             id: 1,
             category1: '고객 만족',
@@ -100,7 +151,8 @@ function OITasks() {
             stopped: { text: '중단', className: 'status-badge stopped', icon: XCircle },
         };
 
-        const config = statusConfig[status];
+        // status가 없거나 정의되지 않은 경우 기본값 사용
+        const config = statusConfig[status] || statusConfig.inProgress;
         const Icon = config.icon;
 
         return (
@@ -274,7 +326,13 @@ function OITasks() {
                 </table>
             </div>
 
-            {filteredTasks.length === 0 && (
+            {loading && (
+                <div className="loading-state">
+                    <p>데이터를 불러오는 중...</p>
+                </div>
+            )}
+
+            {!loading && filteredTasks.length === 0 && (
                 <div className="empty-state">
                     <Filter size={48} />
                     <p>조건에 맞는 과제가 없습니다.</p>
@@ -283,7 +341,7 @@ function OITasks() {
 
             <TaskRegisterModal
                 isOpen={isRegisterModalOpen}
-                onClose={() => setIsRegisterModalOpen(false)}
+                onClose={handleModalClose}
                 taskType="OI"
             />
         </div>

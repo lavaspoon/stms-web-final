@@ -256,9 +256,15 @@
     color: white;
 }
 
-.btn-submit:hover {
+.btn-submit:hover:not(:disabled) {
     background: #0051D5;
     box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+}
+
+.btn-submit:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+    opacity: 0.6;
 }
 
 /* 스크롤바 스타일 */

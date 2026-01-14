@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, User, Target, TrendingUp, ChevronRight, ChevronDown } from 'lucide-react';
 import { getAllDepts, getDeptMembers } from '../api/deptApi';
+import { createTask } from '../api/taskApi';
 import './TaskRegisterModal.css';
 
 function TaskRegisterModal({ isOpen, onClose, taskType }) {
@@ -21,12 +22,30 @@ function TaskRegisterModal({ isOpen, onClose, taskType }) {
     const [departments, setDepartments] = useState([]);
     const [availableManagers, setAvailableManagers] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
     const [expandedDepts, setExpandedDepts] = useState(new Set());
 
-    // 부서 목록 조회
+    // 부서 목록 조회 및 폼 초기화
     useEffect(() => {
         if (isOpen) {
             loadDepartments();
+        } else {
+            // 모달이 닫힐 때 폼 초기화
+            setFormData({
+                category1: '',
+                category2: '',
+                taskName: '',
+                description: '',
+                startDate: '',
+                endDate: '',
+                department: '',
+                managers: [],
+                performanceType: 'nonFinancial',
+                evaluationType: 'quantitative',
+                metric: 'count',
+            });
+            setAvailableManagers([]);
+            setExpandedDepts(new Set());
         }
     }, [isOpen]);
 
@@ -168,7 +187,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType }) {
         }));
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
 
         // 유효성 검사
@@ -177,12 +196,66 @@ function TaskRegisterModal({ isOpen, onClose, taskType }) {
             return;
         }
 
-        console.log('과제 등록:', {
-            ...formData,
-            managerIds: formData.managers.map(m => m.userId)
-        });
-        // TODO: API 호출
-        onClose();
+        if (!formData.department) {
+            alert('부서를 선택해주세요.');
+            return;
+        }
+
+        if (!formData.taskName || !formData.category1 || !formData.category2) {
+            alert('필수 항목을 모두 입력해주세요.');
+            return;
+        }
+
+        if (!formData.startDate || !formData.endDate) {
+            alert('과제 기간을 입력해주세요.');
+            return;
+        }
+
+        try {
+            setSubmitting(true);
+
+            // 백엔드 API 형식에 맞게 데이터 변환
+            const taskData = {
+                taskType: taskType === 'OI' ? 'OI' : '중점추진',
+                category1: formData.category1,
+                category2: formData.category2,
+                taskName: formData.taskName,
+                description: formData.description || null,
+                startDate: formData.startDate,
+                endDate: formData.endDate,
+                deptId: parseInt(formData.department),
+                managerIds: formData.managers.map(m => m.userId),
+                performanceType: formData.performanceType,
+                evaluationType: formData.evaluationType,
+                metric: formData.metric
+            };
+
+            await createTask(taskData);
+            alert('과제가 성공적으로 등록되었습니다.');
+
+            // 폼 초기화
+            setFormData({
+                category1: '',
+                category2: '',
+                taskName: '',
+                description: '',
+                startDate: '',
+                endDate: '',
+                department: '',
+                managers: [],
+                performanceType: 'nonFinancial',
+                evaluationType: 'quantitative',
+                metric: 'count',
+            });
+
+            onClose();
+        } catch (error) {
+            console.error('과제 등록 실패:', error);
+            const errorMessage = error.response?.data?.message || error.message || '과제 등록 중 오류가 발생했습니다.';
+            alert(`과제 등록 실패: ${errorMessage}`);
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     if (!isOpen) return null;
@@ -463,8 +536,8 @@ function TaskRegisterModal({ isOpen, onClose, taskType }) {
                         <button type="button" className="btn-cancel" onClick={onClose}>
                             취소
                         </button>
-                        <button type="submit" className="btn-submit">
-                            등록하기
+                        <button type="submit" className="btn-submit" disabled={submitting}>
+                            {submitting ? '등록 중...' : '등록하기'}
                         </button>
                     </div>
                 </form>
