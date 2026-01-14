@@ -1,70 +1,170 @@
-# Getting Started with Create React App
+# 경영성과관리 대시보드 시스템  
+## 시스템 요구사항 정의서
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+---
 
-## Available Scripts
+## 1. 프로젝트 개요
 
-In the project directory, you can run:
+### 1.1 프로젝트명
+**경영성과관리 대시보드 시스템**
 
-### `npm start`
+### 1.2 목적
+- 매년 월초, 각 부문의 KPI 달성을 위해 **중점추진과제** 및 **OI 과제**를 체계적으로 관리
+- 각 부서 담당자가 매월 **활동내역 및 목표 달성률을 직접 입력**
+- 관리자는 **미입력 과제, 진행 현황, 성과 흐름을 직관적으로 파악**
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+---
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## 2. 사용자 권한 정의
 
-### `npm test`
+### 2.1 관리자 (Admin)
+- 과제 등록 / 수정 / 관리
+- 과제별 담당자 지정
+- **이번 달 활동내역 미입력 과제 즉시 파악**
+- 담당자에게 **활동 기일 요청 알림 발송 (일자 선택 가능)**
+- 이달 활동내역이 입력된 프로젝트 기준  
+  → **AI 기반 월말 보고서 텍스트 자동 생성**
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### 2.2 과제 담당자 (User)
+- 본인 담당 과제 조회
+- 매월 활동내역 입력
+- 월별 목표 / 실적 / 달성률 입력
+- 과제 진행 상태 변경  
+  - 완료 / 진행 / 지연 / 중단
 
-### `npm run build`
+---
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## 3. UI / UX & 디자인 원칙
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### 3.1 디자인 컨셉
+- Apple 스타일의 **Simple & Clean UI**
+- 불필요한 요소 최소화
+- 한눈에 들어오는 정보 구조
+- 높은 가독성
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### 3.2 UI 가이드
+- **lucide-icon** 활용
+- 상태 중심 색상 사용
+  - 미입력 / 진행 / 지연 / 완료
+- 관리자 및 담당자 공통:
+  - **이번 달 기준, 입력이 필요한 과제 최우선 노출**
 
-### `npm run eject`
+---
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+## 4. 핵심 UX Key Point
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+- 사용자가 화면 진입 시:
+  - 이번 달 활동내역 **미입력 과제가 즉시 식별**
+  - 별도 탐색 없이 바로 입력 가능
+- 정렬 기준:
+  - **이번 달 기준, 입력이 필요한 과제 우선 정렬**
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+---
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## 5. 데이터 구조 정의
 
-## Learn More
+### 5.1 과제 등록 정보  
+*(OI 과제 / 중점추진과제 공통)*
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+- 3 Depth 카테고리
+  - 대주제 > 중주제 > 과제명
+- 과제 정의 (Input Field)
+- 과제 기간
+  - 시작일 ~ 종료일
+- 담당자 설정
+  - 계층형 부서 선택
+  - 부서 내 인원 선택
+- 성과 기준 정의
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+#### 성과 속성
+- 성과 분류: 재무 / 비재무 (Radio)
+- 평가 방법: 정성 / 정량 (Radio)
+- 성과 지표: 건수 / 금액 / % (Radio)
 
-### Code Splitting
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+### 5.2 과제 활동내역 입력 정보  
+*(OI 과제 / 중점추진과제 공통)*
 
-### Analyzing the Bundle Size
+- **이달 활동 내역**
+  - Input Field
+  - 이전 월 데이터 참고 가능 UI
+- **월별 목표 달성률 (12개월 기준)**
+  - 목표(%): 수동 입력 (최대 100%)
+  - 실적(%): 수동 입력
+  - 달성률(%): 자동 계산
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+---
 
-### Making a Progressive Web App
+## 6. 화면 및 카테고리 구성
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+### 6.1 통합 대시보드
+- 중점추진과제 + OI 과제 요약
+- 주요 정보
+  - 전체 과제 수
+  - 이달 미입력 과제 수
+  - 진행 상태별 현황
+- 과제 클릭 시:
+  - OI 과제 / 중점추진과제 상세 페이지 이동
+  - 뒤로가기 가능
 
-### Advanced Configuration
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+### 6.2 OI 과제
 
-### Deployment
+#### 관리자
+- 과제 등록 / 수정
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+#### 담당자
+- 과제 활동 내역 입력
+- 진행 상태 선택
+  - 완료 / 진행 / 지연 / 중단
 
-### `npm run build` fails to minify
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+### 6.3 중점추진과제
+
+#### 관리자
+- 과제 등록 / 수정
+- **월 기준 간트차트 제공**
+
+#### 담당자
+- 과제 활동 내역 입력
+- 진행 상태 선택
+  - 완료 / 진행 / 지연 / 중단
+
+---
+
+### 6.4 일일 보고 전용 대시보드
+- 중점추진과제 / OI 과제 통합 조회
+- 이달 미입력 과제 강조 표시
+- 바로 활동내역 입력 가능
+
+---
+
+## 7. 알림 및 자동화 기능
+
+### 7.1 활동 기일 요청 알림
+- 관리자 권한
+- 과제별 담당자 알림 발송
+- 일자 선택 가능
+- 다중 과제 일괄 발송 지원
+
+---
+
+### 7.2 AI 기반 월말 보고서 생성
+- 대상: 이달 활동내역 입력 완료 프로젝트
+- 기능:
+  - 과제별 활동 요약
+  - 주요 성과 및 진행 현황 자동 정리
+- 관리자 화면에서 텍스트 제공
+- 복사 및 다운로드 가능
+
+---
+
+## 8. 핵심 가치 요약
+
+- 관리자는 **미입력 과제를 놓치지 않음**
+- 담당자는 **이번 달 해야 할 과제만 즉시 인지**
+- 월말 보고는 **AI 자동 요약**
+- UI는 **심플하지만 강력한 정보 전달**
