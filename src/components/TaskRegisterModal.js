@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, User, Target, TrendingUp, ChevronRight, ChevronDown } from 'lucide-react';
 import { getAllDepts, getDeptMembers } from '../api/deptApi';
-import { createTask } from '../api/taskApi';
+import { createTask, updateTask } from '../api/taskApi';
 import './TaskRegisterModal.css';
 
-function TaskRegisterModal({ isOpen, onClose, taskType }) {
+function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
     const [formData, setFormData] = useState({
         category1: '',
         category2: '',
@@ -17,6 +17,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType }) {
         performanceType: 'nonFinancial',
         evaluationType: 'quantitative',
         metric: 'count',
+        status: 'inProgress',
     });
 
     const [departments, setDepartments] = useState([]);
@@ -25,10 +26,35 @@ function TaskRegisterModal({ isOpen, onClose, taskType }) {
     const [submitting, setSubmitting] = useState(false);
     const [expandedDepts, setExpandedDepts] = useState(new Set());
 
-    // 부서 목록 조회 및 폼 초기화
+    // 부서 목록 조회 및 폼 초기화/설정
     useEffect(() => {
         if (isOpen) {
             loadDepartments();
+
+            // 수정 모드일 때 데이터 설정
+            if (editData) {
+                console.log('수정 모드 - editData:', editData);
+
+                setFormData({
+                    category1: editData.category1 || '',
+                    category2: editData.category2 || '',
+                    taskName: editData.name || '',
+                    description: editData.description || '',
+                    startDate: editData.startDate || '',
+                    endDate: editData.endDate || '',
+                    department: editData.deptId ? String(editData.deptId) : '',
+                    managers: editData.managers || [],
+                    performanceType: editData.performance?.type || 'nonFinancial',
+                    evaluationType: editData.performance?.evaluation || 'quantitative',
+                    metric: editData.performance?.metric || 'count',
+                    status: editData.status || 'inProgress',
+                });
+
+                // 해당 부서의 담당자 목록 로드
+                if (editData.deptId) {
+                    loadManagers(editData.deptId);
+                }
+            }
         } else {
             // 모달이 닫힐 때 폼 초기화
             setFormData({
@@ -47,7 +73,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType }) {
             setAvailableManagers([]);
             setExpandedDepts(new Set());
         }
-    }, [isOpen]);
+    }, [isOpen, editData]);
 
     const loadDepartments = async () => {
         try {
@@ -216,7 +242,6 @@ function TaskRegisterModal({ isOpen, onClose, taskType }) {
 
             // 백엔드 API 형식에 맞게 데이터 변환
             const taskData = {
-                taskType: taskType === 'OI' ? 'OI' : '중점추진',
                 category1: formData.category1,
                 category2: formData.category2,
                 taskName: formData.taskName,
@@ -227,11 +252,25 @@ function TaskRegisterModal({ isOpen, onClose, taskType }) {
                 managerIds: formData.managers.map(m => m.userId),
                 performanceType: formData.performanceType,
                 evaluationType: formData.evaluationType,
-                metric: formData.metric
+                metric: formData.metric,
+                status: formData.status
             };
 
-            await createTask(taskData);
-            alert('과제가 성공적으로 등록되었습니다.');
+            if (editData) {
+                // 수정 모드
+                console.log('수정 요청 - taskId:', editData.id);
+                console.log('수정 요청 - taskData:', taskData);
+                const result = await updateTask(editData.id, taskData);
+                console.log('수정 응답:', result);
+                alert('과제가 성공적으로 수정되었습니다.');
+            } else {
+                // 등록 모드
+                taskData.taskType = taskType === 'OI' ? 'OI' : '중점추진';
+                console.log('등록 요청 - taskData:', taskData);
+                const result = await createTask(taskData);
+                console.log('등록 응답:', result);
+                alert('과제가 성공적으로 등록되었습니다.');
+            }
 
             // 폼 초기화
             setFormData({
@@ -246,13 +285,15 @@ function TaskRegisterModal({ isOpen, onClose, taskType }) {
                 performanceType: 'nonFinancial',
                 evaluationType: 'quantitative',
                 metric: 'count',
+                status: 'inProgress',
             });
 
             onClose();
         } catch (error) {
-            console.error('과제 등록 실패:', error);
-            const errorMessage = error.response?.data?.message || error.message || '과제 등록 중 오류가 발생했습니다.';
-            alert(`과제 등록 실패: ${errorMessage}`);
+            console.error(editData ? '과제 수정 실패:' : '과제 등록 실패:', error);
+            const errorMessage = error.response?.data?.message || error.message ||
+                (editData ? '과제 수정 중 오류가 발생했습니다.' : '과제 등록 중 오류가 발생했습니다.');
+            alert(`${editData ? '과제 수정' : '과제 등록'} 실패: ${errorMessage}`);
         } finally {
             setSubmitting(false);
         }
@@ -264,7 +305,12 @@ function TaskRegisterModal({ isOpen, onClose, taskType }) {
         <div className="task-register-modal-overlay" onClick={onClose}>
             <div className="task-register-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
-                    <h2>{taskType === 'OI' ? 'OI 과제 등록' : '중점추진과제 등록'}</h2>
+                    <h2>
+                        {editData
+                            ? `${taskType === 'OI' ? 'OI 과제' : '중점추진과제'} 수정`
+                            : `${taskType === 'OI' ? 'OI 과제' : '중점추진과제'} 등록`
+                        }
+                    </h2>
                     <button className="close-btn" onClick={onClose}>
                         <X size={20} />
                     </button>
@@ -531,13 +577,41 @@ function TaskRegisterModal({ isOpen, onClose, taskType }) {
                         </div>
                     </section>
 
+                    {/* 진행상태 */}
+                    {editData && (
+                        <section className="form-section">
+                            <div className="section-header">
+                                <Target size={18} />
+                                <h3>진행상태</h3>
+                            </div>
+
+                            <div className="form-group">
+                                <label>진행상태</label>
+                                <select
+                                    name="status"
+                                    value={formData.status}
+                                    onChange={handleChange}
+                                    className={`status-select status-${formData.status}`}
+                                >
+                                    <option value="inProgress">진행중</option>
+                                    <option value="completed">완료</option>
+                                    <option value="delayed">지연</option>
+                                    <option value="stopped">중단</option>
+                                </select>
+                            </div>
+                        </section>
+                    )}
+
                     {/* 버튼 */}
                     <div className="form-actions">
                         <button type="button" className="btn-cancel" onClick={onClose}>
                             취소
                         </button>
                         <button type="submit" className="btn-submit" disabled={submitting}>
-                            {submitting ? '등록 중...' : '등록하기'}
+                            {submitting
+                                ? (editData ? '수정 중...' : '등록 중...')
+                                : (editData ? '수정하기' : '등록하기')
+                            }
                         </button>
                     </div>
                 </form>

@@ -12,9 +12,10 @@
 .view-toggle {
     display: flex;
     background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 10px;
     overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
 }
 
 .toggle-btn {
@@ -24,48 +25,55 @@
     padding: 10px 16px;
     background: white;
     border: none;
-    color: #6b7280;
-    font-size: 14px;
-    font-weight: 500;
+    color: #86868b;
+    font-size: 15px;
+    font-weight: 400;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    letter-spacing: -0.016em;
 }
 
 .toggle-btn:not(:last-child) {
-    border-right: 1px solid #e5e7eb;
+    border-right: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .toggle-btn.active {
-    background: #007AFF;
+    background: #007aff;
     color: white;
+    font-weight: 600;
 }
 
 .toggle-btn:hover:not(.active) {
-    background: #f9fafb;
+    background: #fafafa;
 }
 
 /* Gantt Chart Styles */
 .gantt-container {
     background: white;
-    border-radius: 8px;
-    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
     overflow: hidden;
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.04);
+    margin-bottom: 24px;
 }
 
 .gantt-header {
     display: flex;
-    background: #f9fafb;
-    border-bottom: 2px solid #e5e7eb;
+    background: #fafafa;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .gantt-task-column {
-    width: 280px;
-    padding: 12px 16px;
-    font-size: 12px;
+    width: 320px;
+    padding: 14px 20px;
+    font-size: 13px;
     font-weight: 600;
-    color: #6b7280;
-    border-right: 1px solid #e5e7eb;
+    color: #86868b;
+    border-right: 1px solid rgba(0, 0, 0, 0.06);
     flex-shrink: 0;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: #f9fafb;
 }
 
 .gantt-timeline {
@@ -76,16 +84,26 @@
 }
 
 .gantt-month {
-    padding: 12px 8px;
+    padding: 14px 8px;
     text-align: center;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
-    color: #6b7280;
-    border-right: 1px solid #e5e7eb;
+    color: #86868b;
+    border-right: 1px solid rgba(0, 0, 0, 0.06);
+    letter-spacing: -0.016em;
+    background: #f9fafb;
+    position: relative;
 }
 
 .gantt-month:last-child {
     border-right: none;
+}
+
+/* 현재 월 강조 */
+.gantt-month.current-month {
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    color: #2563eb;
+    font-weight: 700;
 }
 
 .gantt-body {
@@ -95,12 +113,18 @@
 
 .gantt-row {
     display: flex;
-    border-bottom: 1px solid #e5e7eb;
-    transition: background 0.2s;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    min-height: 100px;
+    align-items: stretch;
 }
 
 .gantt-row:hover {
-    background: #f9fafb;
+    background: #fafafa;
+}
+
+.gantt-row:hover .gantt-task-info {
+    background: #f5f5f7;
 }
 
 .gantt-row:last-child {
@@ -108,51 +132,132 @@
 }
 
 .gantt-task-info {
-    width: 280px;
-    padding: 12px 16px;
-    border-right: 1px solid #e5e7eb;
+    width: 320px;
+    padding: 16px 20px;
+    border-right: 1px solid rgba(0, 0, 0, 0.06);
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 12px;
     flex-shrink: 0;
+    background: #fafafa;
 }
 
 .gantt-task-name {
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
-    color: #111827;
-    line-height: 1.3;
+    color: #1d1d1f;
+    line-height: 1.47059;
+    letter-spacing: -0.022em;
+    margin-bottom: 4px;
 }
 
-.gantt-task-meta {
+.gantt-members {
+    display: flex;
+    align-items: center;
+}
+
+.member-avatars {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.member-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border: 2px solid white;
+}
+
+.member-avatar:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    z-index: 1;
+}
+
+.member-avatar.more {
+    background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
     font-size: 11px;
+}
+
+.member-avatars.empty {
     color: #9ca3af;
+    font-size: 13px;
+    font-style: italic;
 }
 
 .gantt-cell {
-    padding: 6px;
-    border-right: 1px solid #f3f4f6;
+    padding: 8px;
+    border-right: 1px solid rgba(0, 0, 0, 0.04);
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: center;
-    height: 80px;
+    height: 100px;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    background: white;
+}
+
+.gantt-cell:hover {
+    background: #f9fafb;
+}
+
+.gantt-cell.has-activity {
+    background: linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%);
+    border: 1px solid #bfdbfe;
+}
+
+.gantt-cell.has-activity:hover {
+    background: linear-gradient(135deg, #dbeafe 0%, #e0f2fe 100%);
+    border-color: #3b82f6;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
 }
 
 .gantt-cell:last-child {
     border-right: none;
 }
 
+.activity-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: white;
+    box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.gantt-cell.has-activity:hover .activity-indicator {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
 .gantt-bar {
     width: 50%;
     margin: 0 auto;
-    border-radius: 2px 2px 0 0;
+    border-radius: 4px 4px 0 0;
     position: relative;
     display: flex;
     align-items: flex-start;
     justify-content: center;
     padding-top: 3px;
     min-height: 20px;
-    transition: all 0.2s;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .gantt-bar:hover {
@@ -160,9 +265,91 @@
 }
 
 .gantt-value {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     color: white;
+    letter-spacing: -0.016em;
+}
+
+/* 활동 내역 모달 */
+.activity-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    padding: 20px;
+    backdrop-filter: blur(5px);
+}
+
+.activity-modal {
+    background: white;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 700px;
+    max-height: 80vh;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+}
+
+.activity-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 2px solid #e5e7eb;
+    background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+}
+
+.activity-modal-header h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1d1d1f;
+    margin: 0;
+    letter-spacing: -0.022em;
+}
+
+.activity-modal-header .close-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6b7280;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.activity-modal-header .close-btn:hover {
+    background: #f3f4f6;
+    color: #1d1d1f;
+}
+
+.activity-modal-content {
+    padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.activity-content-text {
+    font-size: 14px;
+    line-height: 1.8;
+    color: #374151;
+    white-space: pre-wrap;
+    word-break: break-word;
+    padding: 16px;
+    background: #f9fafb;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
 }
 
 /* Mobile Responsive */
@@ -173,17 +360,26 @@
 
     .gantt-header,
     .gantt-row {
-        min-width: 900px;
+        min-width: 1000px;
+    }
+
+    .gantt-task-column {
+        width: 280px;
+    }
+
+    .gantt-task-info {
+        width: 280px;
     }
 }
 
 /* Table Styles */
 .tasks-table-container {
     background: white;
-    border-radius: 8px;
-    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
     overflow: hidden;
     margin-bottom: 24px;
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.04);
 }
 
 .tasks-table {
@@ -192,29 +388,32 @@
 }
 
 .tasks-table thead {
-    background: #f9fafb;
-    border-bottom: 2px solid #e5e7eb;
+    background: #fafafa;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .tasks-table th {
-    padding: 12px 16px;
+    padding: 14px 16px;
     text-align: left;
     font-size: 12px;
     font-weight: 600;
-    color: #6b7280;
+    color: #86868b;
     white-space: nowrap;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
 }
 
 .tasks-table td {
-    padding: 12px 16px;
-    font-size: 13px;
-    color: #374151;
-    border-bottom: 1px solid #f3f4f6;
+    padding: 14px 16px;
+    font-size: 14px;
+    color: #1d1d1f;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
     vertical-align: middle;
+    letter-spacing: -0.016em;
 }
 
 .tasks-table tbody tr:hover {
-    background: #f9fafb;
+    background: #fafafa;
 }
 
 .tasks-table tbody tr:last-child td {
@@ -222,17 +421,84 @@
 }
 
 .not-inputted-row {
-    background: #fffbeb;
+    background: rgba(255, 149, 0, 0.05);
+    border-left: 4px solid #ff9500;
 }
 
 .not-inputted-row:hover {
-    background: #fef3c7 !important;
+    background: rgba(255, 149, 0, 0.1) !important;
+}
+
+.not-inputted-row td {
+    border-bottom-color: rgba(255, 149, 0, 0.1);
+}
+
+.clickable-row {
+    cursor: pointer;
+    transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.clickable-row:hover {
+    background-color: #fafafa !important;
+}
+
+.clickable-row.not-inputted-row:hover {
+    background-color: rgba(255, 149, 0, 0.1) !important;
+}
+
+.status-select-inline {
+    padding: 6px 10px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    background: white;
+    color: #1d1d1f;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    min-width: 90px;
+    letter-spacing: -0.016em;
+}
+
+.status-select-inline:focus {
+    outline: none;
+    border-color: #007aff;
+    box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
+}
+
+.status-select-inline.status-inProgress {
+    border-color: #007aff;
+    color: #007aff;
+    background: rgba(0, 122, 255, 0.05);
+}
+
+.status-select-inline.status-completed {
+    border-color: #10b981;
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.05);
+}
+
+.status-select-inline.status-delayed {
+    border-color: #ff3b30;
+    color: #ff3b30;
+    background: rgba(255, 59, 48, 0.05);
+}
+
+.status-select-inline.status-stopped {
+    border-color: #86868b;
+    color: #86868b;
+    background: rgba(0, 0, 0, 0.03);
+}
+
+.status-text {
+    display: inline-block;
 }
 
 .category-cell {
-    font-size: 11px;
-    color: #007AFF;
-    font-weight: 500;
+    font-size: 12px;
+    color: #007aff;
+    font-weight: 600;
+    letter-spacing: -0.016em;
 }
 
 .name-cell {
@@ -241,21 +507,25 @@
 
 .task-name {
     font-weight: 600;
-    color: #111827;
-    margin-bottom: 2px;
+    color: #1d1d1f;
+    margin-bottom: 4px;
+    font-size: 14px;
+    letter-spacing: -0.022em;
 }
 
 .task-desc {
-    font-size: 11px;
-    color: #9ca3af;
-    line-height: 1.4;
+    font-size: 12px;
+    color: #86868b;
+    line-height: 1.47059;
+    letter-spacing: -0.016em;
 }
 
 .date-cell {
-    font-size: 11px;
-    color: #6b7280;
+    font-size: 13px;
+    color: #86868b;
     white-space: nowrap;
-    line-height: 1.5;
+    line-height: 1.47059;
+    letter-spacing: -0.016em;
 }
 
 .progress-cell {
@@ -267,23 +537,24 @@
 
 .progress-bar-simple {
     flex: 1;
-    height: 6px;
-    background: #e5e7eb;
-    border-radius: 3px;
+    height: 4px;
+    background: rgba(0, 0, 0, 0.06);
+    border-radius: 2px;
     overflow: hidden;
 }
 
 .progress-fill {
     height: 100%;
-    background: #007AFF;
-    transition: width 0.3s;
+    background: #007aff;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .progress-text {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
-    color: #374151;
-    min-width: 40px;
+    color: #1d1d1f;
+    min-width: 35px;
+    letter-spacing: -0.022em;
 }
 
 .action-buttons {
@@ -296,33 +567,35 @@
 .btn-edit {
     padding: 6px 12px;
     border: none;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: 500;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     white-space: nowrap;
+    letter-spacing: -0.016em;
 }
 
 .btn-input {
-    background: #007AFF;
+    background: #007aff;
     color: white;
 }
 
 .btn-input:hover {
     background: #0051D5;
+    transform: translateY(-1px);
 }
 
 .btn-view,
 .btn-edit {
-    background: #f3f4f6;
-    color: #6b7280;
+    background: rgba(0, 0, 0, 0.04);
+    color: #86868b;
 }
 
 .btn-view:hover,
 .btn-edit:hover {
-    background: #e5e7eb;
-    color: #374151;
+    background: rgba(0, 0, 0, 0.08);
+    color: #1d1d1f;
 }
 
 .input-badge {
@@ -330,30 +603,30 @@
     align-items: center;
     gap: 4px;
     padding: 4px 10px;
-    border-radius: 4px;
-    font-size: 11px;
+    border-radius: 8px;
+    font-size: 12px;
     font-weight: 600;
     white-space: nowrap;
 }
 
 .input-badge.inputted {
-    background: #d1fae5;
-    color: #065f46;
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
 }
 
 .input-badge.not-inputted {
-    background: #fef3c7;
-    color: #92400e;
+    background: rgba(255, 149, 0, 0.1);
+    color: #ff9500;
 }
 
 .filter-btn.warning {
-    border-color: #fbbf24;
+    border-color: #ff9500;
 }
 
 .filter-btn.warning.active {
-    background: #f59e0b;
+    background: #ff9500;
     color: white;
-    border-color: #f59e0b;
+    border-color: #ff9500;
 }
 
 @media (max-width: 768px) {

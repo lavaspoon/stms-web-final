@@ -1,13 +1,42 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Calendar, AlertCircle, CheckCircle, Clock, XCircle, Check } from 'lucide-react';
+import { Plus, Search, Calendar, AlertCircle, CheckCircle, Clock, XCircle, Check, FileText, X } from 'lucide-react';
 import useUserStore from '../store/userStore';
 import TaskRegisterModal from '../components/TaskRegisterModal';
-import { getTasksByType } from '../api/taskApi';
+import TaskInputModal from '../components/TaskInputModal';
+import TaskDetailModal from '../components/TaskDetailModal';
+import { getTasksByType, getAllPreviousActivities } from '../api/taskApi';
+import { getDeptMembers } from '../api/deptApi';
 import './KeyTasks.css';
 
 function KeyTasks() {
     const { user } = useUserStore();
     const isAdmin = user.role === '관리자' || user.role === '매니저';
+
+    // 담당자 여부 확인 (정밀하게)
+    const isTaskManager = (task) => {
+        if (!task.managers || task.managers.length === 0) return false;
+        if (!user) return false;
+        
+        // user.userId 또는 user.skid 사용
+        const currentUserId = user.userId || user.skid;
+        if (!currentUserId) return false;
+        
+        // userId와 mbId 모두 확인
+        const isManager = task.managers.some(manager => {
+            const managerUserId = manager.userId || manager.mbId;
+            return managerUserId === currentUserId;
+        });
+        
+        console.log('isTaskManager check:', {
+            taskId: task.id,
+            taskName: task.name,
+            currentUserId,
+            managers: task.managers.map(m => ({ userId: m.userId, mbId: m.mbId, mbName: m.mbName })),
+            isManager
+        });
+        
+        return isManager;
+    };
 
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
@@ -15,12 +44,63 @@ function KeyTasks() {
     const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [editingTask, setEditingTask] = useState(null);
+    const [inputTask, setInputTask] = useState(null);
+    const [isInputModalOpen, setIsInputModalOpen] = useState(false);
+    const [detailTaskId, setDetailTaskId] = useState(null);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [taskActivities, setTaskActivities] = useState({}); // { taskId: [activities] }
+    const [taskMembers, setTaskMembers] = useState({}); // { taskId: [members] }
+    const [selectedActivity, setSelectedActivity] = useState(null); // { taskId, month, content }
+
+    // 성과지표 영어 -> 한글 변환 함수
+    const translatePerformanceType = (type) => {
+        const map = {
+            'financial': '재무',
+            'nonFinancial': '비재무'
+        };
+        return map[type] || type;
+    };
+
+    const translateEvaluationType = (type) => {
+        const map = {
+            'quantitative': '정량',
+            'qualitative': '정성'
+        };
+        return map[type] || type;
+    };
+
+    const translateMetric = (metric) => {
+        const map = {
+            'count': '건수',
+            'amount': '금액',
+            'percent': '%'
+        };
+        return map[metric] || metric;
+    };
+
+    // 모든 담당자의 부서를 중복 없이 추출하는 함수
+    const getManagerDepts = (managers) => {
+        if (!managers || managers.length === 0) return ['-'];
+        const depts = managers
+            .map(m => m.deptName)
+            .filter(dept => dept && dept.trim() !== '');
+        if (depts.length === 0) return ['-'];
+        // 중복 제거
+        const uniqueDepts = [...new Set(depts)];
+        return uniqueDepts;
+    };
 
     // 과제 목록 조회
     const loadTasks = async () => {
         try {
             setLoading(true);
-            const data = await getTasksByType('중점추진');
+            const userId = user?.userId || user?.skid;
+            const userRole = user?.role || '담당자';
+            const data = await getTasksByType('중점추진', userId, userRole);
+
+            console.log('Loaded tasks:', data.length);
+            console.log('Current user:', user);
 
             // 백엔드 데이터를 화면 포맷으로 변환
             const formattedTasks = data.map(task => ({
@@ -33,17 +113,33 @@ function KeyTasks() {
                 isInputted: task.isInputted === 'Y',
                 manager: task.managers && task.managers.length > 0 ? task.managers[0].mbName : '-',
                 managers: task.managers || [],
+                deptId: task.deptId,
                 deptName: task.deptName || '-',
                 startDate: task.startDate,
                 endDate: task.endDate,
                 performance: {
+                    type: translatePerformanceType(task.performanceType),
+                    evaluation: translateEvaluationType(task.evaluationType),
+                    metric: translateMetric(task.metric)
+                },
+                // 수정 모드에서 사용할 원본 영어 값
+                performanceOriginal: {
                     type: task.performanceType,
                     evaluation: task.evaluationType,
                     metric: task.metric
                 },
-                achievement: task.achievement || 0,
+                achievement: task.achievement || 0, // 백엔드에서 계산된 달성률 사용
                 months: [] // 간트차트 데이터는 별도 처리 필요
             }));
+
+            console.log('Loaded tasks:', formattedTasks.length);
+            console.log('Tasks with isInputted status:', formattedTasks.map(t => ({
+                id: t.id,
+                name: t.name,
+                status: t.status,
+                isInputted: t.isInputted,
+                isInputtedRaw: data.find(d => d.taskId === t.id)?.isInputted
+            })));
 
             setTasks(formattedTasks);
         } catch (error) {
@@ -56,13 +152,113 @@ function KeyTasks() {
 
     // 컴포넌트 마운트 시 과제 목록 로드
     useEffect(() => {
-        loadTasks();
-    }, []);
+        if (user) {
+            loadTasks();
+        }
+    }, [user]);
 
-    // 과제 등록 완료 후 목록 새로고침
+    // 과제별 활동 내역 및 구성원 로드
+    useEffect(() => {
+        if (tasks.length > 0) {
+            loadTaskActivitiesAndMembers();
+        }
+    }, [tasks]);
+
+    // 각 과제의 활동 내역과 담당 부서 구성원 로드
+    const loadTaskActivitiesAndMembers = async () => {
+        const activitiesMap = {};
+        const membersMap = {};
+
+        for (const task of tasks) {
+            try {
+                // 활동 내역 로드
+                const activities = await getAllPreviousActivities(task.id, 12);
+                activitiesMap[task.id] = activities || [];
+
+                // 담당 부서 구성원 로드
+                if (task.deptId) {
+                    const members = await getDeptMembers(task.deptId);
+                    membersMap[task.id] = members || [];
+                } else {
+                    membersMap[task.id] = [];
+                }
+            } catch (error) {
+                console.error(`과제 ${task.id}의 데이터 로드 실패:`, error);
+                activitiesMap[task.id] = [];
+                membersMap[task.id] = [];
+            }
+        }
+
+        setTaskActivities(activitiesMap);
+        setTaskMembers(membersMap);
+    };
+
+    // 과제 등록/수정 완료 후 목록 새로고침
     const handleModalClose = () => {
         setIsRegisterModalOpen(false);
+        setEditingTask(null);
         loadTasks(); // 목록 새로고침
+    };
+
+    // 활동내역 입력 모달 열기 (담당자용)
+    const handleInputTask = (task) => {
+        // 담당자만 입력 가능
+        if (!isTaskManager(task)) {
+            alert('해당 과제의 담당자만 입력할 수 있습니다.');
+            return;
+        }
+        console.log('handleInputTask - task:', task);
+        console.log('handleInputTask - task.performance:', task.performance);
+        console.log('handleInputTask - task.performanceOriginal:', task.performanceOriginal);
+        setInputTask(task);
+        setIsInputModalOpen(true);
+    };
+
+    // 과제 상세 보기 (관리자용)
+    const handleViewDetail = (task) => {
+        setDetailTaskId(task.id);
+        setIsDetailModalOpen(true);
+    };
+
+    // 테이블 row 클릭 핸들러
+    const handleRowClick = (task, e) => {
+        // 버튼 클릭 시에는 row 클릭 이벤트 무시
+        if (e.target.closest('button') || e.target.closest('.action-buttons')) {
+            return;
+        }
+        // 관리자는 상세보기, 담당자는 입력
+        if (isAdmin) {
+            handleViewDetail(task);
+        } else if (isTaskManager(task)) {
+            handleInputTask(task);
+        }
+    };
+
+
+    // 활동내역 입력 완료 후 목록 새로고침
+    const handleInputModalClose = () => {
+        setIsInputModalOpen(false);
+        setInputTask(null);
+        loadTasks(); // 목록 새로고침
+    };
+
+    // 과제 수정 버튼 클릭
+    const handleEditTask = (task) => {
+        setEditingTask({
+            id: task.id,
+            category1: task.category1,
+            category2: task.category2,
+            name: task.name,
+            description: task.description,
+            startDate: task.startDate,
+            endDate: task.endDate,
+            deptId: task.deptId,
+            managers: task.managers,
+            status: task.status,
+            // 수정 모드에서는 원본 영어 값 사용
+            performance: task.performanceOriginal || task.performance
+        });
+        setIsRegisterModalOpen(true);
     };
 
     // 임시 데이터 (API 연동 전 백업)
@@ -149,6 +345,32 @@ function KeyTasks() {
         }
     ];
 
+    // 한글 status를 영어 키로 변환
+    const normalizeStatus = (status) => {
+        if (!status) return 'inProgress';
+
+        const statusMap = {
+            '진행중': 'inProgress',
+            '완료': 'completed',
+            '지연': 'delayed',
+            '중단': 'stopped',
+            'inProgress': 'inProgress',
+            'completed': 'completed',
+            'delayed': 'delayed',
+            'stopped': 'stopped'
+        };
+
+        const normalized = statusMap[status];
+
+        // 매핑되지 않은 값이 들어오면 기본값 반환
+        if (!normalized) {
+            console.warn(`Unknown status: "${status}", defaulting to "inProgress"`);
+            return 'inProgress';
+        }
+
+        return normalized;
+    };
+
     const getStatusBadge = (status) => {
         const statusConfig = {
             inProgress: { text: '진행중', className: 'status-badge in-progress', icon: Clock },
@@ -157,15 +379,29 @@ function KeyTasks() {
             stopped: { text: '중단', className: 'status-badge stopped', icon: XCircle },
         };
 
-        // status가 없거나 정의되지 않은 경우 기본값 사용
-        const config = statusConfig[status] || statusConfig.inProgress;
+        const normalizedStatus = normalizeStatus(status);
+        const config = statusConfig[normalizedStatus];
+
+        // config가 없으면 기본값 사용
+        if (!config) {
+            console.warn(`No config found for status: "${normalizedStatus}"`);
+            const defaultConfig = statusConfig.inProgress;
+            const Icon = defaultConfig.icon;
+            return (
+                <span className={defaultConfig.className}>
+                <Icon size={14} />
+                    {defaultConfig.text}
+            </span>
+            );
+        }
+
         const Icon = config.icon;
 
         return (
             <span className={config.className}>
-                <Icon size={14} />
+            <Icon size={14} />
                 {config.text}
-            </span>
+        </span>
         );
     };
 
@@ -186,28 +422,62 @@ function KeyTasks() {
         );
     };
 
+    // API에서 이미 사용자별 과제만 반환하므로, 상태 및 검색어 필터링만 수행
     const filteredTasks = tasks
         .filter(task => {
+            // 상태 필터링
             if (filterStatus === 'notInputted') {
-                if (task.isInputted) return false;
-            } else if (filterStatus !== 'all' && task.status !== filterStatus) {
-                return false;
+                const normalizedTaskStatus = normalizeStatus(task.status);
+                // 진행중인 과제 중 미입력인 것만 표시
+                if (normalizedTaskStatus !== 'inProgress' || task.isInputted) return false;
+            } else if (filterStatus !== 'all') {
+                const normalizedTaskStatus = normalizeStatus(task.status);
+                if (normalizedTaskStatus !== filterStatus) return false;
             }
+            
+            // 검색어 필터링
             if (searchTerm) {
                 const searchLower = searchTerm.toLowerCase();
                 const matchName = task.name.toLowerCase().includes(searchLower);
                 const matchManager = task.manager.toLowerCase().includes(searchLower);
                 if (!matchName && !matchManager) return false;
             }
+            
             return true;
         })
         .sort((a, b) => {
-            if (!a.isInputted && b.isInputted) return -1;
-            if (a.isInputted && !b.isInputted) return 1;
-            return 0;
+            const getSortPriority = (task) => {
+                const normalizedStatus = normalizeStatus(task.status);
+                const isInProgress = normalizedStatus === 'inProgress';
+                
+                // 진행중(미입력) > 진행중(입력) > 완료 > 지연 > 중단
+                if (isInProgress && !task.isInputted) return 1; // 진행중(미입력)
+                if (isInProgress && task.isInputted) return 2; // 진행중(입력)
+                if (normalizedStatus === 'completed') return 3; // 완료
+                if (normalizedStatus === 'delayed') return 4; // 지연
+                if (normalizedStatus === 'stopped') return 5; // 중단
+                return 6; // 기타
+            };
+            
+            const priorityA = getSortPriority(a);
+            const priorityB = getSortPriority(b);
+            
+            return priorityA - priorityB;
         });
 
-    const notInputtedCount = tasks.filter(t => !t.isInputted).length;
+    console.log('Filtered tasks count:', filteredTasks.length);
+    console.log('Total tasks count:', tasks.length);
+    console.log('Is admin:', isAdmin);
+
+    // 담당자 필터링이 적용된 과제 목록 (카운트 계산용)
+    // API에서 이미 사용자별 과제만 반환하므로 tasks를 그대로 사용
+    const userTasks = tasks;
+    
+    // 현재월 기준으로 진행중인 과제 중 활동내역이 입력되지 않은 것만 카운트
+    const notInputtedCount = userTasks.filter(t => {
+        const normalizedStatus = normalizeStatus(t.status);
+        return normalizedStatus === 'inProgress' && !t.isInputted;
+    }).length;
     const months = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
 
     return (
@@ -267,31 +537,37 @@ function KeyTasks() {
                         className={filterStatus === 'all' ? 'filter-btn active' : 'filter-btn'}
                         onClick={() => setFilterStatus('all')}
                     >
-                        전체 ({tasks.length})
+                        전체 ({userTasks.length})
                     </button>
                     <button
                         className={filterStatus === 'notInputted' ? 'filter-btn active warning' : 'filter-btn warning'}
                         onClick={() => setFilterStatus('notInputted')}
                     >
-                        미입력 ({tasks.filter(t => !t.isInputted).length})
+                        미입력 ({userTasks.filter(t => normalizeStatus(t.status) === 'inProgress' && !t.isInputted).length})
                     </button>
                     <button
                         className={filterStatus === 'inProgress' ? 'filter-btn active' : 'filter-btn'}
                         onClick={() => setFilterStatus('inProgress')}
                     >
-                        진행중 ({tasks.filter(t => t.status === 'inProgress').length})
+                        진행중 ({userTasks.filter(t => normalizeStatus(t.status) === 'inProgress').length})
                     </button>
                     <button
                         className={filterStatus === 'completed' ? 'filter-btn active' : 'filter-btn'}
                         onClick={() => setFilterStatus('completed')}
                     >
-                        완료 ({tasks.filter(t => t.status === 'completed').length})
+                        완료 ({userTasks.filter(t => normalizeStatus(t.status) === 'completed').length})
                     </button>
                     <button
                         className={filterStatus === 'delayed' ? 'filter-btn active' : 'filter-btn'}
                         onClick={() => setFilterStatus('delayed')}
                     >
-                        지연 ({tasks.filter(t => t.status === 'delayed').length})
+                        지연 ({userTasks.filter(t => normalizeStatus(t.status) === 'delayed').length})
+                    </button>
+                    <button
+                        className={filterStatus === 'stopped' ? 'filter-btn active' : 'filter-btn'}
+                        onClick={() => setFilterStatus('stopped')}
+                    >
+                        중단 ({userTasks.filter(t => normalizeStatus(t.status) === 'stopped').length})
                     </button>
                 </div>
             </div>
@@ -308,92 +584,164 @@ function KeyTasks() {
                                 <th>기간</th>
                                 <th>성과지표</th>
                                 <th>달성률</th>
-                                <th>이달입력</th>
                                 <th>상태</th>
                                 <th>액션</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredTasks.map(task => (
-                                <tr key={task.id} className={!task.isInputted ? 'not-inputted-row' : ''}>
-                                    <td className="category-cell">{task.category1} &gt; {task.category2}</td>
-                                    <td className="name-cell">
-                                        <div className="task-name">{task.name}</div>
-                                        <div className="task-desc">{task.description}</div>
-                                    </td>
-                                    <td>{task.manager}</td>
-                                    <td>{task.deptName}</td>
-                                    <td className="date-cell">{task.startDate}<br />~ {task.endDate}</td>
-                                    <td>{task.performance.type} · {task.performance.metric}</td>
-                                    <td>
-                                        <div className="progress-cell">
-                                            <div className="progress-bar-simple">
-                                                <div className="progress-fill" style={{ width: `${task.achievement}%` }} />
+                            {filteredTasks.map(task => {
+                                const canView = isAdmin || isTaskManager(task);
+                                return (
+                                    <tr
+                                        key={task.id}
+                                        className={`${!task.isInputted ? 'not-inputted-row' : ''} ${canView ? 'clickable-row' : ''}`}
+                                        onClick={(e) => canView && handleRowClick(task, e)}
+                                    >
+                                        <td className="category-cell">{task.category1} &gt; {task.category2}</td>
+                                        <td className="name-cell">
+                                            <div className="task-name">{task.name}</div>
+                                            <div className="task-desc">{task.description}</div>
+                                        </td>
+                                        <td>{task.manager}</td>
+                                        <td>
+                                            {getManagerDepts(task.managers).map((dept, idx) => (
+                                                <span key={idx}>
+                                                    {dept}
+                                                    {idx < getManagerDepts(task.managers).length - 1 && ', '}
+                                                </span>
+                                            ))}
+                                        </td>
+                                        <td className="date-cell">{task.startDate}<br />~ {task.endDate}</td>
+                                        <td>{task.performance.type} · {task.performance.metric}</td>
+                                        <td>
+                                            <div className="progress-cell">
+                                                <div className="progress-bar-simple">
+                                                    <div className="progress-fill" style={{ width: `${task.achievement}%` }} />
+                                                </div>
+                                                <span className="progress-text">{task.achievement}%</span>
                                             </div>
-                                            <span className="progress-text">{task.achievement}%</span>
-                                        </div>
-                                    </td>
-                                    <td>{getInputBadge(task.isInputted)}</td>
+                                        </td>
                                     <td>{getStatusBadge(task.status)}</td>
                                     <td>
-                                        <div className="action-buttons">
-                                            {!task.isInputted ? (
-                                                <button className="btn-input">입력</button>
-                                            ) : (
-                                                <button className="btn-view">상세</button>
-                                            )}
-                                            {isAdmin && <button className="btn-edit">수정</button>}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                                            <div className="action-buttons" onClick={(e) => e.stopPropagation()}>
+                                                {isAdmin && <button className="btn-edit" onClick={() => handleEditTask(task)}>수정</button>}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
             ) : (
-                <div className="gantt-container">
-                    <div className="gantt-header">
-                        <div className="gantt-task-column">과제명</div>
-                        <div className="gantt-timeline">
-                            {months.map((month, idx) => (
-                                <div key={idx} className="gantt-month">{month}</div>
-                            ))}
+                <>
+                    <div className="gantt-container">
+                        <div className="gantt-header">
+                            <div className="gantt-task-column">과제명</div>
+                            <div className="gantt-timeline">
+                                {months.map((month, idx) => {
+                                    const currentMonth = new Date().getMonth() + 1;
+                                    const isCurrentMonth = idx + 1 === currentMonth;
+                                    return (
+                                        <div key={idx} className={`gantt-month ${isCurrentMonth ? 'current-month' : ''}`}>
+                                            {month}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <div className="gantt-body">
+                            {filteredTasks.map(task => {
+                                const activities = taskActivities[task.id] || [];
+                                const members = taskMembers[task.id] || [];
+                                const currentYear = new Date().getFullYear();
+
+                                return (
+                                    <div key={task.id} className="gantt-row">
+                                        <div className="gantt-task-info">
+                                            <div className="gantt-task-name">{task.name}</div>
+                                            <div className="gantt-members">
+                                                {members.length > 0 ? (
+                                                    <div className="member-avatars">
+                                                        {members.slice(0, 5).map((member, idx) => (
+                                                            <div
+                                                                key={idx}
+                                                                className="member-avatar"
+                                                                title={member.mbName}
+                                                            >
+                                                                {member.mbName ? member.mbName.charAt(0) : '?'}
+                                                            </div>
+                                                        ))}
+                                                        {members.length > 5 && (
+                                                            <div className="member-avatar more">
+                                                                +{members.length - 5}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="member-avatars empty">-</div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="gantt-timeline">
+                                            {months.map((month, idx) => {
+                                                const monthNum = idx + 1;
+                                                const activity = activities.find(
+                                                    a => a.activityYear === currentYear && a.activityMonth === monthNum
+                                                );
+                                                const hasActivity = activity && activity.activityContent;
+
+                                                return (
+                                                    <div
+                                                        key={idx}
+                                                        className={`gantt-cell ${hasActivity ? 'has-activity' : ''}`}
+                                                        onClick={() => {
+                                                            if (hasActivity) {
+                                                                setSelectedActivity({
+                                                                    taskId: task.id,
+                                                                    taskName: task.name,
+                                                                    month: monthNum,
+                                                                    content: activity.activityContent,
+                                                                    year: currentYear
+                                                                });
+                                                            }
+                                                        }}
+                                                    >
+                                                        {hasActivity && (
+                                                            <div className="activity-indicator" title="활동 내역 있음">
+                                                                <FileText size={14} />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
 
-                    <div className="gantt-body">
-                        {filteredTasks.map(task => (
-                            <div key={task.id} className="gantt-row">
-                                <div className="gantt-task-info">
-                                    <div className="gantt-task-name">{task.name}</div>
-                                    <div className="gantt-task-meta">{task.manager} · {task.deptName}</div>
-                                    {getStatusBadge(task.status)}
+                    {/* 활동 내역 모달 */}
+                    {selectedActivity && (
+                        <div className="activity-modal-overlay" onClick={() => setSelectedActivity(null)}>
+                            <div className="activity-modal" onClick={(e) => e.stopPropagation()}>
+                                <div className="activity-modal-header">
+                                    <h3>{selectedActivity.taskName} - {selectedActivity.year}년 {selectedActivity.month}월</h3>
+                                    <button className="close-btn" onClick={() => setSelectedActivity(null)}>
+                                        <X size={20} />
+                                    </button>
                                 </div>
-                                <div className="gantt-timeline">
-                                    {task.months.map((value, idx) => (
-                                        <div key={idx} className="gantt-cell">
-                                            {value > 0 && (
-                                                <div
-                                                    className="gantt-bar"
-                                                    style={{
-                                                        height: `${value}%`,
-                                                        background: task.status === 'delayed'
-                                                            ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
-                                                            : task.status === 'completed'
-                                                                ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-                                                                : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-                                                    }}
-                                                >
-                                                    <span className="gantt-value">{value}%</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
+                                <div className="activity-modal-content">
+                                    <div className="activity-content-text">
+                                        {selectedActivity.content || '활동 내역이 없습니다.'}
+                                    </div>
                                 </div>
                             </div>
-                        ))}
-                    </div>
-                </div>
+                        </div>
+                    )}
+                </>
             )}
 
             {loading && (
@@ -406,6 +754,22 @@ function KeyTasks() {
                 isOpen={isRegisterModalOpen}
                 onClose={handleModalClose}
                 taskType="중점추진"
+                editData={editingTask}
+            />
+
+            <TaskInputModal
+                isOpen={isInputModalOpen}
+                onClose={handleInputModalClose}
+                task={inputTask}
+            />
+
+            <TaskDetailModal
+                isOpen={isDetailModalOpen}
+                onClose={() => {
+                    setIsDetailModalOpen(false);
+                    setDetailTaskId(null);
+                }}
+                taskId={detailTaskId}
             />
         </div>
     );
