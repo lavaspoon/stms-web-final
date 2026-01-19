@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Target, Briefcase, LogOut, User } from 'lucide-react';
+import { LayoutDashboard, Target, Briefcase, LogOut, User, Bell } from 'lucide-react';
 import useUserStore from '../store/userStore';
 import { getTasksByType } from '../api/taskApi';
 import './Layout.css';
@@ -97,6 +97,14 @@ function Layout({ children }) {
                             <span className="nav-badge">{notInputtedCount.key}</span>
                         )}
                     </NavLink>
+
+                    {/* 알림 관리 - 관리자만 표시 */}
+                    {isAdmin && (
+                        <NavLink to="/notifications" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+                            <Bell size={20} />
+                            <span>알림 관리</span>
+                        </NavLink>
+                    )}
                 </nav>
 
                 <div className="sidebar-footer">
