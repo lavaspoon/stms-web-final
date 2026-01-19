@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Calendar, AlertCircle, CheckCircle, Clock, XCircle, Check, FileText, X } from 'lucide-react';
+import { Plus, Search, AlertCircle, CheckCircle, Clock, XCircle } from 'lucide-react';
 import useUserStore from '../store/userStore';
 import TaskRegisterModal from '../components/TaskRegisterModal';
 import TaskInputModal from '../components/TaskInputModal';
 import TaskDetailModal from '../components/TaskDetailModal';
-import { getTasksByType, getAllPreviousActivities } from '../api/taskApi';
-import { getDeptMembers } from '../api/deptApi';
+import { getTasksByType } from '../api/taskApi';
+import { formatDate } from '../utils/dateUtils';
 import './KeyTasks.css';
 
 function KeyTasks() {
@@ -40,7 +40,6 @@ function KeyTasks() {
 
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
-    const [viewMode, setViewMode] = useState('list'); // 'list' or 'gantt'
     const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -49,9 +48,6 @@ function KeyTasks() {
     const [isInputModalOpen, setIsInputModalOpen] = useState(false);
     const [detailTaskId, setDetailTaskId] = useState(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-    const [taskActivities, setTaskActivities] = useState({}); // { taskId: [activities] }
-    const [taskMembers, setTaskMembers] = useState({}); // { taskId: [members] }
-    const [selectedActivity, setSelectedActivity] = useState(null); // { taskId, month, content }
 
     // 성과지표 영어 -> 한글 변환 함수
     const translatePerformanceType = (type) => {
@@ -91,13 +87,50 @@ function KeyTasks() {
         return uniqueDepts;
     };
 
+    // 이름의 초성 추출 함수
+    const getInitial = (name) => {
+        if (!name || name === '-') return '?';
+        const firstChar = name.charAt(0);
+        // 한글인 경우 초성 추출
+        if (firstChar >= '가' && firstChar <= '힣') {
+            const code = firstChar.charCodeAt(0) - 0xAC00;
+            const initialIndex = Math.floor(code / (21 * 28));
+            const initials = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
+            return initials[initialIndex] || firstChar;
+        }
+        // 영문인 경우 대문자로
+        return firstChar.toUpperCase();
+    };
+
+    // 부서별로 담당자를 그룹화하는 함수
+    const getManagersByDept = (managers) => {
+        if (!managers || managers.length === 0) return [];
+        
+        // 부서별로 그룹화
+        const deptMap = {};
+        managers.forEach(manager => {
+            const deptName = manager.deptName || '-';
+            
+            if (!deptMap[deptName]) {
+                deptMap[deptName] = [];
+            }
+            deptMap[deptName].push(manager); // manager 객체 전체를 저장
+        });
+        
+        // 배열로 변환: [{ deptName: 'IT팀', managers: [manager1, manager2] }, ...]
+        return Object.entries(deptMap).map(([deptName, managerList]) => ({
+            deptName,
+            managers: managerList
+        }));
+    };
+
     // 과제 목록 조회
     const loadTasks = async () => {
         try {
             setLoading(true);
-            const userId = user?.userId || user?.skid;
-            const userRole = user?.role || '담당자';
-            const data = await getTasksByType('중점추진', userId, userRole);
+            const skid = user?.skid || user?.userId;
+            // 담당자인 경우 자신이 담당한 과제만 조회, 관리자는 모든 과제 조회
+            const data = await getTasksByType('중점추진', skid);
 
             console.log('Loaded tasks:', data.length);
             console.log('Current user:', user);
@@ -113,8 +146,6 @@ function KeyTasks() {
                 isInputted: task.isInputted === 'Y',
                 manager: task.managers && task.managers.length > 0 ? task.managers[0].mbName : '-',
                 managers: task.managers || [],
-                deptId: task.deptId,
-                deptName: task.deptName || '-',
                 startDate: task.startDate,
                 endDate: task.endDate,
                 performance: {
@@ -128,8 +159,7 @@ function KeyTasks() {
                     evaluation: task.evaluationType,
                     metric: task.metric
                 },
-                achievement: task.achievement || 0, // 백엔드에서 계산된 달성률 사용
-                months: [] // 간트차트 데이터는 별도 처리 필요
+                achievement: task.achievement || 0 // 백엔드에서 계산된 달성률 사용
             }));
 
             console.log('Loaded tasks:', formattedTasks.length);
@@ -157,42 +187,6 @@ function KeyTasks() {
         }
     }, [user]);
 
-    // 과제별 활동 내역 및 구성원 로드
-    useEffect(() => {
-        if (tasks.length > 0) {
-            loadTaskActivitiesAndMembers();
-        }
-    }, [tasks]);
-
-    // 각 과제의 활동 내역과 담당 부서 구성원 로드
-    const loadTaskActivitiesAndMembers = async () => {
-        const activitiesMap = {};
-        const membersMap = {};
-
-        for (const task of tasks) {
-            try {
-                // 활동 내역 로드
-                const activities = await getAllPreviousActivities(task.id, 12);
-                activitiesMap[task.id] = activities || [];
-
-                // 담당 부서 구성원 로드
-                if (task.deptId) {
-                    const members = await getDeptMembers(task.deptId);
-                    membersMap[task.id] = members || [];
-                } else {
-                    membersMap[task.id] = [];
-                }
-            } catch (error) {
-                console.error(`과제 ${task.id}의 데이터 로드 실패:`, error);
-                activitiesMap[task.id] = [];
-                membersMap[task.id] = [];
-            }
-        }
-
-        setTaskActivities(activitiesMap);
-        setTaskMembers(membersMap);
-    };
-
     // 과제 등록/수정 완료 후 목록 새로고침
     const handleModalClose = () => {
         setIsRegisterModalOpen(false);
@@ -200,10 +194,10 @@ function KeyTasks() {
         loadTasks(); // 목록 새로고침
     };
 
-    // 활동내역 입력 모달 열기 (담당자용)
+    // 활동내역 입력 모달 열기 (담당자 및 관리자용)
     const handleInputTask = (task) => {
-        // 담당자만 입력 가능
-        if (!isTaskManager(task)) {
+        // 관리자 또는 담당자만 입력 가능
+        if (!isAdmin && !isTaskManager(task)) {
             alert('해당 과제의 담당자만 입력할 수 있습니다.');
             return;
         }
@@ -226,10 +220,8 @@ function KeyTasks() {
         if (e.target.closest('button') || e.target.closest('.action-buttons')) {
             return;
         }
-        // 관리자는 상세보기, 담당자는 입력
-        if (isAdmin) {
-            handleViewDetail(task);
-        } else if (isTaskManager(task)) {
+        // 관리자는 입력 모달 열기, 담당자도 입력 모달 열기
+        if (isAdmin || isTaskManager(task)) {
             handleInputTask(task);
         }
     };
@@ -252,7 +244,6 @@ function KeyTasks() {
             description: task.description,
             startDate: task.startDate,
             endDate: task.endDate,
-            deptId: task.deptId,
             managers: task.managers,
             status: task.status,
             // 수정 모드에서는 원본 영어 값 사용
@@ -389,9 +380,9 @@ function KeyTasks() {
             const Icon = defaultConfig.icon;
             return (
                 <span className={defaultConfig.className}>
-                <Icon size={14} />
+                    <Icon size={12} />
                     {defaultConfig.text}
-            </span>
+                </span>
             );
         }
 
@@ -399,28 +390,12 @@ function KeyTasks() {
 
         return (
             <span className={config.className}>
-            <Icon size={14} />
+                <Icon size={12} />
                 {config.text}
-        </span>
-        );
-    };
-
-    const getInputBadge = (isInputted) => {
-        if (isInputted) {
-            return (
-                <span className="input-badge inputted">
-                    <Check size={14} />
-                    입력완료
-                </span>
-            );
-        }
-        return (
-            <span className="input-badge not-inputted">
-                <AlertCircle size={14} />
-                미입력
             </span>
         );
     };
+
 
     // API에서 이미 사용자별 과제만 반환하므로, 상태 및 검색어 필터링만 수행
     const filteredTasks = tasks
@@ -478,7 +453,6 @@ function KeyTasks() {
         const normalizedStatus = normalizeStatus(t.status);
         return normalizedStatus === 'inProgress' && !t.isInputted;
     }).length;
-    const months = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
 
     return (
         <div className="key-tasks">
@@ -489,27 +463,10 @@ function KeyTasks() {
                 </div>
                 <div className="header-actions">
                     {isAdmin && (
-                        <>
-                            <div className="view-toggle">
-                                <button
-                                    className={viewMode === 'list' ? 'toggle-btn active' : 'toggle-btn'}
-                                    onClick={() => setViewMode('list')}
-                                >
-                                    목록
-                                </button>
-                                <button
-                                    className={viewMode === 'gantt' ? 'toggle-btn active' : 'toggle-btn'}
-                                    onClick={() => setViewMode('gantt')}
-                                >
-                                    <Calendar size={16} />
-                                    간트차트
-                                </button>
-                            </div>
-                            <button className="primary-btn" onClick={() => setIsRegisterModalOpen(true)}>
-                                <Plus size={18} />
-                                과제 등록
-                            </button>
-                        </>
+                        <button className="primary-btn" onClick={() => setIsRegisterModalOpen(true)}>
+                            <Plus size={18} />
+                            과제 등록
+                        </button>
                     )}
                 </div>
             </div>
@@ -572,177 +529,83 @@ function KeyTasks() {
                 </div>
             </div>
 
-            {viewMode === 'list' ? (
-                <div className="tasks-table-container">
-                    <table className="tasks-table">
-                        <thead>
-                            <tr>
-                                <th>카테고리</th>
-                                <th>과제명</th>
-                                <th>담당자</th>
-                                <th>부서</th>
-                                <th>기간</th>
-                                <th>성과지표</th>
-                                <th>달성률</th>
-                                <th>상태</th>
-                                <th>액션</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredTasks.map(task => {
-                                const canView = isAdmin || isTaskManager(task);
-                                return (
-                                    <tr
-                                        key={task.id}
-                                        className={`${!task.isInputted ? 'not-inputted-row' : ''} ${canView ? 'clickable-row' : ''}`}
-                                        onClick={(e) => canView && handleRowClick(task, e)}
-                                    >
-                                        <td className="category-cell">{task.category1} &gt; {task.category2}</td>
-                                        <td className="name-cell">
-                                            <div className="task-name">{task.name}</div>
-                                            <div className="task-desc">{task.description}</div>
-                                        </td>
-                                        <td>{task.manager}</td>
-                                        <td>
-                                            {getManagerDepts(task.managers).map((dept, idx) => (
-                                                <span key={idx}>
-                                                    {dept}
-                                                    {idx < getManagerDepts(task.managers).length - 1 && ', '}
-                                                </span>
-                                            ))}
-                                        </td>
-                                        <td className="date-cell">{task.startDate}<br />~ {task.endDate}</td>
-                                        <td>{task.performance.type} · {task.performance.metric}</td>
-                                        <td>
-                                            <div className="progress-cell">
-                                                <div className="progress-bar-simple">
-                                                    <div className="progress-fill" style={{ width: `${task.achievement}%` }} />
-                                                </div>
-                                                <span className="progress-text">{task.achievement}%</span>
-                                            </div>
-                                        </td>
+            <div className="tasks-table-container">
+                <table className="tasks-table">
+                    <thead>
+                        <tr>
+                            <th>상태</th>
+                            <th>과제명</th>
+                            <th>부서 · 담당자</th>
+                            <th>기간</th>
+                            <th>달성률</th>
+                            <th>액션</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {filteredTasks.map(task => {
+                            const canView = isAdmin || isTaskManager(task);
+                            return (
+                                <tr
+                                    key={task.id}
+                                    className={`${!task.isInputted ? 'not-inputted-row' : ''} ${canView ? 'clickable-row' : ''}`}
+                                    onClick={(e) => canView && handleRowClick(task, e)}
+                                >
                                     <td>{getStatusBadge(task.status)}</td>
-                                    <td>
-                                            <div className="action-buttons" onClick={(e) => e.stopPropagation()}>
-                                                {isAdmin && <button className="btn-edit" onClick={() => handleEditTask(task)}>수정</button>}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-            ) : (
-                <>
-                    <div className="gantt-container">
-                        <div className="gantt-header">
-                            <div className="gantt-task-column">과제명</div>
-                            <div className="gantt-timeline">
-                                {months.map((month, idx) => {
-                                    const currentMonth = new Date().getMonth() + 1;
-                                    const isCurrentMonth = idx + 1 === currentMonth;
-                                    return (
-                                        <div key={idx} className={`gantt-month ${isCurrentMonth ? 'current-month' : ''}`}>
-                                            {month}
+                                    <td className="name-cell">
+                                        <div className="task-category-line">
+                                            <span className="task-category-main">{task.category1}</span>
+                                            <span className="task-category-separator"> &gt; </span>
+                                            <span className="task-category-sub">{task.category2}</span>
                                         </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                        <div className="gantt-body">
-                            {filteredTasks.map(task => {
-                                const activities = taskActivities[task.id] || [];
-                                const members = taskMembers[task.id] || [];
-                                const currentYear = new Date().getFullYear();
-
-                                return (
-                                    <div key={task.id} className="gantt-row">
-                                        <div className="gantt-task-info">
-                                            <div className="gantt-task-name">{task.name}</div>
-                                            <div className="gantt-members">
-                                                {members.length > 0 ? (
-                                                    <div className="member-avatars">
-                                                        {members.slice(0, 5).map((member, idx) => (
+                                        <div className="task-name">{task.name}</div>
+                                    </td>
+                                    <td className="manager-dept-cell">
+                                        {task.managers && task.managers.length > 0 ? (
+                                            getManagersByDept(task.managers).map((deptGroup, idx) => (
+                                                <div key={idx} className="manager-dept-item">
+                                                    <span className="dept-name">{deptGroup.deptName}</span>
+                                                    <div className="manager-avatars">
+                                                        {deptGroup.managers.map((manager, managerIdx) => (
                                                             <div
-                                                                key={idx}
-                                                                className="member-avatar"
-                                                                title={member.mbName}
+                                                                key={manager.userId || managerIdx}
+                                                                className="manager-avatar"
+                                                                style={{ zIndex: deptGroup.managers.length - managerIdx }}
+                                                                title={manager.mbName || '-'}
                                                             >
-                                                                {member.mbName ? member.mbName.charAt(0) : '?'}
+                                                                {/* 사진이 있을 경우 사용 (현재는 주석 처리) */}
+                                                                {/* {manager.profileImage ? (
+                                                                    <img 
+                                                                        src={manager.profileImage} 
+                                                                        alt={manager.mbName}
+                                                                        className="avatar-image"
+                                                                    />
+                                                                ) : ( */}
+                                                                    <span className="avatar-initial">
+                                                                        {getInitial(manager.mbName)}
+                                                                    </span>
+                                                                {/* )} */}
                                                             </div>
                                                         ))}
-                                                        {members.length > 5 && (
-                                                            <div className="member-avatar more">
-                                                                +{members.length - 5}
-                                                            </div>
-                                                        )}
                                                     </div>
-                                                ) : (
-                                                    <div className="member-avatars empty">-</div>
-                                                )}
-                                            </div>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="manager-dept-item">-</div>
+                                        )}
+                                    </td>
+                                    <td className="date-cell">{formatDate(task.startDate)}<br />~ {formatDate(task.endDate)}</td>
+                                    <td className="achievement-cell">{task.achievement}%</td>
+                                    <td>
+                                        <div className="action-buttons" onClick={(e) => e.stopPropagation()}>
+                                            {isAdmin && <button className="btn-edit" onClick={() => handleEditTask(task)}>수정</button>}
                                         </div>
-                                        <div className="gantt-timeline">
-                                            {months.map((month, idx) => {
-                                                const monthNum = idx + 1;
-                                                const activity = activities.find(
-                                                    a => a.activityYear === currentYear && a.activityMonth === monthNum
-                                                );
-                                                const hasActivity = activity && activity.activityContent;
-
-                                                return (
-                                                    <div
-                                                        key={idx}
-                                                        className={`gantt-cell ${hasActivity ? 'has-activity' : ''}`}
-                                                        onClick={() => {
-                                                            if (hasActivity) {
-                                                                setSelectedActivity({
-                                                                    taskId: task.id,
-                                                                    taskName: task.name,
-                                                                    month: monthNum,
-                                                                    content: activity.activityContent,
-                                                                    year: currentYear
-                                                                });
-                                                            }
-                                                        }}
-                                                    >
-                                                        {hasActivity && (
-                                                            <div className="activity-indicator" title="활동 내역 있음">
-                                                                <FileText size={14} />
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    {/* 활동 내역 모달 */}
-                    {selectedActivity && (
-                        <div className="activity-modal-overlay" onClick={() => setSelectedActivity(null)}>
-                            <div className="activity-modal" onClick={(e) => e.stopPropagation()}>
-                                <div className="activity-modal-header">
-                                    <h3>{selectedActivity.taskName} - {selectedActivity.year}년 {selectedActivity.month}월</h3>
-                                    <button className="close-btn" onClick={() => setSelectedActivity(null)}>
-                                        <X size={20} />
-                                    </button>
-                                </div>
-                                <div className="activity-modal-content">
-                                    <div className="activity-content-text">
-                                        {selectedActivity.content || '활동 내역이 없습니다.'}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </>
-            )}
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
 
             {loading && (
                 <div className="loading-state">

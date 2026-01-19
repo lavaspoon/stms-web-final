@@ -272,12 +272,13 @@ function TaskInputModal({ isOpen, onClose, task }) {
                 monthlyGoals: yearlyGoals
             });
 
-            // 2. 현재 월 활동내역 저장
-            await inputTaskActivity(task.id, user.userId, {
+            // 2. 현재 월 활동내역 저장 (전체 달성률 포함)
+            await inputTaskActivity(task.id, user.skid, {
                 activityContent: formData.activityContent,
                 targetValue: currentMonthGoal?.targetValue || 0,
                 actualValue: currentMonthGoal?.actualValue || 0,
-                status: formData.status
+                status: formData.status,
+                totalAchievement: totalAchievement // 전체 달성률 전달
             });
 
             alert('활동내역과 목표/실적이 성공적으로 저장되었습니다.');
@@ -347,11 +348,71 @@ function TaskInputModal({ isOpen, onClose, task }) {
     // 달성률 계산 (모든 경우 %로 계산)
     const totalAchievement = totalTarget > 0 ? Math.round((totalActual / totalTarget) * 100) : 0;
 
+    // 부서별로 담당자를 그룹화하는 함수
+    const getManagersByDept = (managers) => {
+        if (!managers || managers.length === 0) return [];
+        
+        // 부서별로 그룹화
+        const deptMap = {};
+        managers.forEach(manager => {
+            const deptName = manager.deptName || '-';
+            
+            if (!deptMap[deptName]) {
+                deptMap[deptName] = [];
+            }
+            deptMap[deptName].push(manager);
+        });
+        
+        // 배열로 변환: [{ deptName: 'IT팀', managers: [manager1, manager2] }, ...]
+        return Object.entries(deptMap).map(([deptName, managerList]) => ({
+            deptName,
+            managers: managerList
+        }));
+    };
+
+    // 담당자 정보를 텍스트 형식으로 변환
+    const formatManagers = (managers) => {
+        if (!managers || managers.length === 0) return '-';
+        
+        const deptGroups = getManagersByDept(managers);
+        return deptGroups.map(deptGroup => {
+            const managerNames = deptGroup.managers.map(m => m.mbName || '-').join(', ');
+            return `${deptGroup.deptName} - ${managerNames}`;
+        }).join('\n');
+    };
+
     return (
         <div className="task-input-modal-overlay">
             <div className="task-input-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
-                    <h2>{task.name}</h2>
+                    <div className="modal-header-content">
+                        {task.category1 && task.category2 && (
+                            <div className="task-category-path">
+                                <span className="category-main">{task.category1}</span>
+                                <span className="category-separator">&gt;</span>
+                                <span className="category-sub">{task.category2}</span>
+                            </div>
+                        )}
+                        <h2 className="task-name-header">{task.name || task.taskName}</h2>
+                        {task.managers && task.managers.length > 0 && (
+                            <div className="task-managers-info">
+                                {getManagersByDept(task.managers).map((deptGroup, idx) => (
+                                    <div key={idx} className="manager-dept-line">
+                                        <span className="dept-name">{deptGroup.deptName}</span>
+                                        <span className="dept-separator">-</span>
+                                        <span className="manager-names">
+                                            {deptGroup.managers.map((m, mIdx) => (
+                                                <span key={m.userId || mIdx}>
+                                                    {m.mbName || '-'}
+                                                    {mIdx < deptGroup.managers.length - 1 && ', '}
+                                                </span>
+                                            ))}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                     <button className="close-btn" onClick={onClose}>
                         <X size={20} />
                     </button>
