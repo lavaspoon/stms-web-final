@@ -35,24 +35,44 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
             if (editData) {
                 console.log('수정 모드 - editData:', editData);
 
+                // 날짜 형식 변환 (YYYY-MM-DD 형식으로 변환)
+                const formatDate = (dateString) => {
+                    if (!dateString) return '';
+                    // 이미 YYYY-MM-DD 형식이면 그대로 반환
+                    if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                        return dateString;
+                    }
+                    // 다른 형식이면 변환 시도
+                    const date = new Date(dateString);
+                    if (isNaN(date.getTime())) return '';
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                };
+
                 setFormData({
                     category1: editData.category1 || '',
                     category2: editData.category2 || '',
-                    taskName: editData.name || '',
+                    taskName: editData.name || editData.taskName || '',
                     description: editData.description || '',
-                    startDate: editData.startDate || '',
-                    endDate: editData.endDate || '',
-                    department: editData.deptId ? String(editData.deptId) : '',
+                    startDate: formatDate(editData.startDate),
+                    endDate: formatDate(editData.endDate),
+                    department: '', // 부서는 담당자 선택 시 자동으로 결정됨
                     managers: editData.managers || [],
-                    performanceType: editData.performance?.type || 'nonFinancial',
-                    evaluationType: editData.performance?.evaluation || 'quantitative',
-                    metric: editData.performance?.metric || 'count',
+                    performanceType: editData.performance?.type || editData.performanceType || 'nonFinancial',
+                    evaluationType: editData.performance?.evaluation || editData.evaluationType || 'quantitative',
+                    metric: editData.performance?.metric || editData.metric || 'count',
                     status: editData.status || 'inProgress',
                 });
 
-                // 해당 부서의 담당자 목록 로드
-                if (editData.deptId) {
-                    loadManagers(editData.deptId);
+                // 담당자가 있으면 해당 담당자들의 부서 정보로 담당자 목록 로드
+                if (editData.managers && editData.managers.length > 0) {
+                    // 첫 번째 담당자의 부서 정보를 사용하여 담당자 목록 로드
+                    // 담당자 정보에 부서 정보가 있다면 사용, 없으면 스킵
+                    const firstManager = editData.managers[0];
+                    // 담당자 정보에서 부서를 찾을 수 없으므로, 담당자 목록은 로드하지 않음
+                    // 사용자가 필요시 부서를 선택하여 담당자를 추가할 수 있음
                 }
             }
         } else {
@@ -248,7 +268,6 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 description: formData.description || null,
                 startDate: formData.startDate,
                 endDate: formData.endDate,
-                deptId: parseInt(formData.department),
                 managerIds: formData.managers.map(m => m.userId),
                 performanceType: formData.performanceType,
                 evaluationType: formData.evaluationType,
@@ -302,7 +321,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
     if (!isOpen) return null;
 
     return (
-        <div className="task-register-modal-overlay" onClick={onClose}>
+        <div className="task-register-modal-overlay">
             <div className="task-register-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
                     <h2>
@@ -369,38 +388,8 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                                 onChange={handleChange}
                                 placeholder="과제에 대한 간단한 설명을 입력하세요"
                                 rows="2"
+                                style={{ minHeight: '50px' }}
                             />
-                        </div>
-                    </section>
-
-                    {/* 기간 */}
-                    <section className="form-section">
-                        <div className="section-header">
-                            <Calendar size={18} />
-                            <h3>과제 기간</h3>
-                        </div>
-
-                        <div className="form-row">
-                            <div className="form-group">
-                                <label>시작일 <span className="required">*</span></label>
-                                <input
-                                    type="date"
-                                    name="startDate"
-                                    value={formData.startDate}
-                                    onChange={handleChange}
-                                    required
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>종료일 <span className="required">*</span></label>
-                                <input
-                                    type="date"
-                                    name="endDate"
-                                    value={formData.endDate}
-                                    onChange={handleChange}
-                                    required
-                                />
-                            </div>
                         </div>
                     </section>
 
@@ -481,6 +470,37 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                         </div>
                     </section>
 
+                    {/* 기간 */}
+                    <section className="form-section">
+                        <div className="section-header">
+                            <Calendar size={18} />
+                            <h3>과제 기간</h3>
+                        </div>
+
+                        <div className="form-row">
+                            <div className="form-group">
+                                <label>시작일 <span className="required">*</span></label>
+                                <input
+                                    type="date"
+                                    name="startDate"
+                                    value={formData.startDate}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>종료일 <span className="required">*</span></label>
+                                <input
+                                    type="date"
+                                    name="endDate"
+                                    value={formData.endDate}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </div>
+                        </div>
+                    </section>
+
                     {/* 성과 기준 */}
                     <section className="form-section">
                         <div className="section-header">
@@ -540,41 +560,43 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                             </div>
                         </div>
 
-                        <div className="form-group">
-                            <label>성과 지표 <span className="required">*</span></label>
-                            <div className="radio-group">
-                                <label className="radio-label">
-                                    <input
-                                        type="radio"
-                                        name="metric"
-                                        value="count"
-                                        checked={formData.metric === 'count'}
-                                        onChange={handleChange}
-                                    />
-                                    <span>건수</span>
-                                </label>
-                                <label className="radio-label">
-                                    <input
-                                        type="radio"
-                                        name="metric"
-                                        value="amount"
-                                        checked={formData.metric === 'amount'}
-                                        onChange={handleChange}
-                                    />
-                                    <span>금액</span>
-                                </label>
-                                <label className="radio-label">
-                                    <input
-                                        type="radio"
-                                        name="metric"
-                                        value="percent"
-                                        checked={formData.metric === 'percent'}
-                                        onChange={handleChange}
-                                    />
-                                    <span>%</span>
-                                </label>
+                        {formData.evaluationType === 'quantitative' && (
+                            <div className="form-group">
+                                <label>성과 지표 <span className="required">*</span></label>
+                                <div className="radio-group">
+                                    <label className="radio-label">
+                                        <input
+                                            type="radio"
+                                            name="metric"
+                                            value="count"
+                                            checked={formData.metric === 'count'}
+                                            onChange={handleChange}
+                                        />
+                                        <span>건수</span>
+                                    </label>
+                                    <label className="radio-label">
+                                        <input
+                                            type="radio"
+                                            name="metric"
+                                            value="amount"
+                                            checked={formData.metric === 'amount'}
+                                            onChange={handleChange}
+                                        />
+                                        <span>금액</span>
+                                    </label>
+                                    <label className="radio-label">
+                                        <input
+                                            type="radio"
+                                            name="metric"
+                                            value="percent"
+                                            checked={formData.metric === 'percent'}
+                                            onChange={handleChange}
+                                        />
+                                        <span>%</span>
+                                    </label>
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </section>
 
                     {/* 진행상태 */}

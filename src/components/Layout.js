@@ -21,18 +21,13 @@ function Layout({ children }) {
 
         const loadNotInputtedCounts = async () => {
             try {
-                // OI 과제 조회
-                const oiTasks = await getTasksByType('OI');
-                // 중점추진과제 조회
-                const keyTasks = await getTasksByType('중점추진');
+                // 사용자 ID 가져오기 (일반 사용자인 경우)
+                const skid = !isAdmin ? (user?.skid || user?.userId) : null;
 
-                // 사용자가 담당자인지 확인하는 함수
-                const isUserManager = (task) => {
-                    if (!task.managers || task.managers.length === 0) return false;
-                    return task.managers.some(manager =>
-                        manager.mbId === user.userId || manager.userId === user.userId
-                    );
-                };
+                // OI 과제 조회 (일반 사용자는 자신이 담당한 과제만 조회)
+                const oiTasks = await getTasksByType('OI', skid);
+                // 중점추진과제 조회 (일반 사용자는 자신이 담당한 과제만 조회)
+                const keyTasks = await getTasksByType('중점추진', skid);
 
                 let oiNotInputted, keyNotInputted;
 
@@ -41,13 +36,9 @@ function Layout({ children }) {
                     oiNotInputted = oiTasks.filter(task => task.isInputted !== 'Y').length;
                     keyNotInputted = keyTasks.filter(task => task.isInputted !== 'Y').length;
                 } else {
-                    // 일반 사용자: 자신이 담당한 과제 중 미입력
-                    oiNotInputted = oiTasks.filter(task =>
-                        task.isInputted !== 'Y' && isUserManager(task)
-                    ).length;
-                    keyNotInputted = keyTasks.filter(task =>
-                        task.isInputted !== 'Y' && isUserManager(task)
-                    ).length;
+                    // 일반 사용자: 백엔드에서 이미 자신이 담당한 과제만 반환되므로 필터링만 수행
+                    oiNotInputted = oiTasks.filter(task => task.isInputted !== 'Y').length;
+                    keyNotInputted = keyTasks.filter(task => task.isInputted !== 'Y').length;
                 }
 
                 setNotInputtedCount({

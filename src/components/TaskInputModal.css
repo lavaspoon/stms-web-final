@@ -12,6 +12,7 @@
     padding: 10px;
     overflow-y: auto;
     backdrop-filter: blur(10px);
+    /* 백그라운드 클릭시 닫히는 기능 제거 */
 }
 
 .task-input-modal {
@@ -30,7 +31,7 @@
 .task-input-modal .modal-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     padding: 14px 18px;
     border-bottom: 2px solid #d1d5db;
     position: sticky;
@@ -39,6 +40,77 @@
     z-index: 10;
     box-shadow: 0 1px 8px rgba(0, 0, 0, 0.04);
     border-radius: 18px 18px 0 0;
+    gap: 16px;
+}
+
+.task-input-modal .modal-header-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.task-input-modal .task-category-path {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #6b7280;
+    letter-spacing: -0.016em;
+}
+
+.task-input-modal .category-main {
+    font-weight: 500;
+    color: #6b7280;
+}
+
+.task-input-modal .category-separator {
+    color: #9ca3af;
+    margin: 0 2px;
+}
+
+.task-input-modal .category-sub {
+    font-weight: 400;
+    color: #6b7280;
+}
+
+.task-input-modal .task-name-header {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1d1d1f;
+    margin: 0;
+    letter-spacing: -0.022em;
+    line-height: 1.4;
+}
+
+.task-input-modal .task-managers-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 4px;
+    font-size: 13px;
+    color: #4b5563;
+    letter-spacing: -0.016em;
+}
+
+.task-input-modal .manager-dept-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    line-height: 1.5;
+}
+
+.task-input-modal .dept-name {
+    font-weight: 500;
+    color: #4b5563;
+}
+
+.task-input-modal .dept-separator {
+    color: #9ca3af;
+}
+
+.task-input-modal .manager-names {
+    color: #6b7280;
 }
 
 .task-input-modal .modal-header h2 {
@@ -335,8 +407,8 @@
     padding: 14px;
     border: 2px solid #007aff;
     border-radius: 10px;
-    font-size: 15px;
-    line-height: 1.6;
+    font-size: 17px;
+    line-height: 1.7;
     color: #1d1d1f;
     background: white;
     box-sizing: border-box;

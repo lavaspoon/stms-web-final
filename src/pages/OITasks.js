@@ -5,6 +5,7 @@ import TaskRegisterModal from '../components/TaskRegisterModal';
 import TaskInputModal from '../components/TaskInputModal';
 import TaskDetailModal from '../components/TaskDetailModal';
 import { getTasksByType } from '../api/taskApi';
+import { formatDate } from '../utils/dateUtils';
 import './OITasks.css';
 
 function OITasks() {
@@ -86,13 +87,50 @@ function OITasks() {
         return uniqueDepts;
     };
 
+    // 이름의 초성 추출 함수
+    const getInitial = (name) => {
+        if (!name || name === '-') return '?';
+        const firstChar = name.charAt(0);
+        // 한글인 경우 초성 추출
+        if (firstChar >= '가' && firstChar <= '힣') {
+            const code = firstChar.charCodeAt(0) - 0xAC00;
+            const initialIndex = Math.floor(code / (21 * 28));
+            const initials = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
+            return initials[initialIndex] || firstChar;
+        }
+        // 영문인 경우 대문자로
+        return firstChar.toUpperCase();
+    };
+
+    // 부서별로 담당자를 그룹화하는 함수
+    const getManagersByDept = (managers) => {
+        if (!managers || managers.length === 0) return [];
+        
+        // 부서별로 그룹화
+        const deptMap = {};
+        managers.forEach(manager => {
+            const deptName = manager.deptName || '-';
+            
+            if (!deptMap[deptName]) {
+                deptMap[deptName] = [];
+            }
+            deptMap[deptName].push(manager); // manager 객체 전체를 저장
+        });
+        
+        // 배열로 변환: [{ deptName: 'IT팀', managers: [manager1, manager2] }, ...]
+        return Object.entries(deptMap).map(([deptName, managerList]) => ({
+            deptName,
+            managers: managerList
+        }));
+    };
+
     // 과제 목록 조회
     const loadTasks = async () => {
         try {
             setLoading(true);
-            const userId = user?.userId || user?.skid;
-            const userRole = user?.role || '담당자';
-            const data = await getTasksByType('OI', userId, userRole);
+            const skid = user?.skid || user?.userId;
+            // 담당자인 경우 자신이 담당한 과제만 조회, 관리자는 모든 과제 조회
+            const data = await getTasksByType('OI', skid);
 
             console.log('Loaded tasks:', data.length);
             console.log('Current user:', user);
@@ -108,8 +146,6 @@ function OITasks() {
                 isInputted: task.isInputted === 'Y',
                 manager: task.managers && task.managers.length > 0 ? task.managers[0].mbName : '-',
                 managers: task.managers || [],
-                deptId: task.deptId,
-                deptName: task.deptName || '-',
                 startDate: task.startDate,
                 endDate: task.endDate,
                 performance: {
@@ -158,10 +194,10 @@ function OITasks() {
         loadTasks(); // 목록 새로고침
     };
 
-    // 활동내역 입력 모달 열기 (담당자용)
+    // 활동내역 입력 모달 열기 (담당자 및 관리자용)
     const handleInputTask = (task) => {
-        // 담당자만 입력 가능
-        if (!isTaskManager(task)) {
+        // 관리자 또는 담당자만 입력 가능
+        if (!isAdmin && !isTaskManager(task)) {
             alert('해당 과제의 담당자만 입력할 수 있습니다.');
             return;
         }
@@ -184,10 +220,8 @@ function OITasks() {
         if (e.target.closest('button') || e.target.closest('.action-buttons')) {
             return;
         }
-        // 관리자는 상세보기, 담당자는 입력
-        if (isAdmin) {
-            handleViewDetail(task);
-        } else if (isTaskManager(task)) {
+        // 관리자는 입력 모달 열기, 담당자도 입력 모달 열기
+        if (isAdmin || isTaskManager(task)) {
             handleInputTask(task);
         }
     };
@@ -210,7 +244,6 @@ function OITasks() {
             description: task.description,
             startDate: task.startDate,
             endDate: task.endDate,
-            deptId: task.deptId,
             managers: task.managers,
             status: task.status,
             // 수정 모드에서는 원본 영어 값 사용
@@ -343,9 +376,9 @@ function OITasks() {
             const Icon = defaultConfig.icon;
             return (
                 <span className={defaultConfig.className}>
-                <Icon size={14} />
+                    <Icon size={12} />
                     {defaultConfig.text}
-            </span>
+                </span>
             );
         }
 
@@ -353,9 +386,9 @@ function OITasks() {
 
         return (
             <span className={config.className}>
-            <Icon size={14} />
+                <Icon size={12} />
                 {config.text}
-        </span>
+            </span>
         );
     };
 
@@ -520,14 +553,11 @@ function OITasks() {
                 <table className="tasks-table">
                     <thead>
                         <tr>
-                            <th>카테고리</th>
-                            <th>과제명</th>
-                            <th>담당자</th>
-                            <th>부서</th>
-                            <th>기간</th>
-                            <th>성과지표</th>
-                            <th>달성률</th>
                             <th>상태</th>
+                            <th>과제명</th>
+                            <th>부서 · 담당자</th>
+                            <th>기간</th>
+                            <th>달성률</th>
                             <th>액션</th>
                         </tr>
                     </thead>
@@ -540,31 +570,51 @@ function OITasks() {
                                     className={`${!task.isInputted ? 'not-inputted-row' : ''} ${canView ? 'clickable-row' : ''}`}
                                     onClick={(e) => canView && handleRowClick(task, e)}
                                 >
-                                    <td className="category-cell">{task.category1} &gt; {task.category2}</td>
-                                    <td className="name-cell">
-                                        <div className="task-name">{task.name}</div>
-                                        <div className="task-desc">{task.description}</div>
-                                    </td>
-                                    <td>{task.manager}</td>
-                                    <td>
-                                        {getManagerDepts(task.managers).map((dept, idx) => (
-                                            <span key={idx}>
-                                                {dept}
-                                                {idx < getManagerDepts(task.managers).length - 1 && ', '}
-                                            </span>
-                                        ))}
-                                    </td>
-                                    <td className="date-cell">{task.startDate}<br />~ {task.endDate}</td>
-                                    <td>{task.performance.type} · {task.performance.metric}</td>
-                                    <td>
-                                        <div className="progress-cell">
-                                            <div className="progress-bar-simple">
-                                                <div className="progress-fill" style={{ width: `${task.achievement}%` }} />
-                                            </div>
-                                            <span className="progress-text">{task.achievement}%</span>
-                                        </div>
-                                    </td>
                                     <td>{getStatusBadge(task.status)}</td>
+                                    <td className="name-cell">
+                                        <div className="task-category-line">
+                                            <span className="task-category-main">{task.category1}</span>
+                                            <span className="task-category-separator"> &gt; </span>
+                                            <span className="task-category-sub">{task.category2}</span>
+                                        </div>
+                                        <div className="task-name">{task.name}</div>
+                                    </td>
+                                    <td className="manager-dept-cell">
+                                        {task.managers && task.managers.length > 0 ? (
+                                            getManagersByDept(task.managers).map((deptGroup, idx) => (
+                                                <div key={idx} className="manager-dept-item">
+                                                    <span className="dept-name">{deptGroup.deptName}</span>
+                                                    <div className="manager-avatars">
+                                                        {deptGroup.managers.map((manager, managerIdx) => (
+                                                            <div
+                                                                key={manager.userId || managerIdx}
+                                                                className="manager-avatar"
+                                                                style={{ zIndex: deptGroup.managers.length - managerIdx }}
+                                                                title={manager.mbName || '-'}
+                                                            >
+                                                                {/* 사진이 있을 경우 사용 (현재는 주석 처리) */}
+                                                                {/* {manager.profileImage ? (
+                                                                    <img 
+                                                                        src={manager.profileImage} 
+                                                                        alt={manager.mbName}
+                                                                        className="avatar-image"
+                                                                    />
+                                                                ) : ( */}
+                                                                    <span className="avatar-initial">
+                                                                        {getInitial(manager.mbName)}
+                                                                    </span>
+                                                                {/* )} */}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="manager-dept-item">-</div>
+                                        )}
+                                    </td>
+                                    <td className="date-cell">{formatDate(task.startDate)}<br />~ {formatDate(task.endDate)}</td>
+                                    <td className="achievement-cell">{task.achievement}%</td>
                                     <td>
                                         <div className="action-buttons" onClick={(e) => e.stopPropagation()}>
                                             {isAdmin && <button className="btn-edit" onClick={() => handleEditTask(task)}>수정</button>}

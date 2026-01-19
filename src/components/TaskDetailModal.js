@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, TrendingUp, Calendar, ChevronDown, ChevronUp, User, Building, Clock, Target, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getTask, getAllPreviousActivities, getYearlyGoals } from '../api/taskApi';
+import { formatDate } from '../utils/dateUtils';
 import './TaskDetailModal.css';
 
 function TaskDetailModal({ isOpen, onClose, taskId }) {
@@ -265,7 +266,7 @@ function TaskDetailModal({ isOpen, onClose, taskId }) {
                                     <label>기간</label>
                                     <div className="detail-value">
                                         <Clock size={16} className="detail-icon" />
-                                        {task.startDate} ~ {task.endDate}
+                                        {formatDate(task.startDate)} ~ {formatDate(task.endDate)}
                                     </div>
                                 </div>
                                 <div className="detail-item-inline">
