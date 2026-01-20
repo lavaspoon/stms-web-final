@@ -101,10 +101,19 @@ export const inputTaskActivity = async (taskId, userId, activityData) => {
 /**
  * 과제 활동내역 조회
  * @param {Number} taskId - 과제 ID
+ * @param {Number} year - 년도 (선택)
+ * @param {Number} month - 월 (선택)
  * @returns {Promise} 활동내역 정보
  */
-export const getTaskActivity = async (taskId) => {
-    const response = await axios.get(`${API_BASE_URL}/tasks/${taskId}/activity`);
+export const getTaskActivity = async (taskId, year = null, month = null) => {
+    const params = {};
+    if (year !== null && year !== undefined) {
+        params.year = year;
+    }
+    if (month !== null && month !== undefined) {
+        params.month = month;
+    }
+    const response = await axios.get(`${API_BASE_URL}/tasks/${taskId}/activity`, { params });
     return response.data;
 };
 
