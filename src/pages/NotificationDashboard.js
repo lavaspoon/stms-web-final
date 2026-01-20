@@ -62,7 +62,7 @@ function NotificationDashboard() {
             setLoading(true);
             const [data] = await Promise.all([
                 getAllNotifications(page, pageSize),
-                new Promise(resolve => setTimeout(resolve, 600)) // 최소 600ms 딜레이
+                new Promise(resolve => setTimeout(resolve, 300)) // 최소 300ms 딜레이
             ]);
             setNotifications(data.content || []);
             setTotalPages(data.totalPages || 0);
