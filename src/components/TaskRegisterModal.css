@@ -84,24 +84,28 @@
     margin-bottom: 0;
 }
 
-.section-header {
+.task-register-section-header {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     margin-bottom: 12px;
     padding-bottom: 8px;
     border-bottom: 1px solid rgba(0, 0, 0, 0.06);
     justify-content: flex-start;
+    width: 100%;
 }
 
-.section-header svg {
+.task-register-section-header svg {
     color: #007aff;
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     flex-shrink: 0;
+    margin: 0;
+    padding: 0;
+    display: block;
 }
 
-.section-header h3 {
+.task-register-section-header h3 {
     font-size: 14px;
     font-weight: 600;
     color: #1d1d1f;
@@ -109,12 +113,23 @@
     padding: 0;
     line-height: 1.4;
     letter-spacing: -0.016em;
+    flex-shrink: 0;
+    display: block;
 }
 
 .form-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 10px;
+}
+
+.form-row .form-group:last-child {
+    grid-column: span 1;
+}
+
+/* 3개 컬럼일 때 (수정 모드: 시작일, 종료일, 진행상태) */
+.form-row.compact-three-columns {
+    grid-template-columns: 1fr 1fr 1fr;
 }
 
 .form-group {
@@ -225,6 +240,111 @@
     border-width: 2px;
     background: #eff6ff;
     padding: 5px 9px;
+}
+
+/* 성과 기준 섹션 컴팩트 스타일 */
+.performance-criteria-section {
+    padding: 12px 16px !important;
+}
+
+.performance-criteria-compact {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    align-items: start;
+}
+
+.form-group-compact {
+    margin-bottom: 0;
+}
+
+.form-group-compact label {
+    font-size: 12px;
+    margin-bottom: 4px;
+}
+
+.radio-group-compact {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.radio-label-compact {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border: 1.5px solid #d1d5db;
+    border-radius: 4px;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 11px;
+    color: #374151;
+    font-weight: 500;
+}
+
+.radio-label-compact:hover {
+    border-color: #007AFF;
+    background: #f0f9ff;
+}
+
+.radio-label-compact input[type="radio"] {
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+    accent-color: #007AFF;
+}
+
+.radio-label-compact input[type="radio"]:checked+span {
+    color: #007AFF;
+    font-weight: 600;
+}
+
+.radio-label-compact:has(input:checked) {
+    border-color: #007AFF;
+    border-width: 2px;
+    background: #eff6ff;
+    padding: 3px 7px;
+}
+
+.target-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.target-input {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 6px;
+    font-size: 13px;
+    color: #1d1d1f;
+    background: white;
+    box-sizing: border-box;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    font-family: inherit;
+    letter-spacing: -0.016em;
+}
+
+.target-input:focus {
+    outline: none;
+    border-color: #007aff;
+    background: white;
+    box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
+}
+
+.target-input::placeholder {
+    color: #9ca3af;
+}
+
+.target-unit {
+    font-size: 13px;
+    font-weight: 500;
+    color: #6b7280;
+    min-width: 30px;
+    text-align: center;
 }
 
 .form-actions {

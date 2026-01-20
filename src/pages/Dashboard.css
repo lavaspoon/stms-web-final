@@ -53,8 +53,13 @@
 }
 
 @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .briefing-header {
@@ -271,62 +276,90 @@
     white-space: nowrap;
 }
 
-/* ===== 탭 네비게이션 - Apple 스타일 ===== */
+/* ===== 탭 네비게이션 - 브라우저 탭 스타일 ===== */
 .tab-navigation {
     display: flex;
     align-items: flex-end;
-    padding: 0;
-    background: transparent;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-    gap: 2px;
+    padding: 12px 12px 0 12px;
+    background: #e8eaed;
+    border-bottom: none;
+    gap: 8px;
     margin: 32px 0 0 0;
+    border-radius: 12px 12px 0 0;
 }
 
 .tab-btn {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 14px 20px;
-    background: transparent;
+    padding: 10px 18px 12px 18px;
+    background: #dadce0;
     border: none;
-    border-bottom: 2px solid transparent;
-    font-size: 15px;
-    font-weight: 400;
-    color: #86868b;
+    border-radius: 10px 10px 0 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: #5f6368;
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    margin-bottom: -1px;
     position: relative;
-    letter-spacing: -0.016em;
+    letter-spacing: -0.01em;
+    box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.05);
+    margin-bottom: -1px;
 }
 
 .tab-btn:hover {
-    color: #1d1d1f;
+    background: #cacdd1;
+    color: #3c4043;
 }
 
 .tab-btn.active {
-    color: #007aff;
+    background: white;
+    color: #1a73e8;
     font-weight: 600;
-    border-bottom-color: #007aff;
+    box-shadow: 0 -3px 6px rgba(0, 0, 0, 0.08);
+    z-index: 1;
+}
+
+.tab-btn.active::before {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: white;
+    z-index: 2;
 }
 
 .tab-btn svg {
     flex-shrink: 0;
+    width: 16px;
+    height: 16px;
 }
 
 .tab-count {
-    background: rgba(0, 0, 0, 0.06);
-    color: #86868b;
-    padding: 3px 10px;
-    border-radius: 12px;
-    font-size: 13px;
+    background: rgba(95, 99, 104, 0.15);
+    color: #5f6368;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 12px;
     font-weight: 600;
     margin-left: 4px;
+    min-width: 20px;
+    text-align: center;
 }
 
 .tab-btn.active .tab-count {
-    background: rgba(0, 122, 255, 0.1);
-    color: #007aff;
+    background: rgba(26, 115, 232, 0.15);
+    color: #1a73e8;
+}
+
+.tab-btn:hover .tab-count {
+    background: rgba(95, 99, 104, 0.2);
+}
+
+.tab-btn.active:hover .tab-count {
+    background: rgba(26, 115, 232, 0.2);
 }
 
 .tab-spacer {
@@ -340,6 +373,9 @@
     border: 1px solid rgba(0, 0, 0, 0.06);
     border-top: none;
     box-shadow: 0 2px 16px rgba(0, 0, 0, 0.04);
+    margin-top: -1px;
+    position: relative;
+    z-index: 0;
 }
 
 /* ===== 통계 바 ===== */
@@ -448,174 +484,264 @@
     margin: 0 8px;
 }
 
-/* ===== 차트 섹션 ===== */
-.charts-section-in-tab {
-    padding: 28px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-}
 
-.charts-header {
+/* ===== 전체 평균 달성률 및 본부별 현황 ===== */
+.dashboard-stats-row {
     display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 24px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-.charts-header svg {
-    color: #007aff;
-}
-
-.charts-header h2 {
-    margin: 0;
-    font-size: 20px;
-    font-weight: 600;
-    color: #1d1d1f;
-    letter-spacing: -0.022em;
-}
-
-.charts-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 24px;
-}
-
-.chart-card {
-    background: #fafafa;
-    border-radius: 14px;
-    padding: 18px;
-    border: 1px solid rgba(0, 0, 0, 0.06);
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.chart-card:hover {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-    transform: translateY(-2px);
-}
-
-.chart-title {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 12px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-.chart-icon {
-    flex-shrink: 0;
-}
-
-.chart-title h3 {
-    margin: 0;
-    font-size: 15px;
-    font-weight: 600;
-    color: #1d1d1f;
-    letter-spacing: -0.022em;
-}
-
-/* 차트 통계 정보 */
-.chart-stats {
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px solid rgba(0, 0, 0, 0.06);
     gap: 16px;
-}
-
-.stat-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    flex: 1;
-}
-
-.stat-item .stat-label {
-    font-size: 12px;
-    color: #86868b;
-    font-weight: 500;
-    letter-spacing: -0.016em;
-}
-
-.stat-item .stat-value {
-    font-size: 18px;
-    font-weight: 600;
-    color: #1d1d1f;
-    letter-spacing: -0.022em;
-}
-
-.stat-item .stat-value.achievement {
-    color: #007aff;
-    font-size: 20px;
-}
-
-/* Recharts 툴팁 커스텀 */
-.recharts-default-tooltip {
-    border-radius: 10px !important;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12) !important;
-    border: 1px solid rgba(0, 0, 0, 0.06) !important;
-}
-
-.recharts-tooltip-label {
-    font-weight: 600;
-    color: #1d1d1f;
-    margin-bottom: 4px;
-}
-
-.recharts-tooltip-item {
-    font-size: 13px;
-}
-
-/* ===== 필터 버튼 ===== */
-.task-filters {
-    display: flex;
-    align-items: center;
-    gap: 8px;
     padding: 20px 28px;
     background: white;
     border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-    flex-wrap: wrap;
+    align-items: flex-start;
 }
 
-.filter-btn {
+.dashboard-average-achievement {
+    flex-shrink: 0;
+}
+
+.dashboard-dept-stats {
+    flex: 1;
+    min-width: 0;
+}
+
+.dept-stats-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.dept-stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    background: white;
+}
+
+.dept-stats-table thead {
+    background: transparent;
+}
+
+.dept-stats-table th {
+    padding: 6px 8px;
+    text-align: center;
+    font-weight: 500;
+    font-size: 13px;
+    color: #86868b;
+    white-space: nowrap;
+    border-bottom: 1px solid #e9ecef;
+    letter-spacing: -0.01em;
+}
+
+.dept-stats-table th:first-child {
+    text-align: center;
+    padding-left: 8px;
+    font-weight: 600;
+    color: #6b7280;
+}
+
+.dept-stats-table td {
+    padding: 6px 8px;
+    text-align: center;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    border-bottom: 1px solid #f5f5f5;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.dept-stats-table tbody tr:hover {
+    background: #fafafa;
+}
+
+.dept-stats-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.dept-name-cell {
+    text-align: center;
+    font-weight: 500;
+    color: #6b7280;
+    padding-left: 8px;
+    white-space: nowrap;
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 14px;
+}
+
+.dept-stat-cell {
+    font-weight: 500;
+}
+
+.dept-stat-cell.total {
+    color: #374151;
+    font-weight: 600;
+}
+
+.dept-stat-cell.in-progress {
+    color: #6b7280;
+}
+
+.dept-stat-cell.completed {
+    color: #6b7280;
+}
+
+.dept-stat-cell.delayed {
+    color: #6b7280;
+}
+
+.dept-stat-cell.stopped {
+    color: #6b7280;
+}
+
+.average-achievement-card {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 8px 16px;
+    padding: 20px 24px;
     background: white;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    border-radius: 8px;
+    border-radius: 12px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    max-width: 280px;
+}
+
+.average-achievement-content {
+    width: 100%;
+    text-align: left;
+}
+
+.average-achievement-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #6b7280;
+    margin-bottom: 4px;
+    letter-spacing: -0.01em;
+}
+
+.average-achievement-value {
+    font-size: 48px;
+    font-weight: 700;
+    color: #007aff;
+    line-height: 1;
+    margin-bottom: 2px;
+    letter-spacing: -0.03em;
+}
+
+.average-achievement-subtext {
+    font-size: 11px;
+    color: #9ca3af;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+}
+
+/* ===== 상태별 통계 박스 ===== */
+.dashboard-status-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    padding: 24px 28px;
+    background: white;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.status-stat-box {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+    border-radius: 12px;
+    background: #f8f9fa;
+    border: 2px solid transparent;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.status-stat-box:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.status-stat-box.in-progress {
+    background: rgba(59, 130, 246, 0.08);
+    border-color: rgba(59, 130, 246, 0.2);
+}
+
+.status-stat-box.completed {
+    background: rgba(16, 185, 129, 0.08);
+    border-color: rgba(16, 185, 129, 0.2);
+}
+
+.status-stat-box.delayed {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.2);
+}
+
+.status-stat-box.stopped {
+    background: rgba(107, 114, 128, 0.08);
+    border-color: rgba(107, 114, 128, 0.2);
+}
+
+.status-stat-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+
+.status-stat-box.in-progress .status-stat-icon {
+    background: rgba(59, 130, 246, 0.15);
+    color: #3b82f6;
+}
+
+.status-stat-box.completed .status-stat-icon {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+}
+
+.status-stat-box.delayed .status-stat-icon {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+}
+
+.status-stat-box.stopped .status-stat-icon {
+    background: rgba(107, 114, 128, 0.15);
+    color: #6b7280;
+}
+
+.status-stat-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.status-stat-label {
     font-size: 14px;
     font-weight: 500;
-    color: #1d1d1f;
-    cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    letter-spacing: -0.016em;
+    color: #6b7280;
+    margin-bottom: 4px;
+    letter-spacing: -0.01em;
 }
 
-.filter-btn:hover {
-    background: #fafafa;
-    border-color: rgba(0, 122, 255, 0.3);
+.status-stat-value {
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.02em;
 }
 
-.filter-btn.active {
-    background: #007aff;
-    border-color: #007aff;
-    color: white;
+.status-stat-box.in-progress .status-stat-value {
+    color: #3b82f6;
 }
 
-.filter-count {
-    font-size: 13px;
-    font-weight: 600;
-    opacity: 0.8;
+.status-stat-box.completed .status-stat-value {
+    color: #10b981;
 }
 
-.filter-btn.active .filter-count {
-    opacity: 1;
+.status-stat-box.delayed .status-stat-value {
+    color: #ef4444;
+}
+
+.status-stat-box.stopped .status-stat-value {
+    color: #6b7280;
 }
 
 /* ===== 과제 섹션 ===== */
@@ -623,8 +749,379 @@
     padding: 28px;
 }
 
+/* ===== 테이블 컨테이너 ===== */
+.dashboard-table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.dashboard-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    font-size: 14px;
+}
+
+.dashboard-table thead {
+    background: #f8f9fa;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.dashboard-table th {
+    padding: 16px 20px;
+    text-align: center;
+    font-weight: 600;
+    color: #1d1d1f;
+    font-size: 13px;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.dashboard-table th:first-child {
+    padding-left: 28px;
+}
+
+.dashboard-table th:last-child {
+    padding-right: 28px;
+}
+
+.dashboard-table tbody tr {
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.dashboard-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.dashboard-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.dashboard-table td {
+    padding: 18px 20px;
+    vertical-align: middle;
+    color: #1d1d1f;
+    letter-spacing: -0.01em;
+}
+
+.dashboard-table td:first-child {
+    padding-left: 28px;
+}
+
+.dashboard-table td:last-child {
+    padding-right: 28px;
+}
+
+/* 상태 컬럼 */
+.dashboard-table-status {
+    width: 120px;
+    text-align: center;
+}
+
+/* 과제명 컬럼 */
+.dashboard-table-task-name {
+    min-width: 300px;
+    max-width: 500px;
+    text-align: left;
+    /* 과제명은 왼쪽 정렬 유지 */
+}
+
+.task-name-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 3.2em;
+    /* 최대 2줄 */
+    overflow: hidden;
+}
+
+.task-category-path {
+    font-size: 11px;
+    font-weight: 500;
+    color: #86868b;
+    line-height: 1.4;
+    word-break: keep-all;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    white-space: normal;
+}
+
+.task-category-path .category-text {
+    color: #86868b;
+}
+
+.task-category-path .category-separator {
+    color: #9ca3af;
+    margin: 0 2px;
+}
+
+.task-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1d1d1f;
+    line-height: 1.4;
+    word-break: keep-all;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    white-space: normal;
+}
+
+/* 기간 컬럼 */
+.dashboard-table-period {
+    width: 140px;
+    font-size: 13px;
+    color: #6b7280;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    text-align: center;
+}
+
+/* 담당 부서 컬럼 */
+.dashboard-table-dept {
+    width: 200px;
+    font-size: 14px;
+    color: #1d1d1f;
+    max-width: 250px;
+    text-align: center;
+}
+
+.dashboard-badges-wrapper {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    align-items: center;
+}
+
+.dashboard-table-status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    margin: 0 auto;
+}
+
+.dashboard-table-status-badge.inProgress {
+    background: rgba(59, 130, 246, 0.12);
+    color: #3b82f6;
+}
+
+.dashboard-table-status-badge.completed {
+    background: rgba(16, 185, 129, 0.12);
+    color: #10b981;
+}
+
+.dashboard-table-status-badge.delayed {
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+}
+
+.dashboard-table-status-badge.stopped {
+    background: rgba(107, 114, 128, 0.12);
+    color: #6b7280;
+}
+
+.dashboard-table-status-badge svg {
+    flex-shrink: 0;
+}
+
+/* 목표/실적 컬럼 */
+.dashboard-table-target,
+.dashboard-table-actual {
+    width: 140px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+/* 툴팁이 있는 값 컨테이너 */
+.dashboard-value-with-tooltip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+}
+
+.dashboard-value-with-tooltip:hover .dashboard-tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(-8px);
+}
+
+.dashboard-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-4px);
+    background: rgba(0, 0, 0, 0.85);
+    color: white;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000;
+    margin-bottom: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.dashboard-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: rgba(0, 0, 0, 0.85);
+}
+
+/* 달성률 컬럼 */
+.dashboard-table-achievement {
+    width: 100px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+/* 공통 배지 스타일 */
+.dashboard-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    margin: 0 auto;
+    line-height: 1.2;
+}
+
+/* 기본 배지 (정성 평가의 '-' 등) */
+.dashboard-badge-default {
+    background: rgba(107, 114, 128, 0.1);
+    color: #6b7280;
+}
+
+/* 담당 부서 배지 */
+.dashboard-dept-badge-wrapper {
+    position: relative;
+    display: inline-flex;
+}
+
+.dashboard-dept-badge-wrapper:hover .dashboard-dept-tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(-8px);
+}
+
+.dashboard-dept-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-4px);
+    background: rgba(0, 0, 0, 0.85);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000;
+    margin-bottom: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    line-height: 1.4;
+}
+
+.dashboard-dept-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: rgba(0, 0, 0, 0.85);
+}
+
+.dashboard-badge-dept {
+    background: rgba(107, 114, 128, 0.12);
+    color: #6b7280;
+    font-size: 12px;
+    padding: 5px 10px;
+}
+
+/* 평가기준 배지 */
+.dashboard-badge-quantitative {
+    background: rgba(0, 122, 255, 0.1);
+    color: #007aff;
+    border: 1px solid rgba(0, 122, 255, 0.2);
+}
+
+.dashboard-badge-qualitative {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+/* 목표 배지 */
+.dashboard-badge-target {
+    background: rgba(107, 114, 128, 0.12);
+    color: #374151;
+}
+
+/* 실적 배지 */
+.dashboard-badge-actual {
+    background: rgba(34, 197, 94, 0.12);
+    color: #22c55e;
+}
+
+/* 달성률 배지 */
+.dashboard-badge-achievement {
+    font-weight: 700;
+}
+
+.dashboard-badge-achievement-excellent {
+    background: rgba(16, 185, 129, 0.15);
+    color: #059669;
+}
+
+.dashboard-badge-achievement-good {
+    background: rgba(59, 130, 246, 0.15);
+    color: #2563eb;
+}
+
+.dashboard-badge-achievement-normal {
+    background: rgba(251, 191, 36, 0.15);
+    color: #d97706;
+}
+
+.dashboard-badge-achievement-low {
+    background: rgba(239, 68, 68, 0.15);
+    color: #dc2626;
+}
+
 /* 로딩 & 빈 상태 */
-.loading-state {
+.dashboard-loading-state {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -633,7 +1130,7 @@
     text-align: center;
 }
 
-.loading-spinner {
+.dashboard-loading-spinner {
     width: 40px;
     height: 40px;
     border: 3px solid rgba(0, 0, 0, 0.06);
@@ -643,13 +1140,13 @@
     margin-bottom: 16px;
 }
 
-.loading-state p {
+.dashboard-loading-state p {
     color: #86868b;
     font-size: 15px;
     letter-spacing: -0.016em;
 }
 
-.empty-state {
+.dashboard-empty-state {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -658,321 +1155,21 @@
     text-align: center;
 }
 
-.empty-icon {
+.dashboard-empty-icon {
     font-size: 48px;
     margin-bottom: 16px;
 }
 
-.empty-state p {
+.dashboard-empty-state p {
     color: #86868b;
     font-size: 15px;
     letter-spacing: -0.016em;
 }
 
-/* ===== 과제 카드 그리드 ===== */
-.tasks-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 20px;
-}
-
-.task-card {
-    background: white;
-    border-radius: 16px;
-    border: 1.5px solid #e5e7eb;
-    overflow: hidden;
-    cursor: pointer;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
-    display: flex;
-    flex-direction: column;
-    height: 280px;
-}
-
-.task-card:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08);
-    border-color: #007aff;
-}
-
-/* 카드 헤더 */
-.task-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 14px 18px;
-    background: linear-gradient(to bottom, #ffffff 0%, #f8f9fa 100%);
-    border-bottom: 2px solid #e5e7eb;
-    flex-shrink: 0;
-}
-
-.task-dept {
-    font-size: 13px;
-    font-weight: 700;
-    color: #1d1d1f;
-    letter-spacing: -0.016em;
-}
-
-.status-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 5px 12px;
-    border-radius: 10px;
-    font-size: 12px;
-    font-weight: 600;
-    border: 1px solid transparent;
-    transition: all 0.2s ease;
-}
-
-.status-badge.inProgress {
-    background: rgba(0, 122, 255, 0.12);
-    color: #007aff;
-    border-color: rgba(0, 122, 255, 0.2);
-}
-
-.status-badge.completed {
-    background: rgba(16, 185, 129, 0.12);
-    color: #10b981;
-    border-color: rgba(16, 185, 129, 0.2);
-}
-
-.status-badge.delayed {
-    background: rgba(255, 59, 48, 0.12);
-    color: #ff3b30;
-    border-color: rgba(255, 59, 48, 0.2);
-}
-
-.status-badge.stopped {
-    background: rgba(0, 0, 0, 0.08);
-    color: #86868b;
-    border-color: rgba(0, 0, 0, 0.12);
-}
-
-.input-badge {
-    padding: 4px 10px;
-    border-radius: 8px;
-    font-size: 12px;
-    font-weight: 600;
-    background: rgba(255, 149, 0, 0.1);
-    color: #ff9500;
-}
-
-/* 카드 바디 */
-.task-card-body {
-    padding: 20px 18px;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    overflow: hidden;
-    background: white;
-}
-
-.task-category {
-    font-size: 12px;
-    color: #86868b;
-    margin-bottom: 6px;
-    font-weight: 400;
-    letter-spacing: -0.016em;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    line-height: 1.3;
-    min-height: 31.2px;
-}
-
-.task-name {
-    font-size: 15px;
-    font-weight: 600;
-    color: #1d1d1f;
-    margin: 0 0 10px 0;
-    line-height: 1.35;
-    letter-spacing: -0.022em;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    flex-shrink: 0;
-    min-height: 40.5px;
-}
-
-.task-info {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 13px;
-    color: #86868b;
-    letter-spacing: -0.016em;
-    margin-top: 8px;
-    flex-shrink: 0;
-}
-
-.task-info .dept {
-    font-weight: 600;
-}
-
-.task-info .separator {
-    color: rgba(0, 0, 0, 0.2);
-}
-
-/* 담당 팀 리스트 */
-.task-teams {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px;
-    margin-top: 8px;
-    font-size: 13px;
-    color: #86868b;
-    letter-spacing: -0.016em;
-    flex-shrink: 0;
-}
-
-.team-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-weight: 500;
-}
-
-.team-separator {
-    color: rgba(0, 0, 0, 0.2);
-    margin: 0 2px;
-}
-
-/* 담당자 아바타 */
-.task-managers {
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
-}
-
-.manager-avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #007aff 0%, #0051D5 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 13px;
-    font-weight: 600;
-    border: 2px solid white;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    margin-left: -8px;
-    position: relative;
-    flex-shrink: 0;
-}
-
-.manager-avatar:first-child {
-    margin-left: 0;
-}
-
-.manager-avatar:hover {
-    z-index: 10;
-    transform: scale(1.1);
-    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.avatar-initial {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
-}
-
-/* 사진이 있을 경우 사용 (현재는 주석 처리) */
-/* .avatar-image {
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    object-fit: cover;
-} */
-
-.avatar-more {
-    background: rgba(0, 0, 0, 0.1);
-    color: #86868b;
-    font-size: 11px;
-}
-
-/* 카드 푸터 */
-.task-card-footer {
-    padding: 14px 18px;
-    background: linear-gradient(to top, #ffffff 0%, #f8f9fa 100%);
-    border-top: 2px solid #e5e7eb;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.achievement-percent {
-    display: flex;
-    align-items: center;
-}
-
-.achievement-percent strong {
-    color: #1d1d1f;
-    font-size: 18px;
-    font-weight: 700;
-    letter-spacing: -0.022em;
-}
-
-/* 카드 호버 오버레이 */
-.task-card-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.75);
-    backdrop-filter: blur(4px);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    color: white;
-    border-radius: 16px;
-    padding: 20px;
-    overflow-y: auto;
-}
-
-.overlay-content {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    max-width: 100%;
-}
-
-.overlay-description {
-    margin: 0;
-    font-size: 14px;
-    font-weight: 400;
-    line-height: 1.6;
-    letter-spacing: -0.016em;
-    color: rgba(255, 255, 255, 0.95);
-    white-space: pre-wrap;
-    word-break: break-word;
-    max-height: 200px;
-    overflow-y: auto;
-}
-
-.task-card:hover .task-card-overlay {
-    opacity: 1;
-}
 
 /* ===== 반응형 ===== */
 @media (max-width: 1400px) {
-    .tasks-grid {
+    .dashboard-tasks-grid {
         grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
     }
 }
@@ -981,15 +1178,15 @@
     .briefing-insights {
         grid-template-columns: 1fr;
     }
-    
-    .tasks-grid {
+
+    .dashboard-tasks-grid {
         grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
     }
-    
+
     .charts-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .metrics-section {
         grid-template-columns: 1fr;
     }
@@ -1002,68 +1199,175 @@
         gap: 16px;
         padding: 20px;
     }
-    
+
     .header-right {
         width: 100%;
     }
-    
+
     .current-date {
         width: 100%;
         justify-content: center;
     }
-    
+
     .briefing-section {
         margin: 0 0 24px;
         padding: 20px;
     }
-    
+
     .metrics-section {
         margin: 0 0 24px;
     }
-    
+
     .metric-card {
         padding: 18px;
         gap: 16px;
     }
-    
+
     .metric-icon {
         width: 56px;
         height: 56px;
     }
-    
+
     .metric-value {
         font-size: 32px;
     }
-    
+
     .metric-percentage {
         font-size: 20px;
         padding: 6px 12px;
     }
-    
-    .charts-section-in-tab {
-        padding: 20px;
-    }
-    
-    .charts-grid {
-        grid-template-columns: 1fr;
-    }
-    
+
+
     .tasks-section-in-tab {
         padding: 20px;
     }
-    
-    .tasks-grid {
-        grid-template-columns: 1fr;
+
+    .dashboard-table-container {
+        margin: 0 -20px;
+        padding: 0 20px;
     }
-    
+
+    .dashboard-table {
+        font-size: 12px;
+    }
+
+    .dashboard-table th,
+    .dashboard-table td {
+        padding: 12px 10px;
+    }
+
+    .dashboard-table th:first-child,
+    .dashboard-table td:first-child {
+        padding-left: 16px;
+    }
+
+    .dashboard-table th:last-child,
+    .dashboard-table td:last-child {
+        padding-right: 16px;
+    }
+
+    .dashboard-table-task-name {
+        min-width: 200px;
+        max-width: 300px;
+    }
+
+    .task-name {
+        font-size: 13px;
+        max-height: 2.6em;
+        /* 2 lines */
+    }
+
+    .dashboard-table-period {
+        width: 120px;
+        font-size: 12px;
+    }
+
+    .dashboard-table-dept {
+        width: 120px;
+        font-size: 12px;
+        max-width: 150px;
+    }
+
+    .dashboard-table-status-badge {
+        padding: 4px 8px;
+        font-size: 11px;
+    }
+
+    .dashboard-table-status-badge svg {
+        width: 12px;
+        height: 12px;
+    }
+
+    .dashboard-stats-row {
+        flex-direction: column;
+        gap: 16px;
+        padding: 20px;
+    }
+
+    .dashboard-average-achievement {
+        width: 100%;
+    }
+
+    .dashboard-dept-stats {
+        width: 100%;
+    }
+
+    .average-achievement-card {
+        padding: 16px 20px;
+        max-width: 100%;
+    }
+
+    .average-achievement-value {
+        font-size: 40px;
+    }
+
+    .dept-stats-table {
+        font-size: 13px;
+    }
+
+    .dept-stats-table th,
+    .dept-stats-table td {
+        padding: 8px 10px;
+    }
+
+    .dashboard-status-stats {
+        grid-template-columns: repeat(2, 1fr);
+        padding: 20px;
+        gap: 12px;
+    }
+
     .tab-navigation {
         padding: 0;
     }
-    
+
     .tab-btn {
         flex: 1;
         justify-content: center;
         font-size: 14px;
         padding: 12px 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    .dashboard-status-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .status-stat-box {
+        padding: 16px;
+    }
+
+    .status-stat-icon {
+        width: 40px;
+        height: 40px;
+    }
+
+    .status-stat-icon svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    .status-stat-value {
+        font-size: 28px;
     }
 }

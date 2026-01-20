@@ -1,0 +1,340 @@
+.monthly-report-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    padding: 20px;
+    backdrop-filter: blur(5px);
+}
+
+.monthly-report-modal {
+    background: white;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 900px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+}
+
+.monthly-report-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 2px solid #e5e7eb;
+    background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+}
+
+.monthly-report-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.monthly-report-header h2 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1d1d1f;
+    margin: 0;
+    letter-spacing: -0.022em;
+}
+
+.monthly-report-close-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6b7280;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.monthly-report-close-btn:hover {
+    background: #f3f4f6;
+    color: #1d1d1f;
+}
+
+.monthly-report-content {
+    padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+    background: #fafafa;
+}
+
+.monthly-report-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    gap: 16px;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #e5e7eb;
+    border-top-color: #007aff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.monthly-report-loading p {
+    font-size: 15px;
+    color: #6b7280;
+    margin: 0;
+}
+
+.monthly-report-text {
+    background: white;
+    padding: 32px;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    line-height: 1.8;
+    color: #374151;
+    font-size: 15px;
+}
+
+/* 마크다운 스타일링 */
+.monthly-report-text h1 {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1d1d1f;
+    margin: 32px 0 16px 0;
+    padding-bottom: 12px;
+    border-bottom: 3px solid #007aff;
+    letter-spacing: -0.022em;
+}
+
+.monthly-report-text h1:first-child {
+    margin-top: 0;
+}
+
+.monthly-report-text h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: #1d1d1f;
+    margin: 28px 0 14px 0;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #007aff;
+    letter-spacing: -0.022em;
+}
+
+.monthly-report-text h3 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1d1d1f;
+    margin: 24px 0 12px 0;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e5e7eb;
+    letter-spacing: -0.022em;
+}
+
+.monthly-report-text h4 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #374151;
+    margin: 20px 0 10px 0;
+    letter-spacing: -0.022em;
+}
+
+.monthly-report-text p {
+    margin: 12px 0;
+    line-height: 1.8;
+    color: #374151;
+    letter-spacing: -0.016em;
+}
+
+.monthly-report-text ul,
+.monthly-report-text ol {
+    margin: 12px 0;
+    padding-left: 24px;
+    line-height: 1.8;
+    color: #374151;
+}
+
+.monthly-report-text li {
+    margin: 8px 0;
+    letter-spacing: -0.016em;
+}
+
+.monthly-report-text strong {
+    font-weight: 700;
+    color: #1d1d1f;
+}
+
+.monthly-report-text em {
+    font-style: italic;
+    color: #6b7280;
+}
+
+.monthly-report-text code {
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 14px;
+    color: #e11d48;
+}
+
+.monthly-report-text pre {
+    background: #f9fafb;
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    overflow-x: auto;
+    margin: 16px 0;
+}
+
+.monthly-report-text pre code {
+    background: transparent;
+    padding: 0;
+    color: #374151;
+}
+
+.monthly-report-text blockquote {
+    border-left: 4px solid #007aff;
+    padding-left: 16px;
+    margin: 16px 0;
+    color: #6b7280;
+    font-style: italic;
+}
+
+.monthly-report-text hr {
+    border: none;
+    border-top: 2px solid #e5e7eb;
+    margin: 24px 0;
+}
+
+.monthly-report-text table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+}
+
+.monthly-report-text th,
+.monthly-report-text td {
+    padding: 8px 12px;
+    border: 1px solid #e5e7eb;
+    text-align: left;
+}
+
+.monthly-report-text th {
+    background: #f9fafb;
+    font-weight: 600;
+    color: #1d1d1f;
+}
+
+.monthly-report-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: #9ca3af;
+}
+
+.monthly-report-empty p {
+    font-size: 15px;
+    margin: 0;
+}
+
+.monthly-report-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 24px;
+    border-top: 1px solid #e5e7eb;
+    background: white;
+}
+
+.monthly-report-btn-regenerate {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: #ff9500;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.monthly-report-btn-regenerate:hover {
+    background: #e68900;
+    transform: translateY(-1px);
+}
+
+.monthly-report-btn-regenerate:active {
+    transform: translateY(0);
+}
+
+.monthly-report-btn-regenerate:disabled {
+    background: #d1d5db;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.monthly-report-btn-download {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: #34c759;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.monthly-report-btn-download:hover {
+    background: #28a745;
+    transform: translateY(-1px);
+}
+
+.monthly-report-btn-download:active {
+    transform: translateY(0);
+}
+
+.monthly-report-btn-close {
+    padding: 10px 20px;
+    background: #007aff;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.monthly-report-btn-close:hover {
+    background: #0051D5;
+    transform: translateY(-1px);
+}
+
+.monthly-report-btn-close:active {
+    transform: translateY(0);
+}
+

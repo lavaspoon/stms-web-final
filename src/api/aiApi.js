@@ -71,3 +71,22 @@ export const generateBriefing = async (tasks) => {
         throw error;
     }
 };
+
+/**
+ * 월간 보고서 생성
+ * @param {String} taskType - 과제 유형 ('OI' 또는 '중점추진')
+ * @param {Array} tasks - 과제 목록 (각 과제는 { taskName, activityContent } 형태)
+ * @returns {Promise<String>} 생성된 월간 보고서
+ */
+export const generateMonthlyReport = async (taskType, tasks) => {
+    try {
+        const response = await axios.post(`${API_BASE_URL}/generate-monthly-report`, {
+            taskType,
+            tasks
+        });
+        return response.data.result;
+    } catch (error) {
+        console.error('월간 보고서 생성 실패:', error);
+        throw error;
+    }
+};

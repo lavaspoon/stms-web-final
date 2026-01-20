@@ -297,14 +297,14 @@
     border: 1px solid rgba(0, 0, 0, 0.06);
 }
 
-.section-header {
+.notification-section-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
 }
 
-.section-header h2 {
+.notification-section-header h2 {
     font-size: 18px;
     font-weight: 600;
     color: #1d1d1f;
@@ -398,7 +398,7 @@
     color: #92400e;
 }
 
-.status-badge {
+.notification-status-badge {
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -408,29 +408,29 @@
     font-weight: 500;
 }
 
-.status-badge.sent {
+.notification-status-badge.sent {
     background: #ecfdf5;
     color: #065f46;
 }
 
-.status-badge.not-sent {
-    background: #fef2f2;
-    color: #991b1b;
+.notification-status-badge.waiting {
+    background: #eff6ff;
+    color: #1e40af;
 }
 
-.status-badge.read {
+.notification-status-badge.read {
     background: #ecfdf5;
     color: #065f46;
 }
 
-.status-badge.unread {
+.notification-status-badge.unread {
     background: #fef3c7;
     color: #92400e;
 }
 
 /* 로딩 및 빈 상태 */
-.loading-state,
-.empty-state {
+.notification-loading-state,
+.notification-empty-state {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -439,14 +439,14 @@
     color: #6b7280;
 }
 
-.loading-state svg,
-.empty-state svg {
+.notification-loading-state svg,
+.notification-empty-state svg {
     margin-bottom: 16px;
     color: #9ca3af;
 }
 
-.loading-state p,
-.empty-state p {
+.notification-loading-state p,
+.notification-empty-state p {
     font-size: 15px;
     margin: 0;
 }

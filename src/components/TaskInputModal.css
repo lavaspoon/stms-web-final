@@ -18,8 +18,8 @@
 .task-input-modal {
     background: white;
     border-radius: 18px;
-    width: 98%;
-    max-width: 1600px;
+    width: 95%;
+    max-width: 1200px;
     max-height: 90vh;
     overflow-y: auto;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
@@ -31,23 +31,147 @@
 .task-input-modal .modal-header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-    padding: 14px 18px;
+    align-items: center;
+    padding: 12px 20px;
     border-bottom: 2px solid #d1d5db;
     position: sticky;
     top: 0;
-    background: #fafafa;
+    background: white;
     z-index: 10;
     box-shadow: 0 1px 8px rgba(0, 0, 0, 0.04);
     border-radius: 18px 18px 0 0;
-    gap: 16px;
+    gap: 20px;
+    min-height: 70px;
 }
 
 .task-input-modal .modal-header-content {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
+    min-width: 0;
+}
+
+.task-input-modal .modal-header-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.task-input-modal .modal-header-badges {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.task-input-modal .task-managers-info-inline {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    font-size: 13px;
+    color: #4b5563;
+    letter-spacing: -0.016em;
+    flex-wrap: wrap;
+    margin-left: 4px;
+}
+
+.task-input-modal .manager-dept-inline {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    line-height: 1.4;
+}
+
+.task-input-modal .dept-name-inline {
+    font-weight: 600;
+    color: #1d1d1f;
+}
+
+.task-input-modal .dept-separator-inline {
+    color: #9ca3af;
+    margin: 0 2px;
+}
+
+.task-input-modal .manager-names-inline {
+    color: #4b5563;
+    font-weight: 500;
+}
+
+.task-input-modal .modal-header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+}
+
+.task-input-modal .read-only-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    background: rgba(107, 114, 128, 0.1);
+    color: #6b7280;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-left: 8px;
+}
+
+.task-input-modal .table-value-readonly {
+    display: inline-block;
+    padding: 6px 8px;
+    font-size: 13px;
+    color: #4b5563;
+    font-weight: 500;
+    background: #f9fafb;
+    border-radius: 4px;
+    min-width: 60px;
+    text-align: center;
+}
+
+.task-input-modal .month-navigation-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+}
+
+.task-input-modal .month-nav-btn-inline {
+    background: none;
+    border: none;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.task-input-modal .month-nav-btn-inline:hover {
+    background: #e5e7eb;
+    color: #1d1d1f;
+}
+
+.task-input-modal .month-nav-btn-inline:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.task-input-modal .month-display-inline {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1d1d1f;
+    min-width: 80px;
+    text-align: center;
+    letter-spacing: -0.016em;
 }
 
 .task-input-modal .task-category-path {
@@ -75,7 +199,7 @@
 }
 
 .task-input-modal .task-name-header {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 600;
     color: #1d1d1f;
     margin: 0;
@@ -83,34 +207,122 @@
     line-height: 1.4;
 }
 
-.task-input-modal .task-managers-info {
-    display: flex;
-    flex-direction: column;
+/* 상태 뱃지 스타일 */
+.task-input-status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     gap: 4px;
-    margin-top: 4px;
-    font-size: 13px;
-    color: #4b5563;
-    letter-spacing: -0.016em;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    line-height: 1.2;
 }
 
-.task-input-modal .manager-dept-line {
+.task-input-status-badge svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+.task-input-status-badge.in-progress {
+    background: rgba(0, 122, 255, 0.1);
+    color: #007aff;
+    border: 1px solid rgba(0, 122, 255, 0.2);
+}
+
+.task-input-status-badge.completed {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.task-input-status-badge.delayed {
+    background: rgba(255, 59, 48, 0.1);
+    color: #ff3b30;
+    border: 1px solid rgba(255, 59, 48, 0.2);
+}
+
+.task-input-status-badge.stopped {
+    background: rgba(134, 134, 139, 0.1);
+    color: #86868b;
+    border: 1px solid rgba(134, 134, 139, 0.2);
+}
+
+/* 평가기준 뱃지 스타일 */
+.task-input-evaluation-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    line-height: 1.2;
+}
+
+.task-input-evaluation-badge.quantitative {
+    background: rgba(0, 122, 255, 0.1);
+    color: #007aff;
+    border: 1px solid rgba(0, 122, 255, 0.2);
+}
+
+.task-input-evaluation-badge.qualitative {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+/* 담당자 정보 컴팩트 스타일 */
+.task-input-modal .task-managers-info-compact {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 12px;
+    color: #4b5563;
+    letter-spacing: -0.016em;
+    text-align: right;
+}
+
+.task-input-modal .manager-dept-line-compact {
     display: flex;
     align-items: center;
     gap: 6px;
-    line-height: 1.5;
+    line-height: 1.3;
+    justify-content: flex-end;
 }
 
-.task-input-modal .dept-name {
+.task-input-modal .dept-name-compact {
     font-weight: 500;
     color: #4b5563;
 }
 
-.task-input-modal .dept-separator {
-    color: #9ca3af;
+.task-input-modal .manager-names-compact {
+    color: #6b7280;
 }
 
-.task-input-modal .manager-names {
-    color: #6b7280;
+.task-input-modal .modal-header .close-btn {
+    background: none;
+    border: none;
+    color: #86868b;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 8px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.task-input-modal .modal-header .close-btn:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: #1d1d1f;
 }
 
 .task-input-modal .modal-header h2 {
@@ -1379,4 +1591,309 @@
     padding: 20px;
     flex: 1;
     overflow-y: auto;
+}
+
+/* 목표 대비 실적 섹션 - 컴팩트 버전 (한 줄) */
+.performance-section-compact {
+    padding: 10px 16px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #fafafa;
+}
+
+.performance-compact-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.performance-compact-header h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    margin: 0;
+}
+
+.performance-compact-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: white;
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+}
+
+/* 실적값 - 목표/달성률과 동일한 박스 스타일 */
+.performance-actual-compact {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 160px;
+    flex-shrink: 0;
+    background: #eff6ff;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1.5px solid #bfdbfe;
+}
+
+.performance-actual-label-compact {
+    font-size: 13px;
+    font-weight: 600;
+    color: #3b82f6;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.performance-actual-value-compact {
+    font-size: 22px;
+    font-weight: 700;
+    color: #2563eb;
+    font-variant-numeric: tabular-nums;
+    word-break: break-all;
+}
+
+.performance-actual-value-compact-input {
+    width: 100%;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    font-size: 22px;
+    font-weight: 700;
+    color: #2563eb;
+    background: transparent;
+    text-align: left;
+    font-variant-numeric: tabular-nums;
+    font-family: inherit;
+}
+
+.performance-actual-value-compact-input:focus {
+    outline: none;
+    color: #1d4ed8;
+}
+
+.performance-actual-value-compact-input::placeholder {
+    color: #93c5fd;
+    font-weight: 500;
+}
+
+/* 프로그레스바 래퍼 - 긴 원형 박스 */
+.performance-slider-wrapper {
+    flex: 1;
+    min-width: 150px;
+    max-width: 250px;
+    background: #f9fafb;
+    padding: 10px 16px;
+    border-radius: 20px;
+    border: 1.5px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    transition: all 0.2s;
+}
+
+.performance-slider-wrapper:hover {
+    border-color: #d1d5db;
+    background: #f3f4f6;
+}
+
+/* 프로그레스바 - 매우 작게 */
+.performance-slider-compact {
+    width: 100%;
+    display: flex;
+    align-items: center;
+}
+
+.progress-readonly-track-small {
+    width: 100%;
+    height: 2px;
+    background: #e5e7eb;
+    border-radius: 1px;
+    position: relative;
+    overflow: hidden;
+}
+
+.progress-readonly-fill-small {
+    height: 100%;
+    border-radius: 1px;
+    transition: width 0.2s ease, background-color 0.2s ease;
+}
+
+.performance-slider-compact .rc-slider {
+    width: 100%;
+}
+
+.performance-slider-compact .rc-slider-rail {
+    height: 2px !important;
+}
+
+.performance-slider-compact .rc-slider-track {
+    height: 2px !important;
+}
+
+.performance-slider-compact .rc-slider-handle {
+    width: 10px !important;
+    height: 10px !important;
+    margin-top: -4px !important;
+    border-width: 2px !important;
+}
+
+/* 목표값 */
+.performance-target-compact {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 120px;
+    flex-shrink: 0;
+    background: #f0f9ff;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1.5px solid #bae6fd;
+}
+
+.performance-target-label-compact {
+    font-size: 13px;
+    font-weight: 600;
+    color: #0284c7;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.performance-target-value-compact {
+    font-size: 22px;
+    font-weight: 700;
+    color: #0369a1;
+    font-variant-numeric: tabular-nums;
+    word-break: break-all;
+}
+
+/* 달성률 박스 */
+.performance-achievement-compact {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 120px;
+    flex-shrink: 0;
+    background: #f0fdf4;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1.5px solid #bbf7d0;
+}
+
+.performance-achievement-label-compact {
+    font-size: 13px;
+    font-weight: 600;
+    color: #16a34a;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.performance-achievement-value-compact {
+    font-size: 22px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    word-break: break-all;
+    transition: color 0.2s ease;
+}
+
+.progress-interactive-track {
+    position: relative;
+    width: 100%;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    background: #e5e7eb;
+    border-radius: 4px;
+}
+
+/* rc-slider 기본 디자인 사용 */
+.progress-interactive-track .rc-slider {
+    width: 100%;
+}
+
+.progress-interactive-fill {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 8px;
+    background: linear-gradient(90deg, #007aff 0%, #0051d5 100%);
+    border-radius: 4px;
+    transition: width 0.2s ease;
+    pointer-events: none;
+}
+
+/* rc-slider 기본 디자인 사용 */
+.progress-interactive-track .rc-slider {
+    width: 100%;
+}
+
+.progress-interactive-values {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 4px;
+}
+
+.progress-actual-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1d1d1f;
+    min-width: 80px;
+}
+
+.progress-input-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #f9fafb;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1.5px solid #e5e7eb;
+    transition: all 0.2s;
+}
+
+.progress-input-group:focus-within {
+    border-color: #007aff;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+}
+
+.progress-actual-input {
+    width: 100px;
+    padding: 4px 8px;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1d1d1f;
+    background: transparent;
+    transition: all 0.2s;
+    text-align: right;
+}
+
+.progress-actual-input:focus {
+    outline: none;
+}
+
+.progress-actual-input::-webkit-inner-spin-button,
+.progress-actual-input::-webkit-outer-spin-button {
+    opacity: 1;
+    cursor: pointer;
+}
+
+.progress-unit {
+    font-size: 12px;
+    font-weight: 500;
+    color: #6b7280;
+    min-width: 24px;
+}
+
+.progress-achievement-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: #007aff;
+    min-width: 50px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
 }

@@ -17,6 +17,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
         performanceType: 'nonFinancial',
         evaluationType: 'quantitative',
         metric: 'count',
+        targetValue: '', // 목표값 (정량일 때만)
         status: 'inProgress',
     });
 
@@ -26,56 +27,99 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
     const [submitting, setSubmitting] = useState(false);
     const [expandedDepts, setExpandedDepts] = useState(new Set());
 
-    // 부서 목록 조회 및 폼 초기화/설정
+    // 부서 목록 조회
     useEffect(() => {
         if (isOpen) {
             loadDepartments();
+        }
+    }, [isOpen]);
 
-            // 수정 모드일 때 데이터 설정
-            if (editData) {
-                console.log('수정 모드 - editData:', editData);
+    // 수정 모드일 때 폼 데이터 설정 (부서 목록이 로드된 후 실행)
+    useEffect(() => {
+        if (isOpen && editData && departments.length > 0) {
+            console.log('수정 모드 - editData:', editData);
 
-                // 날짜 형식 변환 (YYYY-MM-DD 형식으로 변환)
-                const formatDate = (dateString) => {
-                    if (!dateString) return '';
-                    // 이미 YYYY-MM-DD 형식이면 그대로 반환
-                    if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                        return dateString;
+            // 날짜 형식 변환 (YYYY-MM-DD 형식으로 변환)
+            const formatDate = (dateString) => {
+                if (!dateString) return '';
+                // 이미 YYYY-MM-DD 형식이면 그대로 반환
+                if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                    return dateString;
+                }
+                // 다른 형식이면 변환 시도
+                const date = new Date(dateString);
+                if (isNaN(date.getTime())) return '';
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            };
+
+            // 목표값 변환 (숫자일 경우 문자열로 변환)
+            const formatTargetValue = (value) => {
+                if (value === null || value === undefined) return '';
+                if (typeof value === 'number') return String(value);
+                return String(value || '');
+            };
+
+            // 담당자가 있으면 첫 번째 담당자의 부서 이름으로 부서 ID 찾기
+            let initialDeptId = '';
+            if (editData.managers && editData.managers.length > 0) {
+                const firstManager = editData.managers[0];
+                const managerDeptName = firstManager.deptName || firstManager.topDeptName;
+                
+                if (managerDeptName) {
+                    // 부서 목록에서 부서 이름으로 부서 ID 찾기
+                    const foundDept = departments.find(dept => 
+                        dept.deptName === managerDeptName || 
+                        dept.deptName === firstManager.topDeptName
+                    );
+                    if (foundDept) {
+                        initialDeptId = foundDept.id;
                     }
-                    // 다른 형식이면 변환 시도
-                    const date = new Date(dateString);
-                    if (isNaN(date.getTime())) return '';
-                    const year = date.getFullYear();
-                    const month = String(date.getMonth() + 1).padStart(2, '0');
-                    const day = String(date.getDate()).padStart(2, '0');
-                    return `${year}-${month}-${day}`;
-                };
-
-                setFormData({
-                    category1: editData.category1 || '',
-                    category2: editData.category2 || '',
-                    taskName: editData.name || editData.taskName || '',
-                    description: editData.description || '',
-                    startDate: formatDate(editData.startDate),
-                    endDate: formatDate(editData.endDate),
-                    department: '', // 부서는 담당자 선택 시 자동으로 결정됨
-                    managers: editData.managers || [],
-                    performanceType: editData.performance?.type || editData.performanceType || 'nonFinancial',
-                    evaluationType: editData.performance?.evaluation || editData.evaluationType || 'quantitative',
-                    metric: editData.performance?.metric || editData.metric || 'count',
-                    status: editData.status || 'inProgress',
-                });
-
-                // 담당자가 있으면 해당 담당자들의 부서 정보로 담당자 목록 로드
-                if (editData.managers && editData.managers.length > 0) {
-                    // 첫 번째 담당자의 부서 정보를 사용하여 담당자 목록 로드
-                    // 담당자 정보에 부서 정보가 있다면 사용, 없으면 스킵
-                    const firstManager = editData.managers[0];
-                    // 담당자 정보에서 부서를 찾을 수 없으므로, 담당자 목록은 로드하지 않음
-                    // 사용자가 필요시 부서를 선택하여 담당자를 추가할 수 있음
                 }
             }
-        } else {
+
+            setFormData(prev => ({
+                ...prev,
+                category1: editData.category1 || '',
+                category2: editData.category2 || '',
+                taskName: editData.name || editData.taskName || '',
+                description: editData.description || '',
+                startDate: formatDate(editData.startDate),
+                endDate: formatDate(editData.endDate),
+                department: initialDeptId, // 첫 번째 담당자의 부서 ID 설정
+                managers: editData.managers || [],
+                performanceType: editData.performance?.type || editData.performanceType || 'nonFinancial',
+                evaluationType: editData.performance?.evaluation || editData.evaluationType || 'quantitative',
+                metric: editData.performance?.metric || editData.metric || 'count',
+                targetValue: formatTargetValue(editData.targetValue || editData.target),
+                status: editData.status || 'inProgress',
+            }));
+
+            // 부서 ID가 있으면 해당 부서의 담당자 목록 로드
+            if (initialDeptId) {
+                loadManagers(initialDeptId);
+            }
+        } else if (isOpen && !editData) {
+            // 등록 모드일 때 폼 초기화
+            setFormData({
+                category1: '',
+                category2: '',
+                taskName: '',
+                description: '',
+                startDate: '',
+                endDate: '',
+                department: '',
+                managers: [],
+                performanceType: 'nonFinancial',
+                evaluationType: 'quantitative',
+                metric: 'count',
+                targetValue: '',
+                status: 'inProgress',
+            });
+            setAvailableManagers([]);
+        } else if (!isOpen) {
             // 모달이 닫힐 때 폼 초기화
             setFormData({
                 category1: '',
@@ -89,11 +133,13 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 performanceType: 'nonFinancial',
                 evaluationType: 'quantitative',
                 metric: 'count',
+                targetValue: '',
+                status: 'inProgress',
             });
             setAvailableManagers([]);
             setExpandedDepts(new Set());
         }
-    }, [isOpen, editData]);
+    }, [isOpen, editData, departments]);
 
     const loadDepartments = async () => {
         try {
@@ -257,6 +303,12 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
             return;
         }
 
+        // 정량일 때 목표값 필수 체크
+        if (formData.evaluationType === 'quantitative' && !formData.targetValue) {
+            alert('목표값을 입력해주세요.');
+            return;
+        }
+
         try {
             setSubmitting(true);
 
@@ -271,7 +323,8 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 managerIds: formData.managers.map(m => m.userId),
                 performanceType: formData.performanceType,
                 evaluationType: formData.evaluationType,
-                metric: formData.metric,
+                metric: formData.evaluationType === 'quantitative' ? formData.metric : null, // 정성일 때는 null
+                targetValue: formData.evaluationType === 'quantitative' ? formData.targetValue : null, // 정량일 때만 목표값
                 status: formData.status
             };
 
@@ -304,6 +357,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 performanceType: 'nonFinancial',
                 evaluationType: 'quantitative',
                 metric: 'count',
+                targetValue: '',
                 status: 'inProgress',
             });
 
@@ -338,7 +392,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 <form onSubmit={handleSubmit} className="task-form">
                     {/* 과제 기본정보 */}
                     <section className="form-section">
-                        <div className="section-header">
+                        <div className="task-register-section-header">
                             <Target size={18} />
                             <h3>과제 정보</h3>
                         </div>
@@ -391,11 +445,169 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                                 style={{ minHeight: '50px' }}
                             />
                         </div>
+
+                        <div className={`form-row ${editData ? 'compact-three-columns' : ''}`}>
+                            <div className="form-group">
+                                <label>시작일 <span className="required">*</span></label>
+                                <input
+                                    type="date"
+                                    name="startDate"
+                                    value={formData.startDate}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>종료일 <span className="required">*</span></label>
+                                <input
+                                    type="date"
+                                    name="endDate"
+                                    value={formData.endDate}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </div>
+                            {editData && (
+                                <div className="form-group">
+                                    <label>진행상태</label>
+                                    <select
+                                        name="status"
+                                        value={formData.status}
+                                        onChange={handleChange}
+                                        className={`status-select status-${formData.status}`}
+                                    >
+                                        <option value="inProgress">진행중</option>
+                                        <option value="completed">완료</option>
+                                        <option value="delayed">지연</option>
+                                        <option value="stopped">중단</option>
+                                    </select>
+                                </div>
+                            )}
+                        </div>
+                    </section>
+
+                    {/* 성과 기준 */}
+                    <section className="form-section performance-criteria-section">
+                        <div className="task-register-section-header">
+                            <TrendingUp size={18} />
+                            <h3>성과 기준</h3>
+                        </div>
+
+                        <div className="performance-criteria-compact">
+                            <div className="form-group-compact">
+                                <label>성과 분류 <span className="required">*</span></label>
+                                <div className="radio-group-compact">
+                                    <label className="radio-label-compact">
+                                        <input
+                                            type="radio"
+                                            name="performanceType"
+                                            value="financial"
+                                            checked={formData.performanceType === 'financial'}
+                                            onChange={handleChange}
+                                        />
+                                        <span>재무</span>
+                                    </label>
+                                    <label className="radio-label-compact">
+                                        <input
+                                            type="radio"
+                                            name="performanceType"
+                                            value="nonFinancial"
+                                            checked={formData.performanceType === 'nonFinancial'}
+                                            onChange={handleChange}
+                                        />
+                                        <span>비재무</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div className="form-group-compact">
+                                <label>평가 방법 <span className="required">*</span></label>
+                                <div className="radio-group-compact">
+                                    <label className="radio-label-compact">
+                                        <input
+                                            type="radio"
+                                            name="evaluationType"
+                                            value="quantitative"
+                                            checked={formData.evaluationType === 'quantitative'}
+                                            onChange={handleChange}
+                                        />
+                                        <span>정량</span>
+                                    </label>
+                                    <label className="radio-label-compact">
+                                        <input
+                                            type="radio"
+                                            name="evaluationType"
+                                            value="qualitative"
+                                            checked={formData.evaluationType === 'qualitative'}
+                                            onChange={handleChange}
+                                        />
+                                        <span>정성</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            {formData.evaluationType === 'quantitative' && (
+                                <>
+                                    <div className="form-group-compact">
+                                        <label>성과 지표 <span className="required">*</span></label>
+                                        <div className="radio-group-compact">
+                                            <label className="radio-label-compact">
+                                                <input
+                                                    type="radio"
+                                                    name="metric"
+                                                    value="count"
+                                                    checked={formData.metric === 'count'}
+                                                    onChange={handleChange}
+                                                />
+                                                <span>건수</span>
+                                            </label>
+                                            <label className="radio-label-compact">
+                                                <input
+                                                    type="radio"
+                                                    name="metric"
+                                                    value="amount"
+                                                    checked={formData.metric === 'amount'}
+                                                    onChange={handleChange}
+                                                />
+                                                <span>금액</span>
+                                            </label>
+                                            <label className="radio-label-compact">
+                                                <input
+                                                    type="radio"
+                                                    name="metric"
+                                                    value="percent"
+                                                    checked={formData.metric === 'percent'}
+                                                    onChange={handleChange}
+                                                />
+                                                <span>%</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div className="form-group-compact">
+                                        <label>목표값 <span className="required">*</span></label>
+                                        <div className="target-input-wrapper">
+                                            <input
+                                                type="text"
+                                                name="targetValue"
+                                                value={formData.targetValue}
+                                                onChange={handleChange}
+                                                placeholder={formData.metric === 'count' ? '목표 건수를 입력하세요' : formData.metric === 'amount' ? '목표 금액을 입력하세요' : '목표 %를 입력하세요'}
+                                                required={formData.evaluationType === 'quantitative'}
+                                                className="target-input"
+                                            />
+                                            <span className="target-unit">
+                                                {formData.metric === 'count' ? '건' : formData.metric === 'amount' ? '원' : '%'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </div>
                     </section>
 
                     {/* 담당자 */}
                     <section className="form-section">
-                        <div className="section-header">
+                        <div className="task-register-section-header">
                             <User size={18} />
                             <h3>담당자 지정</h3>
                         </div>
@@ -469,160 +681,6 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                             )}
                         </div>
                     </section>
-
-                    {/* 기간 */}
-                    <section className="form-section">
-                        <div className="section-header">
-                            <Calendar size={18} />
-                            <h3>과제 기간</h3>
-                        </div>
-
-                        <div className="form-row">
-                            <div className="form-group">
-                                <label>시작일 <span className="required">*</span></label>
-                                <input
-                                    type="date"
-                                    name="startDate"
-                                    value={formData.startDate}
-                                    onChange={handleChange}
-                                    required
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>종료일 <span className="required">*</span></label>
-                                <input
-                                    type="date"
-                                    name="endDate"
-                                    value={formData.endDate}
-                                    onChange={handleChange}
-                                    required
-                                />
-                            </div>
-                        </div>
-                    </section>
-
-                    {/* 성과 기준 */}
-                    <section className="form-section">
-                        <div className="section-header">
-                            <TrendingUp size={18} />
-                            <h3>성과 기준</h3>
-                        </div>
-
-                        <div className="form-group">
-                            <label>성과 분류 <span className="required">*</span></label>
-                            <div className="radio-group">
-                                <label className="radio-label">
-                                    <input
-                                        type="radio"
-                                        name="performanceType"
-                                        value="financial"
-                                        checked={formData.performanceType === 'financial'}
-                                        onChange={handleChange}
-                                    />
-                                    <span>재무</span>
-                                </label>
-                                <label className="radio-label">
-                                    <input
-                                        type="radio"
-                                        name="performanceType"
-                                        value="nonFinancial"
-                                        checked={formData.performanceType === 'nonFinancial'}
-                                        onChange={handleChange}
-                                    />
-                                    <span>비재무</span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div className="form-group">
-                            <label>평가 방법 <span className="required">*</span></label>
-                            <div className="radio-group">
-                                <label className="radio-label">
-                                    <input
-                                        type="radio"
-                                        name="evaluationType"
-                                        value="quantitative"
-                                        checked={formData.evaluationType === 'quantitative'}
-                                        onChange={handleChange}
-                                    />
-                                    <span>정량</span>
-                                </label>
-                                <label className="radio-label">
-                                    <input
-                                        type="radio"
-                                        name="evaluationType"
-                                        value="qualitative"
-                                        checked={formData.evaluationType === 'qualitative'}
-                                        onChange={handleChange}
-                                    />
-                                    <span>정성</span>
-                                </label>
-                            </div>
-                        </div>
-
-                        {formData.evaluationType === 'quantitative' && (
-                            <div className="form-group">
-                                <label>성과 지표 <span className="required">*</span></label>
-                                <div className="radio-group">
-                                    <label className="radio-label">
-                                        <input
-                                            type="radio"
-                                            name="metric"
-                                            value="count"
-                                            checked={formData.metric === 'count'}
-                                            onChange={handleChange}
-                                        />
-                                        <span>건수</span>
-                                    </label>
-                                    <label className="radio-label">
-                                        <input
-                                            type="radio"
-                                            name="metric"
-                                            value="amount"
-                                            checked={formData.metric === 'amount'}
-                                            onChange={handleChange}
-                                        />
-                                        <span>금액</span>
-                                    </label>
-                                    <label className="radio-label">
-                                        <input
-                                            type="radio"
-                                            name="metric"
-                                            value="percent"
-                                            checked={formData.metric === 'percent'}
-                                            onChange={handleChange}
-                                        />
-                                        <span>%</span>
-                                    </label>
-                                </div>
-                            </div>
-                        )}
-                    </section>
-
-                    {/* 진행상태 */}
-                    {editData && (
-                        <section className="form-section">
-                            <div className="section-header">
-                                <Target size={18} />
-                                <h3>진행상태</h3>
-                            </div>
-
-                            <div className="form-group">
-                                <label>진행상태</label>
-                                <select
-                                    name="status"
-                                    value={formData.status}
-                                    onChange={handleChange}
-                                    className={`status-select status-${formData.status}`}
-                                >
-                                    <option value="inProgress">진행중</option>
-                                    <option value="completed">완료</option>
-                                    <option value="delayed">지연</option>
-                                    <option value="stopped">중단</option>
-                                </select>
-                            </div>
-                        </section>
-                    )}
 
                     {/* 버튼 */}
                     <div className="form-actions">

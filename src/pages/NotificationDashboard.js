@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Send, RefreshCw, CheckCircle, XCircle, ChevronLeft, ChevronRight, CheckSquare, Square } from 'lucide-react';
+import { Bell, Send, RefreshCw, CheckCircle, XCircle, ChevronLeft, ChevronRight, CheckSquare, Square, Clock } from 'lucide-react';
 import useUserStore from '../store/userStore';
-import { getAllNotifications, sendNotifications, getNotInputtedTasks, resendNotification } from '../api/notificationApi';
+import { getAllNotifications, sendNotifications, getNotInputtedTasks } from '../api/notificationApi';
 import { formatDate } from '../utils/dateUtils';
 import './NotificationDashboard.css';
 
@@ -120,27 +120,6 @@ function NotificationDashboard() {
             alert(`알림 전송 실패: ${errorMessage}`);
         } finally {
             setSending(false);
-        }
-    };
-
-    // 개별 알림 재전송
-    const handleResendNotification = async (notificationId) => {
-        if (!window.confirm('이 알림을 재전송하시겠습니까?')) {
-            return;
-        }
-
-        try {
-            const response = await resendNotification(notificationId);
-            if (response.success) {
-                alert('알림이 재전송되었습니다.');
-                loadNotifications(currentPage); // 알림 목록 새로고침
-            } else {
-                alert(`알림 재전송 실패: ${response.message}`);
-            }
-        } catch (error) {
-            console.error('알림 재전송 실패:', error);
-            const errorMessage = error.response?.data?.message || error.message || '알림 재전송 중 오류가 발생했습니다.';
-            alert(`알림 재전송 실패: ${errorMessage}`);
         }
     };
 
@@ -318,7 +297,7 @@ function NotificationDashboard() {
 
             {/* 알림 목록 섹션 */}
             <div className="notifications-section">
-                <div className="section-header">
+                <div className="notification-section-header">
                     <h2>알림 내역 ({totalElements}개)</h2>
                     <button className="refresh-btn" onClick={() => loadNotifications(currentPage)} disabled={loading}>
                         <RefreshCw size={18} className={loading ? 'spinning' : ''} />
@@ -327,12 +306,12 @@ function NotificationDashboard() {
                 </div>
 
                 {loading ? (
-                    <div className="loading-state">
+                    <div className="notification-loading-state">
                         <RefreshCw size={24} className="spinning" />
                         <p>알림 목록을 불러오는 중...</p>
                     </div>
                 ) : notifications.length === 0 ? (
-                    <div className="empty-state">
+                    <div className="notification-empty-state">
                         <Bell size={48} />
                         <p>알림 내역이 없습니다.</p>
                     </div>
@@ -343,20 +322,19 @@ function NotificationDashboard() {
                                 <thead>
                                     <tr>
                                         <th>ID</th>
-                                        <th>담당자 사번</th>
+                                        <th>담당자 이름</th>
                                         <th>구분</th>
                                         <th>과제명</th>
                                         <th>전송 여부</th>
                                         <th>읽음 여부</th>
-                                        <th>생성일시</th>
-                                        <th>작업</th>
+                                        <th>전송일시</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {notifications.map((notification) => (
                                         <tr key={notification.id}>
                                             <td>{notification.id}</td>
-                                            <td>{notification.skid}</td>
+                                            <td>{notification.managerName || notification.skid}</td>
                                             <td>
                                                 <span className={`gubun-badge ${notification.gubun === 'OI' ? 'oi' : 'key'}`}>
                                                     {notification.gubun}
@@ -365,41 +343,31 @@ function NotificationDashboard() {
                                             <td className="project-name">{notification.projectNm}</td>
                                             <td>
                                                 {notification.sendYn === 'Y' ? (
-                                                    <span className="status-badge sent">
+                                                    <span className="notification-status-badge sent">
                                                         <CheckCircle size={14} />
                                                         <span>전송완료</span>
                                                     </span>
                                                 ) : (
-                                                    <span className="status-badge not-sent">
-                                                        <XCircle size={14} />
-                                                        <span>미전송</span>
+                                                    <span className="notification-status-badge waiting">
+                                                        <Clock size={14} />
+                                                        <span>전송대기</span>
                                                     </span>
                                                 )}
                                             </td>
                                             <td>
                                                 {notification.readYn === 'Y' ? (
-                                                    <span className="status-badge read">
+                                                    <span className="notification-status-badge read">
                                                         <CheckCircle size={14} />
                                                         <span>읽음</span>
                                                     </span>
                                                 ) : (
-                                                    <span className="status-badge unread">
+                                                    <span className="notification-status-badge unread">
                                                         <XCircle size={14} />
                                                         <span>미읽음</span>
                                                     </span>
                                                 )}
                                             </td>
                                             <td>{formatDate(notification.createAt)}</td>
-                                            <td>
-                                                <button
-                                                    className="resend-btn"
-                                                    onClick={() => handleResendNotification(notification.id)}
-                                                    title="재전송"
-                                                >
-                                                    <Send size={14} />
-                                                    <span>재전송</span>
-                                                </button>
-                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>

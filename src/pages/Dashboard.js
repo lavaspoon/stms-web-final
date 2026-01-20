@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Target, Briefcase, AlertCircle, CheckCircle, Clock, XCircle, Sparkles, TrendingUp, Calendar, Eye, BarChart3, Hash, DollarSign } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Target, Briefcase, AlertCircle, CheckCircle, Clock, XCircle, Sparkles, BarChart3, TrendingUp } from 'lucide-react';
 import useUserStore from '../store/userStore';
-import TaskDetailModal from '../components/TaskDetailModal';
-import { getTasksByType, getYearlyGoals } from '../api/taskApi';
+import TaskInputModal from '../components/TaskInputModal';
+import { getTasksByType } from '../api/taskApi';
 import { generateBriefing } from '../api/aiApi';
 import './Dashboard.css';
 
@@ -31,17 +30,8 @@ function Dashboard() {
     const [briefing, setBriefing] = useState(null);
     const [loading, setLoading] = useState(false);
     const [briefingLoading, setBriefingLoading] = useState(false);
-    const [selectedTaskId, setSelectedTaskId] = useState(null);
-    const [oiChartData, setOiChartData] = useState({
-        count: [],
-        amount: []
-    });
-    const [keyChartData, setKeyChartData] = useState({
-        count: [],
-        amount: []
-    });
-    const [chartLoading, setChartLoading] = useState(false);
-    const [selectedDept, setSelectedDept] = useState(null); // 필터: null = 전체, 본부명 = 해당 본부
+    const [inputTask, setInputTask] = useState(null);
+    const [isInputModalOpen, setIsInputModalOpen] = useState(false);
 
     // 과제 목록 조회
     const loadTasks = async () => {
@@ -67,7 +57,11 @@ function Dashboard() {
                 description: task.description || '',
                 startDate: task.startDate,
                 endDate: task.endDate,
-                metric: task.metric || 'percent' // 건수(count), 금액(amount), %(percent)
+                metric: task.metric || 'percent', // 건수(count), 금액(amount), %(percent)
+                evaluationType: task.evaluationType || 'quantitative', // 정량(quantitative), 정성(qualitative)
+                targetValue: task.targetValue || 0,
+                actualValue: task.actualValue || 0,
+                performanceType: task.performanceType || 'nonFinancial' // 재무(financial), 비재무(nonFinancial)
             });
 
             const formattedOiTasks = oiData.map(formatTask);
@@ -76,10 +70,6 @@ function Dashboard() {
             setOiTasks(formattedOiTasks);
             setKeyTasks(formattedKeyTasks);
 
-            // 차트 데이터 로드 (각 탭별로 분리)
-            loadChartData(oiData, 'oi');
-            loadChartData(keyData, 'key');
-
             // AI 브리핑 자동 생성
             loadBriefing([...formattedOiTasks, ...formattedKeyTasks]);
         } catch (error) {
@@ -87,80 +77,6 @@ function Dashboard() {
             alert('과제 목록을 불러오는데 실패했습니다.');
         } finally {
             setLoading(false);
-        }
-    };
-
-    // 차트 데이터 로드
-    const loadChartData = async (tasksData, tabType) => {
-        try {
-            setChartLoading(true);
-            const currentYear = new Date().getFullYear();
-            
-            // 성과지표별로 과제 분류
-            const tasksByMetric = {
-                count: tasksData.filter(t => normalizeMetric(t.metric) === 'count'),
-                amount: tasksData.filter(t => normalizeMetric(t.metric) === 'amount')
-            };
-
-            const chartDataByMetric = {};
-
-            // 각 성과지표별로 데이터 집계 (건수, 금액)
-            for (const [metricKey, tasks] of Object.entries(tasksByMetric)) {
-                if (tasks.length === 0) {
-                    chartDataByMetric[metricKey] = [];
-                    continue;
-                }
-
-                // 모든 과제의 월별 목표/실적 데이터 가져오기
-                const yearlyGoalsPromises = tasks.map(task => 
-                    getYearlyGoals(task.taskId, currentYear).catch(() => null)
-                );
-                const yearlyGoalsResults = await Promise.all(yearlyGoalsPromises);
-
-                // 월별 데이터 집계 (1월~12월)
-                const monthlyData = Array.from({ length: 12 }, (_, i) => ({
-                    month: `${i + 1}월`,
-                    monthNum: i + 1,
-                    목표: 0,
-                    실적: 0,
-                    달성률: 0,
-                    taskCount: 0
-                }));
-
-                yearlyGoalsResults.forEach((result, taskIndex) => {
-                    if (!result || !result.monthlyGoals) return;
-                    
-                    result.monthlyGoals.forEach(monthGoal => {
-                        const monthIndex = monthGoal.month - 1;
-                        if (monthIndex >= 0 && monthIndex < 12) {
-                            monthlyData[monthIndex].목표 += monthGoal.targetValue || 0;
-                            monthlyData[monthIndex].실적 += monthGoal.actualValue || 0;
-                            monthlyData[monthIndex].taskCount += 1;
-                        }
-                    });
-                });
-
-                // 평균 달성률 계산
-                monthlyData.forEach(data => {
-                    if (data.목표 > 0) {
-                        data.달성률 = Math.round((data.실적 / data.목표) * 100);
-                    }
-                });
-
-                chartDataByMetric[metricKey] = monthlyData;
-            }
-
-
-            // 탭별로 차트 데이터 설정
-            if (tabType === 'oi') {
-                setOiChartData(chartDataByMetric);
-            } else {
-                setKeyChartData(chartDataByMetric);
-            }
-        } catch (error) {
-            console.error('차트 데이터 로드 실패:', error);
-        } finally {
-            setChartLoading(false);
         }
     };
 
@@ -231,62 +147,130 @@ function Dashboard() {
 
     const currentTasks = activeTab === 'oi' ? oiTasks : keyTasks;
     const taskType = activeTab === 'oi' ? 'OI' : '중점추진';
-    const currentChartData = activeTab === 'oi' ? oiChartData : keyChartData;
-    
-    // 모든 과제 (OI + 중점추진)
-    const allTasks = [...oiTasks, ...keyTasks];
-    
-    // 본부별 과제 수 집계 (담당자들의 모든 본부 포함)
-    const deptCounts = {};
-    currentTasks.forEach(task => {
-        // 담당자들의 모든 최상위 본부 수집
-        const taskDepts = new Set();
+
+    // 상태별 정렬 (진행/완료/지연/중단 순)
+    const statusOrder = {
+        'inProgress': 1,
+        'completed': 2,
+        'delayed': 3,
+        'stopped': 4
+    };
+
+    const sortedTasks = [...currentTasks].sort((a, b) => {
+        const statusA = normalizeStatus(a.status);
+        const statusB = normalizeStatus(b.status);
+        const orderA = statusOrder[statusA] || 99;
+        const orderB = statusOrder[statusB] || 99;
+        return orderA - orderB;
+    });
+
+    // 활동내역 입력 모달 열기 (관리자용)
+    const handleInputTask = (task) => {
+        setInputTask(task);
+        setIsInputModalOpen(true);
+    };
+
+    // 활동내역 입력 완료 후 목록 새로고침
+    const handleInputModalClose = () => {
+        setIsInputModalOpen(false);
+        setInputTask(null);
+        loadTasks(); // 목록 새로고침
+    };
+
+    // 테이블 row 클릭 핸들러
+    const handleRowClick = (task) => {
+        handleInputTask(task);
+    };
+
+    // 상태별 통계 계산
+    const statusCounts = {
+        inProgress: 0,
+        completed: 0,
+        delayed: 0,
+        stopped: 0
+    };
+
+    sortedTasks.forEach(task => {
+        const normalizedStatus = normalizeStatus(task.status);
+        if (statusCounts[normalizedStatus] !== undefined) {
+            statusCounts[normalizedStatus]++;
+        }
+    });
+
+    // 정량 평가 기준 전체 평균 달성률 계산
+    const quantitativeTasks = sortedTasks.filter(task => {
+        const evaluationType = task.evaluationType || 'quantitative';
+        return evaluationType === 'quantitative' || evaluationType === '정량';
+    });
+
+    let averageAchievement = 0;
+    if (quantitativeTasks.length > 0) {
+        const totalAchievement = quantitativeTasks.reduce((sum, task) => {
+            return sum + (task.achievement || 0);
+        }, 0);
+        averageAchievement = Math.round(totalAchievement / quantitativeTasks.length);
+    }
+
+    // 최상위 본부별 통계 계산
+    const deptStats = {};
+
+    sortedTasks.forEach(task => {
+        // 담당자들의 최상위 본부 수집
+        const topDepts = new Set();
+
         if (task.managers && task.managers.length > 0) {
             task.managers.forEach(manager => {
                 if (manager.topDeptName) {
-                    taskDepts.add(manager.topDeptName);
+                    topDepts.add(manager.topDeptName);
                 }
             });
         }
+
         // 담당자가 없거나 본부 정보가 없으면 과제의 본부 사용
-        if (taskDepts.size === 0 && task.topDeptName) {
-            taskDepts.add(task.topDeptName);
+        if (topDepts.size === 0 && task.topDeptName) {
+            topDepts.add(task.topDeptName);
         }
+
         // 본부가 없으면 미지정
-        if (taskDepts.size === 0) {
-            taskDepts.add('미지정');
+        if (topDepts.size === 0) {
+            topDepts.add('미지정');
         }
-        
-        // 각 본부에 과제 수 추가
-        taskDepts.forEach(dept => {
-            deptCounts[dept] = (deptCounts[dept] || 0) + 1;
+
+        // 각 본부에 과제 통계 추가
+        topDepts.forEach(dept => {
+            if (!deptStats[dept]) {
+                deptStats[dept] = {
+                    total: 0,
+                    inProgress: 0,
+                    completed: 0,
+                    delayed: 0,
+                    stopped: 0
+                };
+            }
+
+            const normalizedStatus = normalizeStatus(task.status);
+            deptStats[dept].total++;
+
+            if (normalizedStatus === 'inProgress') {
+                deptStats[dept].inProgress++;
+            } else if (normalizedStatus === 'completed') {
+                deptStats[dept].completed++;
+            } else if (normalizedStatus === 'delayed') {
+                deptStats[dept].delayed++;
+            } else if (normalizedStatus === 'stopped') {
+                deptStats[dept].stopped++;
+            }
         });
     });
-    const totalCount = currentTasks.length;
-    
-    // 필터링된 과제 목록 (담당자들의 본부 중 하나라도 선택된 본부와 일치하면 포함)
-    const filteredTasks = selectedDept 
-        ? currentTasks.filter(task => {
-            if (task.managers && task.managers.length > 0) {
-                return task.managers.some(manager => manager.topDeptName === selectedDept);
-            }
-            return task.topDeptName === selectedDept;
-        })
-        : currentTasks;
-    
-    // 성과지표별 통계 계산
-    const normalizeMetric = (metric) => {
-        if (!metric) return 'percent';
-        const metricMap = {
-            '건수': 'count',
-            '금액': 'amount',
-            '%': 'percent',
-            'percent': 'percent',
-            'count': 'count',
-            'amount': 'amount'
-        };
-        return metricMap[metric] || 'percent';
-    };
+
+    // 본부명으로 정렬
+    const sortedDeptStats = Object.entries(deptStats)
+        .map(([deptName, stats]) => ({ deptName, ...stats }))
+        .sort((a, b) => {
+            if (a.deptName === '미지정') return 1;
+            if (b.deptName === '미지정') return -1;
+            return a.deptName.localeCompare(b.deptName);
+        });
 
     return (
         <div className="dashboard">
@@ -363,312 +347,322 @@ function Dashboard() {
 
             {/* 탭 컨텐츠 영역 */}
             <div className="tab-content">
-                {/* 월별 성과지표 차트 섹션 */}
-                {!chartLoading && (currentChartData.count?.length > 0 || currentChartData.amount?.length > 0) && (
-                    <div className="charts-section-in-tab">
-                        <div className="charts-header">
-                            <TrendingUp size={22} />
-                            <h2>{taskType} 과제 월별 성과 추이</h2>
-                        </div>
-                        <div className="charts-grid">
-                            {/* 건수 차트 */}
-                            {currentChartData.count && currentChartData.count.length > 0 && (() => {
-                                const totalTarget = currentChartData.count.reduce((sum, item) => sum + (item.목표 || 0), 0);
-                                const totalActual = currentChartData.count.reduce((sum, item) => sum + (item.실적 || 0), 0);
-                                const achievementRate = totalTarget > 0 ? Math.round((totalActual / totalTarget) * 100) : 0;
-                                
-                                return (
-                                    <div className="chart-card">
-                                        <div className="chart-title">
-                                            <Hash size={18} className="chart-icon" style={{ color: '#3b82f6' }} />
-                                            <h3>건수 목표 대비 월별 달성</h3>
-                                        </div>
-                                        <ResponsiveContainer width="100%" height={200}>
-                                            <LineChart data={currentChartData.count}>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                                                <XAxis 
-                                                    dataKey="month" 
-                                                    tick={{ fontSize: 12 }}
-                                                    stroke="#6b7280"
-                                                />
-                                                <YAxis 
-                                                    tick={{ fontSize: 12 }}
-                                                    stroke="#6b7280"
-                                                />
-                                                <Tooltip 
-                                                    contentStyle={{ 
-                                                        backgroundColor: 'white', 
-                                                        border: '1px solid #e5e7eb',
-                                                        borderRadius: '8px',
-                                                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-                                                    }}
-                                                />
-                                                <Legend 
-                                                    wrapperStyle={{ fontSize: '13px', paddingTop: '10px' }}
-                                                />
-                                                <Line 
-                                                    type="monotone" 
-                                                    dataKey="목표" 
-                                                    stroke="#94a3b8" 
-                                                    strokeWidth={2}
-                                                    strokeDasharray="5 5"
-                                                    dot={{ r: 4 }}
-                                                    name="목표 건수"
-                                                />
-                                                <Line 
-                                                    type="monotone" 
-                                                    dataKey="실적" 
-                                                    stroke="#3b82f6" 
-                                                    strokeWidth={3}
-                                                    dot={{ r: 5, fill: '#3b82f6' }}
-                                                    name="실적 건수"
-                                                />
-                                            </LineChart>
-                                        </ResponsiveContainer>
-                                        <div className="chart-stats">
-                                            <div className="stat-item">
-                                                <span className="stat-label">목표 건수</span>
-                                                <span className="stat-value">{totalTarget.toLocaleString()}건</span>
-                                            </div>
-                                            <div className="stat-item">
-                                                <span className="stat-label">실적 건수</span>
-                                                <span className="stat-value">{totalActual.toLocaleString()}건</span>
-                                            </div>
-                                            <div className="stat-item">
-                                                <span className="stat-label">달성률</span>
-                                                <span className="stat-value achievement">{achievementRate}%</span>
-                                            </div>
-                                        </div>
+                {/* 전체 평균 달성률 및 본부별 현황 */}
+                {!loading && (
+                    <div className="dashboard-stats-row">
+                        {/* 전체 평균 달성률 카드 */}
+                        {quantitativeTasks.length > 0 && (
+                            <div className="dashboard-average-achievement">
+                                <div className="average-achievement-card">
+                                    <div className="average-achievement-content">
+                                        <div className="average-achievement-label">전체 평균 달성률</div>
+                                        <div className="average-achievement-value">{averageAchievement}%</div>
+                                        <div className="average-achievement-subtext">정량 평가 기준</div>
                                     </div>
-                                );
-                            })()}
-
-                            {/* 금액 차트 */}
-                            {currentChartData.amount && currentChartData.amount.length > 0 && (() => {
-                                const totalTarget = currentChartData.amount.reduce((sum, item) => sum + (item.목표 || 0), 0);
-                                const totalActual = currentChartData.amount.reduce((sum, item) => sum + (item.실적 || 0), 0);
-                                const achievementRate = totalTarget > 0 ? Math.round((totalActual / totalTarget) * 100) : 0;
-                                
-                                return (
-                                    <div className="chart-card">
-                                        <div className="chart-title">
-                                            <DollarSign size={18} className="chart-icon" style={{ color: '#10b981' }} />
-                                            <h3>금액 목표 대비 월별 달성</h3>
-                                        </div>
-                                        <ResponsiveContainer width="100%" height={200}>
-                                            <LineChart data={currentChartData.amount}>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                                                <XAxis 
-                                                    dataKey="month" 
-                                                    tick={{ fontSize: 12 }}
-                                                    stroke="#6b7280"
-                                                />
-                                                <YAxis 
-                                                    tick={{ fontSize: 12 }}
-                                                    stroke="#6b7280"
-                                                />
-                                                <Tooltip 
-                                                    contentStyle={{ 
-                                                        backgroundColor: 'white', 
-                                                        border: '1px solid #e5e7eb',
-                                                        borderRadius: '8px',
-                                                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-                                                    }}
-                                                />
-                                                <Legend 
-                                                    wrapperStyle={{ fontSize: '13px', paddingTop: '10px' }}
-                                                />
-                                                <Line 
-                                                    type="monotone" 
-                                                    dataKey="목표" 
-                                                    stroke="#94a3b8" 
-                                                    strokeWidth={2}
-                                                    strokeDasharray="5 5"
-                                                    dot={{ r: 4 }}
-                                                    name="목표 금액"
-                                                />
-                                                <Line 
-                                                    type="monotone" 
-                                                    dataKey="실적" 
-                                                    stroke="#10b981" 
-                                                    strokeWidth={3}
-                                                    dot={{ r: 5, fill: '#10b981' }}
-                                                    name="실적 금액"
-                                                />
-                                            </LineChart>
-                                        </ResponsiveContainer>
-                                        <div className="chart-stats">
-                                            <div className="stat-item">
-                                                <span className="stat-label">목표 금액</span>
-                                                <span className="stat-value">{totalTarget.toLocaleString()}원</span>
-                                            </div>
-                                            <div className="stat-item">
-                                                <span className="stat-label">실적 금액</span>
-                                                <span className="stat-value">{totalActual.toLocaleString()}원</span>
-                                            </div>
-                                            <div className="stat-item">
-                                                <span className="stat-label">달성률</span>
-                                                <span className="stat-value achievement">{achievementRate}%</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })()}
-
+                                </div>
                         </div>
-                    </div>
+                        )}
+
+                        {/* 본부별 현황표 */}
+                        {sortedDeptStats.length > 0 && (
+                            <div className="dashboard-dept-stats">
+                                <div className="dept-stats-table-wrapper">
+                                    <table className="dept-stats-table">
+                                        <thead>
+                                            <tr>
+                                                <th>본부</th>
+                                                <th>전체</th>
+                                                <th>진행</th>
+                                                <th>완료</th>
+                                                <th>지연</th>
+                                                <th>중단</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {sortedDeptStats.map((dept) => (
+                                                <tr key={dept.deptName}>
+                                                    <td className="dept-name-cell">{dept.deptName}</td>
+                                                    <td className="dept-stat-cell total">{dept.total}</td>
+                                                    <td className="dept-stat-cell in-progress">{dept.inProgress}</td>
+                                                    <td className="dept-stat-cell completed">{dept.completed}</td>
+                                                    <td className="dept-stat-cell delayed">{dept.delayed}</td>
+                                                    <td className="dept-stat-cell stopped">{dept.stopped}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                        </div>
+                        )}
+                                            </div>
                 )}
 
-                {/* 필터 버튼 */}
-                {!loading && currentTasks.length > 0 && (
-                    <div className="task-filters">
-                        <button
-                            className={`filter-btn ${selectedDept === null ? 'active' : ''}`}
-                            onClick={() => setSelectedDept(null)}
-                        >
-                            전체
-                            <span className="filter-count">({totalCount})</span>
-                        </button>
-                        {Object.keys(deptCounts).sort().map(dept => (
-                            <button
-                                key={dept}
-                                className={`filter-btn ${selectedDept === dept ? 'active' : ''}`}
-                                onClick={() => setSelectedDept(dept)}
-                            >
-                                {dept}
-                                <span className="filter-count">({deptCounts[dept]})</span>
-                            </button>
-                        ))}
+                {/* 상태별 통계 박스 */}
+                {!loading && (
+                    <div className="dashboard-status-stats">
+                        <div className="status-stat-box in-progress">
+                            <div className="status-stat-icon">
+                                <Clock size={24} />
+                                            </div>
+                            <div className="status-stat-content">
+                                <div className="status-stat-label">진행중</div>
+                                <div className="status-stat-value">{statusCounts.inProgress}</div>
+                                            </div>
+                                        </div>
+                        <div className="status-stat-box completed">
+                            <div className="status-stat-icon">
+                                <CheckCircle size={24} />
+                                    </div>
+                            <div className="status-stat-content">
+                                <div className="status-stat-label">완료</div>
+                                <div className="status-stat-value">{statusCounts.completed}</div>
+                                        </div>
+                                            </div>
+                        <div className="status-stat-box delayed">
+                            <div className="status-stat-icon">
+                                <AlertCircle size={24} />
+                                            </div>
+                            <div className="status-stat-content">
+                                <div className="status-stat-label">지연</div>
+                                <div className="status-stat-value">{statusCounts.delayed}</div>
+                                            </div>
+                                        </div>
+                        <div className="status-stat-box stopped">
+                            <div className="status-stat-icon">
+                                <XCircle size={24} />
+                            </div>
+                            <div className="status-stat-content">
+                                <div className="status-stat-label">중단</div>
+                                <div className="status-stat-value">{statusCounts.stopped}</div>
+                                    </div>
+                        </div>
                     </div>
                 )}
 
                 {/* 컴팩트 카드 그리드 */}
                 <div className="tasks-section-in-tab">
                     {loading ? (
-                        <div className="loading-state">
-                            <div className="loading-spinner"></div>
+                        <div className="dashboard-loading-state">
+                            <div className="dashboard-loading-spinner"></div>
                             <p>데이터를 불러오는 중...</p>
                         </div>
-                    ) : filteredTasks.length === 0 ? (
-                        <div className="empty-state">
-                            <div className="empty-icon">📭</div>
-                            <p>{selectedDept ? `${selectedDept} 소속 ${taskType} 과제가 없습니다.` : `${taskType} 과제가 없습니다.`}</p>
+                    ) : sortedTasks.length === 0 ? (
+                        <div className="dashboard-empty-state">
+                            <div className="dashboard-empty-icon">📭</div>
+                            <p>{taskType} 과제가 없습니다.</p>
                         </div>
                     ) : (
-                        <div className="tasks-grid">
-                            {filteredTasks.map(task => {
+                        <div className="dashboard-table-container">
+                            <table className="dashboard-table">
+                                <thead>
+                                    <tr>
+                                        <th>상태</th>
+                                        <th>과제명</th>
+                                        <th>목표</th>
+                                        <th>실적</th>
+                                        <th>달성률</th>
+                                        <th>기간</th>
+                                        <th>담당 부서</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {sortedTasks.map(task => {
                                 const statusInfo = getStatusInfo(task.status);
                                 const StatusIcon = statusInfo.icon;
+                                        const isQualitative = task.evaluationType === 'qualitative';
+
+                                        // 평가기준 표시
+                                        const evaluationText = isQualitative ? '정성' : '정량';
+
+                                        // 목표/실적 포맷팅 (정량일 때만)
+                                        const formatValue = (value, metric) => {
+                                            if (value === null || value === undefined || value === 0) return '0';
+                                            const numValue = typeof value === 'number' ? value : parseFloat(value);
+                                            if (metric === 'amount') {
+                                                return numValue.toLocaleString('ko-KR') + '원';
+                                            } else if (metric === 'count') {
+                                                return numValue.toLocaleString('ko-KR') + '건';
+                                            } else if (metric === 'percent') {
+                                                return numValue.toLocaleString('ko-KR') + '%';
+                                            } else {
+                                                return numValue.toLocaleString('ko-KR');
+                                            }
+                                        };
+
+                                        // metric 한글 변환
+                                        const metricText = task.metric === 'count' ? '건수' :
+                                            task.metric === 'amount' ? '금액' :
+                                                task.metric === 'percent' ? '%' : task.metric || '-';
+
+                                        // 날짜를 mm.dd 형식으로 변환
+                                        const formatCompactDate = (dateString) => {
+                                            if (!dateString) return '';
+                                            try {
+                                                const date = new Date(dateString);
+                                                if (isNaN(date.getTime())) return '';
+                                                const month = String(date.getMonth() + 1).padStart(2, '0');
+                                                const day = String(date.getDate()).padStart(2, '0');
+                                                return `${month}.${day}`;
+                                            } catch (error) {
+                                                return '';
+                                            }
+                                        };
                                 
                                 return (
-                                    <div 
+                                            <tr
                                         key={task.id} 
-                                        className="task-card"
-                                        onClick={() => setSelectedTaskId(task.id)}
-                                    >
-                                        {/* 카드 헤더 */}
-                                        <div className="task-card-header">
-                                            <span className="task-dept">{task.category1 || '-'}</span>
-                                            <span className={`status-badge ${normalizeStatus(task.status)}`}>
-                                                <StatusIcon size={11} />
+                                                className="dashboard-table-row"
+                                                onClick={() => handleRowClick(task)}
+                                            >
+                                                <td className="dashboard-table-status">
+                                                    <span className={`dashboard-table-status-badge ${normalizeStatus(task.status)}`}>
+                                                        <StatusIcon size={14} />
                                                 {statusInfo.text}
                                             </span>
+                                                </td>
+                                                <td className="dashboard-table-task-name">
+                                                    <div className="task-name-wrapper">
+                                                        <div className="task-category-path">
+                                                            {task.category1 && task.category1 !== '-' ? (
+                                                                <>
+                                                                    <span className="category-text">{task.category1}</span>
+                                                                    {task.category2 && task.category2 !== '-' && (
+                                                                        <>
+                                                                            <span className="category-separator"> &gt; </span>
+                                                                            <span className="category-text">{task.category2}</span>
+                                                                        </>
+                                                                    )}
+                                                                </>
+                                                            ) : (
+                                                                <span className="category-text">-</span>
+                                                            )}
                                         </div>
-                                        
-                                        {/* 카드 바디 */}
-                                        <div className="task-card-body">
-                                            <div className="task-category">
-                                                {task.category2 || '-'}
+                                                        <div className="task-name">{task.name}</div>
                                             </div>
-                                            <h3 className="task-name">{task.name}</h3>
-                                            {/* 담당 팀 리스트 */}
-                                            {task.managers && task.managers.length > 0 && (() => {
-                                                // 팀별로 그룹화하여 중복 제거
-                                                const teamSet = new Set();
-                                                task.managers.forEach(manager => {
-                                                    const teamName = manager.deptName || '미지정';
-                                                    teamSet.add(teamName);
-                                                });
-                                                const teams = Array.from(teamSet);
-                                                
-                                                return (
-                                                    <div className="task-teams">
-                                                        {teams.map((teamName, index) => (
-                                                            <span key={teamName}>
-                                                                <span className="team-badge">{teamName}</span>
-                                                                {index < teams.length - 1 && <span className="team-separator">·</span>}
+                                                </td>
+                                                <td className="dashboard-table-target">
+                                                    <div className="dashboard-value-with-tooltip">
+                                                        {isQualitative ? (
+                                                            <span className="dashboard-badge dashboard-badge-default">-</span>
+                                                        ) : (
+                                                            <span className="dashboard-badge dashboard-badge-target">
+                                                                {formatValue(task.targetValue, task.metric)}
                                                             </span>
-                                                        ))}
+                                                        )}
+                                                        <span className="dashboard-tooltip">{evaluationText} 평가</span>
                                                     </div>
-                                                );
-                                            })()}
+                                                </td>
+                                                <td className="dashboard-table-actual">
+                                                    <div className="dashboard-value-with-tooltip">
+                                                        {isQualitative ? (
+                                                            <span className="dashboard-badge dashboard-badge-default">-</span>
+                                                        ) : (
+                                                            <span className="dashboard-badge dashboard-badge-actual">
+                                                                {formatValue(task.actualValue, task.metric)}
+                                                            </span>
+                                                        )}
+                                                        <span className="dashboard-tooltip">{evaluationText} 평가</span>
                                         </div>
-
-                                        {/* 카드 푸터 */}
-                                        <div className="task-card-footer">
-                                            {/* 담당자 아바타 - 모든 담당자 겹쳐서 표시 */}
-                                            {task.managers && task.managers.length > 0 && (
-                                                <div className="task-managers">
-                                                    {task.managers.slice(0, 5).map((manager, index) => (
-                                                        <div 
-                                                            key={manager.userId || index} 
-                                                            className="manager-avatar"
-                                                            style={{ zIndex: task.managers.length - index }}
-                                                            title={manager.mbName || '-'}
-                                                        >
-                                                            {/* 사진이 있을 경우 사용 (현재는 주석 처리) */}
-                                                            {/* {manager.profileImage ? (
-                                                                <img 
-                                                                    src={manager.profileImage} 
-                                                                    alt={manager.mbName}
-                                                                    className="avatar-image"
-                                                                />
-                                                            ) : ( */}
-                                                                <span className="avatar-initial">
-                                                                    {getInitial(manager.mbName)}
+                                                </td>
+                                                <td className="dashboard-table-achievement">
+                                                    <div className="dashboard-value-with-tooltip">
+                                                        {isQualitative ? (
+                                                            <span className="dashboard-badge dashboard-badge-default">-</span>
+                                                        ) : (() => {
+                                                            const achievement = task.achievement || 0;
+                                                            let badgeClass = 'dashboard-badge-achievement';
+                                                            if (achievement >= 100) {
+                                                                badgeClass += ' dashboard-badge-achievement-excellent';
+                                                            } else if (achievement >= 80) {
+                                                                badgeClass += ' dashboard-badge-achievement-good';
+                                                            } else if (achievement >= 50) {
+                                                                badgeClass += ' dashboard-badge-achievement-normal';
+                                                            } else {
+                                                                badgeClass += ' dashboard-badge-achievement-low';
+                                                            }
+                                                            return (
+                                                                <span className={`dashboard-badge ${badgeClass}`}>
+                                                                    {achievement}%
                                                                 </span>
-                                                            {/* )} */}
+                                                            );
+                                                        })()}
+                                                        <span className="dashboard-tooltip">{evaluationText} 평가</span>
                                                         </div>
-                                                    ))}
-                                                    {task.managers.length > 5 && (
-                                                        <div 
-                                                            className="manager-avatar avatar-more"
-                                                            title={`외 ${task.managers.length - 5}명`}
-                                                        >
-                                                            <span className="avatar-initial">+{task.managers.length - 5}</span>
-                                                        </div>
+                                                </td>
+                                                <td className="dashboard-table-period">
+                                                    {formatCompactDate(task.startDate) && formatCompactDate(task.endDate)
+                                                        ? `${formatCompactDate(task.startDate)} - ${formatCompactDate(task.endDate)}`
+                                                        : '-'}
+                                                </td>
+                                                <td className="dashboard-table-dept">
+                                                    {(() => {
+                                                        if (!task.managers || task.managers.length === 0) {
+                                                            return <span className="dashboard-badge dashboard-badge-default">-</span>;
+                                                        }
+                                                        // 부서명 중복 제거
+                                                        const deptSet = new Set();
+                                                        task.managers.forEach(manager => {
+                                                            if (manager.deptName) {
+                                                                deptSet.add(manager.deptName);
+                                                            }
+                                                        });
+                                                        const deptNames = Array.from(deptSet);
+                                                        if (deptNames.length === 0) {
+                                                            return <span className="dashboard-badge dashboard-badge-default">-</span>;
+                                                        }
+                                                        return (
+                                                            <div className="dashboard-badges-wrapper">
+                                                                {deptNames.map((deptName, idx) => {
+                                                                    // 해당 부서의 담당자들 필터링
+                                                                    const deptManagers = task.managers.filter(manager => 
+                                                                        manager.deptName === deptName
+                                                                    );
+                                                                    const validManagers = deptManagers
+                                                                        .map(manager => manager.mbName)
+                                                                        .filter(name => name && name !== '-');
+                                                                    
+                                                                    let tooltipText = '';
+                                                                    if (validManagers.length === 0) {
+                                                                        tooltipText = '';
+                                                                    } else if (validManagers.length === 1) {
+                                                                        tooltipText = validManagers[0];
+                                                                    } else {
+                                                                        tooltipText = `${validManagers[0]}외 ${validManagers.length - 1}명`;
+                                                                    }
+                                                                    
+                                                                    return (
+                                                                        <div key={idx} className="dashboard-dept-badge-wrapper">
+                                                                            <span className="dashboard-badge dashboard-badge-dept">
+                                                                                {deptName}
+                                                                            </span>
+                                                                            {tooltipText && (
+                                                                                <span className="dashboard-dept-tooltip">
+                                                                                    {tooltipText}
+                                                                                </span>
                                                     )}
                                                 </div>
-                                            )}
-                                            <div className="achievement-percent">
-                                                <strong>{task.achievement}%</strong>
+                                                                    );
+                                                                })}
                                             </div>
-                                        </div>
-
-                                        {/* 호버 오버레이 */}
-                                        <div className="task-card-overlay">
-                                            <div className="overlay-content">
-                                                <p className="overlay-description">
-                                                    {task.description || '프로젝트 설명이 없습니다.'}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
+                                                        );
+                                                    })()}
+                                                </td>
+                                            </tr>
                                 );
                             })}
+                                </tbody>
+                            </table>
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* 과제 상세 모달 */}
-            {selectedTaskId && (
-                <TaskDetailModal
-                    isOpen={!!selectedTaskId}
-                    onClose={() => setSelectedTaskId(null)}
-                    taskId={selectedTaskId}
-                />
-            )}
+            {/* 활동내역 입력 모달 */}
+            <TaskInputModal
+                isOpen={isInputModalOpen}
+                onClose={handleInputModalClose}
+                task={inputTask}
+            />
         </div>
     );
 }
