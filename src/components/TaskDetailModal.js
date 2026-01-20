@@ -36,7 +36,7 @@ function TaskDetailModal({ isOpen, onClose, taskId }) {
             setLoading(true);
             const [data] = await Promise.all([
                 getTask(taskId),
-                new Promise(resolve => setTimeout(resolve, 600)) // 최소 600ms 딜레이
+                new Promise(resolve => setTimeout(resolve, 300)) // 최소 300ms 딜레이
             ]);
             setTask(data);
         } catch (error) {
