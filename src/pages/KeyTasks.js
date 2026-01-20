@@ -8,6 +8,7 @@ import MonthlyReportModal from '../components/MonthlyReportModal';
 import { getTasksByType, getTaskActivity } from '../api/taskApi';
 import { generateMonthlyReport } from '../api/aiApi';
 import { formatDate } from '../utils/dateUtils';
+import { TableSkeleton } from '../components/Skeleton';
 import './KeyTasks.css';
 import './Dashboard.css';
 
@@ -19,17 +20,17 @@ function KeyTasks() {
     const isTaskManager = (task) => {
         if (!task.managers || task.managers.length === 0) return false;
         if (!user) return false;
-        
+
         // user.userId 또는 user.skid 사용
         const currentUserId = user.userId || user.skid;
         if (!currentUserId) return false;
-        
+
         // userId와 mbId 모두 확인
         const isManager = task.managers.some(manager => {
             const managerUserId = manager.userId || manager.mbId;
             return managerUserId === currentUserId;
         });
-        
+
         console.log('isTaskManager check:', {
             taskId: task.id,
             taskName: task.name,
@@ -37,7 +38,7 @@ function KeyTasks() {
             managers: task.managers.map(m => ({ userId: m.userId, mbId: m.mbId, mbName: m.mbName })),
             isManager
         });
-        
+
         return isManager;
     };
 
@@ -111,18 +112,18 @@ function KeyTasks() {
     // 부서별로 담당자를 그룹화하는 함수
     const getManagersByDept = (managers) => {
         if (!managers || managers.length === 0) return [];
-        
+
         // 부서별로 그룹화
         const deptMap = {};
         managers.forEach(manager => {
             const deptName = manager.deptName || '-';
-            
+
             if (!deptMap[deptName]) {
                 deptMap[deptName] = [];
             }
             deptMap[deptName].push(manager); // manager 객체 전체를 저장
         });
-        
+
         // 배열로 변환: [{ deptName: 'IT팀', managers: [manager1, manager2] }, ...]
         return Object.entries(deptMap).map(([deptName, managerList]) => ({
             deptName,
@@ -136,7 +137,10 @@ function KeyTasks() {
             setLoading(true);
             const skid = user?.skid || user?.userId;
             // 담당자인 경우 자신이 담당한 과제만 조회, 관리자는 모든 과제 조회
-            const data = await getTasksByType('중점추진', skid);
+            const [data] = await Promise.all([
+                getTasksByType('중점추진', skid),
+                new Promise(resolve => setTimeout(resolve, 300)) // 최소 300ms 딜레이
+            ]);
 
             console.log('Loaded tasks:', data.length);
             console.log('Current user:', user);
@@ -447,7 +451,7 @@ function KeyTasks() {
                 const normalizedTaskStatus = normalizeStatus(task.status);
                 if (normalizedTaskStatus !== filterStatus) return false;
             }
-            
+
             // 검색어 필터링
             if (searchTerm) {
                 const searchLower = searchTerm.toLowerCase();
@@ -455,14 +459,14 @@ function KeyTasks() {
                 const matchManager = task.manager.toLowerCase().includes(searchLower);
                 if (!matchName && !matchManager) return false;
             }
-            
+
             return true;
         })
         .sort((a, b) => {
             const getSortPriority = (task) => {
                 const normalizedStatus = normalizeStatus(task.status);
                 const isInProgress = normalizedStatus === 'inProgress';
-                
+
                 // 진행중(미입력) > 진행중(입력) > 완료 > 지연 > 중단
                 if (isInProgress && !task.isInputted) return 1; // 진행중(미입력)
                 if (isInProgress && task.isInputted) return 2; // 진행중(입력)
@@ -471,10 +475,10 @@ function KeyTasks() {
                 if (normalizedStatus === 'stopped') return 5; // 중단
                 return 6; // 기타
             };
-            
+
             const priorityA = getSortPriority(a);
             const priorityB = getSortPriority(b);
-            
+
             return priorityA - priorityB;
         });
 
@@ -485,7 +489,7 @@ function KeyTasks() {
     // 담당자 필터링이 적용된 과제 목록 (카운트 계산용)
     // API에서 이미 사용자별 과제만 반환하므로 tasks를 그대로 사용
     const userTasks = tasks;
-    
+
     // 현재월 기준으로 진행중인 과제 중 활동내역이 입력되지 않은 것만 카운트
     const notInputtedCount = userTasks.filter(t => {
         const normalizedStatus = normalizeStatus(t.status);
@@ -500,8 +504,8 @@ function KeyTasks() {
                     <p className="key-page-subtitle">전사 중점추진과제를 관리하고 진행 현황을 확인합니다</p>
                 </div>
                 <div className="header-actions">
-                    <button 
-                        className="key-primary-btn" 
+                    <button
+                        className="key-primary-btn"
                         onClick={handleGenerateMonthlyReport}
                         style={{ background: '#10b981' }}
                     >
@@ -576,91 +580,98 @@ function KeyTasks() {
             </div>
 
             <div className="key-tasks-table-container">
-                <table className="key-tasks-table dashboard-table">
-                    <thead>
-                        <tr>
-                            <th>상태</th>
-                            <th>과제명</th>
-                            <th>목표</th>
-                            <th>실적</th>
-                            <th>달성률</th>
-                            <th>기간</th>
-                            <th>담당 부서</th>
-                            {isAdmin && <th>액션</th>}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredTasks.map(task => {
-                            const canView = isAdmin || isTaskManager(task);
-                            const statusInfo = getStatusInfo(task.status);
-                            const StatusIcon = statusInfo.icon;
-                            const evaluationType = task.evaluationType || task.performance?.evaluation || task.performanceOriginal?.evaluation || '';
-                            const isQualitative = evaluationType === 'qualitative' || evaluationType === '정성';
-                            const evaluationText = isQualitative ? '정성' : '정량';
+                {loading ? (
+                    <TableSkeleton rows={8} columns={isAdmin ? 8 : 7} />
+                ) : (
+                    <table className="key-tasks-table dashboard-table">
+                        <thead>
+                            <tr>
+                                <th>상태</th>
+                                <th>과제명</th>
+                                <th>평가기준</th>
+                                <th>목표</th>
+                                <th>실적</th>
+                                <th>달성률</th>
+                                <th>담당 부서</th>
+                                {isAdmin && <th>액션</th>}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredTasks.map(task => {
+                                const canView = isAdmin || isTaskManager(task);
+                                const statusInfo = getStatusInfo(task.status);
+                                const StatusIcon = statusInfo.icon;
+                                const evaluationType = task.evaluationType || task.performance?.evaluation || task.performanceOriginal?.evaluation || '';
+                                const isQualitative = evaluationType === 'qualitative' || evaluationType === '정성';
+                                const evaluationText = isQualitative ? '정성' : '정량';
 
-                            // 목표/실적 포맷팅 (정량일 때만)
-                            const formatValue = (value, metric) => {
-                                if (value === null || value === undefined || value === 0) return '0';
-                                const numValue = typeof value === 'number' ? value : parseFloat(value);
-                                if (metric === 'amount') {
-                                    return numValue.toLocaleString('ko-KR') + '원';
-                                } else if (metric === 'count') {
-                                    return numValue.toLocaleString('ko-KR') + '건';
-                                } else if (metric === 'percent') {
-                                    return numValue.toLocaleString('ko-KR') + '%';
-                                } else {
-                                    return numValue.toLocaleString('ko-KR');
-                                }
-                            };
+                                // 목표/실적 포맷팅 (정량일 때만)
+                                const formatValue = (value, metric) => {
+                                    if (value === null || value === undefined || value === 0) return '0';
+                                    const numValue = typeof value === 'number' ? value : parseFloat(value);
+                                    if (metric === 'amount') {
+                                        return numValue.toLocaleString('ko-KR') + '원';
+                                    } else if (metric === 'count') {
+                                        return numValue.toLocaleString('ko-KR') + '건';
+                                    } else if (metric === 'percent') {
+                                        return numValue.toLocaleString('ko-KR') + '%';
+                                    } else {
+                                        return numValue.toLocaleString('ko-KR');
+                                    }
+                                };
 
-                            // 날짜를 mm.dd 형식으로 변환
-                            const formatCompactDate = (dateString) => {
-                                if (!dateString) return '';
-                                try {
-                                    const date = new Date(dateString);
-                                    if (isNaN(date.getTime())) return '';
-                                    const month = String(date.getMonth() + 1).padStart(2, '0');
-                                    const day = String(date.getDate()).padStart(2, '0');
-                                    return `${month}.${day}`;
-                                } catch (error) {
-                                    return '';
-                                }
-                            };
+                                // 날짜를 mm.dd 형식으로 변환
+                                const formatCompactDate = (dateString) => {
+                                    if (!dateString) return '';
+                                    try {
+                                        const date = new Date(dateString);
+                                        if (isNaN(date.getTime())) return '';
+                                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                                        const day = String(date.getDate()).padStart(2, '0');
+                                        return `${month}.${day}`;
+                                    } catch (error) {
+                                        return '';
+                                    }
+                                };
 
-                            return (
-                                <tr
-                                    key={task.id}
-                                    className={`dashboard-table-row ${!task.isInputted ? 'key-not-inputted-row' : ''} ${canView ? 'key-clickable-row' : ''}`}
-                                    onClick={(e) => canView && handleRowClick(task, e)}
-                                >
-                                    <td className="dashboard-table-status">
-                                        <span className={`dashboard-table-status-badge ${normalizeStatus(task.status)}`}>
-                                            <StatusIcon size={14} />
-                                            {statusInfo.text}
-                                        </span>
-                                    </td>
-                                    <td className="dashboard-table-task-name">
-                                        <div className="task-name-wrapper">
-                                            <div className="task-category-path">
-                                                {task.category1 && task.category1 !== '-' ? (
-                                                    <>
-                                                        <span className="category-text">{task.category1}</span>
-                                                        {task.category2 && task.category2 !== '-' && (
-                                                            <>
-                                                                <span className="category-separator"> &gt; </span>
-                                                                <span className="category-text">{task.category2}</span>
-                                                            </>
-                                                        )}
-                                                    </>
-                                                ) : (
-                                                    <span className="category-text">-</span>
-                                                )}
+                                return (
+                                    <tr
+                                        key={task.id}
+                                        className={`dashboard-table-row ${!task.isInputted ? 'key-not-inputted-row' : ''} ${canView ? 'key-clickable-row' : ''}`}
+                                        onClick={(e) => canView && handleRowClick(task, e)}
+                                    >
+                                        <td className="dashboard-table-status">
+                                            <span className={`dashboard-table-status-badge ${normalizeStatus(task.status)}`}>
+                                                <StatusIcon size={14} />
+                                                {statusInfo.text}
+                                            </span>
+                                        </td>
+                                        <td className="dashboard-table-task-name">
+                                            <div className="task-name-wrapper">
+                                                <div className="task-category-path">
+                                                    {task.category1 && task.category1 !== '-' ? (
+                                                        <>
+                                                            <span className="category-text">{task.category1}</span>
+                                                            {task.category2 && task.category2 !== '-' && (
+                                                                <>
+                                                                    <span className="category-separator"> &gt; </span>
+                                                                    <span className="category-text">{task.category2}</span>
+                                                                </>
+                                                            )}
+                                                        </>
+                                                    ) : (
+                                                        <span className="category-text">-</span>
+                                                    )}
+                                                </div>
+                                                <div className="task-name">{task.name}</div>
                                             </div>
-                                            <div className="task-name">{task.name}</div>
-                                        </div>
-                                    </td>
-                                    <td className="dashboard-table-target">
-                                        <div className="dashboard-value-with-tooltip">
+                                        </td>
+                                        <td className="dashboard-table-evaluation">
+                                            <span className="dashboard-badge dashboard-badge-evaluation">
+                                                {evaluationText}
+                                            </span>
+                                        </td>
+                                        <td className="dashboard-table-target">
                                             {isQualitative ? (
                                                 <span className="dashboard-badge dashboard-badge-default">-</span>
                                             ) : (
@@ -668,11 +679,8 @@ function KeyTasks() {
                                                     {formatValue(task.targetValue, task.metric || task.performanceOriginal?.metric)}
                                                 </span>
                                             )}
-                                            <span className="dashboard-tooltip">{evaluationText} 평가</span>
-                                        </div>
-                                    </td>
-                                    <td className="dashboard-table-actual">
-                                        <div className="dashboard-value-with-tooltip">
+                                        </td>
+                                        <td className="dashboard-table-actual">
                                             {isQualitative ? (
                                                 <span className="dashboard-badge dashboard-badge-default">-</span>
                                             ) : (
@@ -680,111 +688,83 @@ function KeyTasks() {
                                                     {formatValue(task.actualValue, task.metric || task.performanceOriginal?.metric)}
                                                 </span>
                                             )}
-                                            <span className="dashboard-tooltip">{evaluationText} 평가</span>
-                                        </div>
-                                    </td>
-                                    <td className="dashboard-table-achievement">
-                                        <div className="dashboard-value-with-tooltip">
+                                        </td>
+                                        <td className="dashboard-table-achievement">
                                             {isQualitative ? (
                                                 <span className="dashboard-badge dashboard-badge-default">-</span>
-                                            ) : (() => {
-                                                const achievement = task.achievement || 0;
-                                                let badgeClass = 'dashboard-badge-achievement';
-                                                if (achievement >= 100) {
-                                                    badgeClass += ' dashboard-badge-achievement-excellent';
-                                                } else if (achievement >= 80) {
-                                                    badgeClass += ' dashboard-badge-achievement-good';
-                                                } else if (achievement >= 50) {
-                                                    badgeClass += ' dashboard-badge-achievement-normal';
-                                                } else {
-                                                    badgeClass += ' dashboard-badge-achievement-low';
+                                            ) : (
+                                                <span className="dashboard-badge dashboard-badge-achievement">
+                                                    {task.achievement || 0}%
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="dashboard-table-dept">
+                                            {(() => {
+                                                if (!task.managers || task.managers.length === 0) {
+                                                    return <span className="dashboard-badge dashboard-badge-default">-</span>;
+                                                }
+                                                // 부서명 중복 제거
+                                                const deptSet = new Set();
+                                                task.managers.forEach(manager => {
+                                                    if (manager.deptName) {
+                                                        deptSet.add(manager.deptName);
+                                                    }
+                                                });
+                                                const deptNames = Array.from(deptSet);
+                                                if (deptNames.length === 0) {
+                                                    return <span className="dashboard-badge dashboard-badge-default">-</span>;
                                                 }
                                                 return (
-                                                    <span className={`dashboard-badge ${badgeClass}`}>
-                                                        {achievement}%
-                                                    </span>
+                                                    <div className="dashboard-badges-wrapper">
+                                                        {deptNames.map((deptName, idx) => {
+                                                            // 해당 부서의 담당자들 필터링
+                                                            const deptManagers = task.managers.filter(manager =>
+                                                                manager.deptName === deptName
+                                                            );
+                                                            const validManagers = deptManagers
+                                                                .map(manager => manager.mbName)
+                                                                .filter(name => name && name !== '-');
+
+                                                            let tooltipText = '';
+                                                            if (validManagers.length === 0) {
+                                                                tooltipText = '';
+                                                            } else if (validManagers.length === 1) {
+                                                                tooltipText = validManagers[0];
+                                                            } else {
+                                                                tooltipText = `${validManagers[0]}외 ${validManagers.length - 1}명`;
+                                                            }
+
+                                                            return (
+                                                                <div key={idx} className="dashboard-dept-badge-wrapper">
+                                                                    <span className="dashboard-badge dashboard-badge-dept">
+                                                                        {deptName}
+                                                                    </span>
+                                                                    {tooltipText && (
+                                                                        <span className="dashboard-dept-tooltip">
+                                                                            {tooltipText}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
                                                 );
                                             })()}
-                                            <span className="dashboard-tooltip">{evaluationText} 평가</span>
-                                        </div>
-                                    </td>
-                                    <td className="dashboard-table-period">
-                                        {formatCompactDate(task.startDate) && formatCompactDate(task.endDate)
-                                            ? `${formatCompactDate(task.startDate)} - ${formatCompactDate(task.endDate)}`
-                                            : '-'}
-                                    </td>
-                                    <td className="dashboard-table-dept">
-                                        {(() => {
-                                            if (!task.managers || task.managers.length === 0) {
-                                                return <span className="dashboard-badge dashboard-badge-default">-</span>;
-                                            }
-                                            // 부서명 중복 제거
-                                            const deptSet = new Set();
-                                            task.managers.forEach(manager => {
-                                                if (manager.deptName) {
-                                                    deptSet.add(manager.deptName);
-                                                }
-                                            });
-                                            const deptNames = Array.from(deptSet);
-                                            if (deptNames.length === 0) {
-                                                return <span className="dashboard-badge dashboard-badge-default">-</span>;
-                                            }
-                                            return (
-                                                <div className="dashboard-badges-wrapper">
-                                                    {deptNames.map((deptName, idx) => {
-                                                        // 해당 부서의 담당자들 필터링
-                                                        const deptManagers = task.managers.filter(manager => 
-                                                            manager.deptName === deptName
-                                                        );
-                                                        const validManagers = deptManagers
-                                                            .map(manager => manager.mbName)
-                                                            .filter(name => name && name !== '-');
-                                                        
-                                                        let tooltipText = '';
-                                                        if (validManagers.length === 0) {
-                                                            tooltipText = '';
-                                                        } else if (validManagers.length === 1) {
-                                                            tooltipText = validManagers[0];
-                                                        } else {
-                                                            tooltipText = `${validManagers[0]}외 ${validManagers.length - 1}명`;
-                                                        }
-                                                        
-                                                        return (
-                                                            <div key={idx} className="dashboard-dept-badge-wrapper">
-                                                                <span className="dashboard-badge dashboard-badge-dept">
-                                                                    {deptName}
-                                                                </span>
-                                                                {tooltipText && (
-                                                                    <span className="dashboard-dept-tooltip">
-                                                                        {tooltipText}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            );
-                                        })()}
-                                    </td>
-                                    {isAdmin && (
-                                        <td>
-                                            <div className="key-action-buttons" onClick={(e) => e.stopPropagation()}>
-                                                <button className="key-btn-edit" onClick={() => handleEditTask(task)}>수정</button>
-                                            </div>
                                         </td>
-                                    )}
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
+                                        {isAdmin && (
+                                            <td>
+                                                <div className="key-action-buttons" onClick={(e) => e.stopPropagation()}>
+                                                    <button className="key-btn-edit" onClick={() => handleEditTask(task)}>수정</button>
+                                                </div>
+                                            </td>
+                                        )}
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                )}
             </div>
-
-            {loading && (
-                <div className="key-loading-state">
-                    <p>데이터를 불러오는 중...</p>
-                </div>
-            )}
 
             <TaskRegisterModal
                 isOpen={isRegisterModalOpen}

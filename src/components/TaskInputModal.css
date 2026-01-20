@@ -99,6 +99,29 @@
     font-weight: 500;
 }
 
+.task-input-modal .task-period-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: rgba(59, 130, 246, 0.08);
+    border: 1px solid rgba(59, 130, 246, 0.15);
+    border-radius: 8px;
+    font-size: 13px;
+    color: #3b82f6;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.task-input-modal .task-period-info svg {
+    flex-shrink: 0;
+    opacity: 0.8;
+}
+
+.task-input-modal .task-period-text {
+    letter-spacing: -0.01em;
+}
+
 .task-input-modal .modal-header-right {
     display: flex;
     align-items: center;

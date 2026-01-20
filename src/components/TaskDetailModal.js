@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, TrendingUp, Calendar, ChevronDown, ChevronUp, User, Building, Clock, Target, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getTask, getAllPreviousActivities, getYearlyGoals } from '../api/taskApi';
 import { formatDate } from '../utils/dateUtils';
+import { ModalContentSkeleton, TableSkeleton } from './Skeleton';
 import './TaskDetailModal.css';
 
 function TaskDetailModal({ isOpen, onClose, taskId }) {
@@ -33,7 +34,10 @@ function TaskDetailModal({ isOpen, onClose, taskId }) {
     const loadTaskDetail = async () => {
         try {
             setLoading(true);
-            const data = await getTask(taskId);
+            const [data] = await Promise.all([
+                getTask(taskId),
+                new Promise(resolve => setTimeout(resolve, 600)) // 최소 600ms 딜레이
+            ]);
             setTask(data);
         } catch (error) {
             console.error('과제 상세 조회 실패:', error);
@@ -213,8 +217,25 @@ function TaskDetailModal({ isOpen, onClose, taskId }) {
         return (
             <div className="task-detail-modal-overlay" onClick={onClose}>
                 <div className="task-detail-modal" onClick={(e) => e.stopPropagation()}>
-                    <div className="loading-state">
-                        <p>데이터를 불러오는 중...</p>
+                    <div className="modal-header">
+                        <div className="header-content">
+                            <div className="task-header-info">
+                                <div className="task-status-badges">
+                                    <div className="skeleton" style={{ width: '80px', height: '24px', borderRadius: '4px' }} />
+                                    <div className="skeleton" style={{ width: '60px', height: '24px', borderRadius: '4px' }} />
+                                </div>
+                                <div className="skeleton" style={{ width: '70%', height: '28px', borderRadius: '4px', marginTop: '12px' }} />
+                            </div>
+                        </div>
+                        <button className="close-btn" onClick={onClose}>
+                            <X size={20} />
+                        </button>
+                    </div>
+                    <ModalContentSkeleton />
+                    <div className="form-actions">
+                        <button type="button" className="btn-close" onClick={onClose}>
+                            닫기
+                        </button>
                     </div>
                 </div>
             </div>

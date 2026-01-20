@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Target, Briefcase, AlertCircle, CheckCircle, Clock, XCircle, Sparkles, BarChart3, TrendingUp } from 'lucide-react';
+import { Target, Briefcase, AlertCircle, CheckCircle, Clock, XCircle } from 'lucide-react';
 import useUserStore from '../store/userStore';
 import TaskInputModal from '../components/TaskInputModal';
 import { getTasksByType } from '../api/taskApi';
-import { generateBriefing } from '../api/aiApi';
+import { formatDate } from '../utils/dateUtils';
+import { TableSkeleton, StatBoxSkeleton } from '../components/Skeleton';
 import './Dashboard.css';
 
 function Dashboard() {
@@ -27,9 +28,7 @@ function Dashboard() {
     const [activeTab, setActiveTab] = useState('oi'); // 'oi' or 'key'
     const [oiTasks, setOiTasks] = useState([]);
     const [keyTasks, setKeyTasks] = useState([]);
-    const [briefing, setBriefing] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [briefingLoading, setBriefingLoading] = useState(false);
     const [inputTask, setInputTask] = useState(null);
     const [isInputModalOpen, setIsInputModalOpen] = useState(false);
 
@@ -41,6 +40,9 @@ function Dashboard() {
                 getTasksByType('OI'),
                 getTasksByType('중점추진')
             ]);
+
+            // 최소 딜레이 보장 (스켈레톤 UI가 보이도록)
+            await new Promise(resolve => setTimeout(resolve, 300));
 
             // 과제 변환
             const formatTask = (task) => ({
@@ -69,28 +71,11 @@ function Dashboard() {
 
             setOiTasks(formattedOiTasks);
             setKeyTasks(formattedKeyTasks);
-
-            // AI 브리핑 자동 생성
-            loadBriefing([...formattedOiTasks, ...formattedKeyTasks]);
         } catch (error) {
             console.error('과제 목록 조회 실패:', error);
             alert('과제 목록을 불러오는데 실패했습니다.');
         } finally {
             setLoading(false);
-        }
-    };
-
-    // AI 브리핑 생성
-    const loadBriefing = async (tasks) => {
-        try {
-            setBriefingLoading(true);
-            const result = await generateBriefing(tasks);
-            setBriefing(result);
-        } catch (error) {
-            console.error('AI 브리핑 생성 실패:', error);
-            // 브리핑 실패해도 과제 목록은 표시
-        } finally {
-            setBriefingLoading(false);
         }
     };
 
@@ -274,59 +259,9 @@ function Dashboard() {
 
     return (
         <div className="dashboard">
-            {/* AI 브리핑 섹션 */}
-            {briefingLoading ? (
-                <div className="briefing-section loading">
-                    <div className="briefing-loading">
-                        <Sparkles size={28} className="spin-animation" />
-                        <h3>AI가 전체 과제를 분석중입니다...</h3>
-                        <p>잠시만 기다려주세요</p>
-                    </div>
-                </div>
-            ) : briefing ? (
-                <div className="briefing-section">
-                    <div className="briefing-header">
-                        <div className="briefing-title">
-                            <Sparkles size={22} />
-                            <h2>AI 브리핑</h2>
-                        </div>
-                        <span className="ai-badge">AI Generated</span>
-                    </div>
-                    <div className="briefing-content">
-                        {/* 전체 요약 - 큰 카드 */}
-                        <div className="briefing-summary">
-                            <div className="summary-header">
-                                <BarChart3 size={24} />
-                                <h3>전체 요약</h3>
-                            </div>
-                            <p className="summary-text">{briefing.summary}</p>
-                        </div>
-                        
-                        {/* 3개의 인사이트 카드 */}
-                        <div className="briefing-insights">
-                            <div className="insight-card highlights">
-                                <div className="insight-icon">✨</div>
-                                <h4>주요 성과</h4>
-                                <p>{briefing.highlights}</p>
-                            </div>
-                            <div className="insight-card concerns">
-                                <div className="insight-icon">⚠️</div>
-                                <h4>주의사항</h4>
-                                <p>{briefing.concerns}</p>
-                            </div>
-                            <div className="insight-card recommendations">
-                                <div className="insight-icon">💡</div>
-                                <h4>권장사항</h4>
-                                <p>{briefing.recommendations}</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            ) : null}
-
             {/* 탭 네비게이션 - 브라우저 스타일 */}
             <div className="tab-navigation">
-                <button 
+                <button
                     className={`tab-btn ${activeTab === 'oi' ? 'active' : ''}`}
                     onClick={() => setActiveTab('oi')}
                 >
@@ -334,7 +269,7 @@ function Dashboard() {
                     <span>OI 과제</span>
                     <span className="tab-count">{oiTasks.length}</span>
                 </button>
-                <button 
+                <button
                     className={`tab-btn ${activeTab === 'key' ? 'active' : ''}`}
                     onClick={() => setActiveTab('key')}
                 >
@@ -360,7 +295,7 @@ function Dashboard() {
                                         <div className="average-achievement-subtext">정량 평가 기준</div>
                                     </div>
                                 </div>
-                        </div>
+                            </div>
                         )}
 
                         {/* 본부별 현황표 */}
@@ -392,41 +327,45 @@ function Dashboard() {
                                         </tbody>
                                     </table>
                                 </div>
-                                        </div>
+                            </div>
                         )}
-                                            </div>
+                    </div>
                 )}
 
                 {/* 상태별 통계 박스 */}
-                {!loading && (
+                {loading ? (
+                    <div className="dashboard-status-stats">
+                        <StatBoxSkeleton count={4} />
+                    </div>
+                ) : (
                     <div className="dashboard-status-stats">
                         <div className="status-stat-box in-progress">
                             <div className="status-stat-icon">
                                 <Clock size={24} />
-                                            </div>
+                            </div>
                             <div className="status-stat-content">
                                 <div className="status-stat-label">진행중</div>
                                 <div className="status-stat-value">{statusCounts.inProgress}</div>
-                                            </div>
-                                        </div>
+                            </div>
+                        </div>
                         <div className="status-stat-box completed">
                             <div className="status-stat-icon">
                                 <CheckCircle size={24} />
-                                    </div>
+                            </div>
                             <div className="status-stat-content">
                                 <div className="status-stat-label">완료</div>
                                 <div className="status-stat-value">{statusCounts.completed}</div>
-                                        </div>
-                                            </div>
+                            </div>
+                        </div>
                         <div className="status-stat-box delayed">
                             <div className="status-stat-icon">
                                 <AlertCircle size={24} />
-                                            </div>
+                            </div>
                             <div className="status-stat-content">
                                 <div className="status-stat-label">지연</div>
                                 <div className="status-stat-value">{statusCounts.delayed}</div>
-                                            </div>
-                                        </div>
+                            </div>
+                        </div>
                         <div className="status-stat-box stopped">
                             <div className="status-stat-icon">
                                 <XCircle size={24} />
@@ -434,7 +373,7 @@ function Dashboard() {
                             <div className="status-stat-content">
                                 <div className="status-stat-label">중단</div>
                                 <div className="status-stat-value">{statusCounts.stopped}</div>
-                                    </div>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -442,10 +381,7 @@ function Dashboard() {
                 {/* 컴팩트 카드 그리드 */}
                 <div className="tasks-section-in-tab">
                     {loading ? (
-                        <div className="dashboard-loading-state">
-                            <div className="dashboard-loading-spinner"></div>
-                            <p>데이터를 불러오는 중...</p>
-                        </div>
+                        <TableSkeleton rows={8} columns={7} />
                     ) : sortedTasks.length === 0 ? (
                         <div className="dashboard-empty-state">
                             <div className="dashboard-empty-icon">📭</div>
@@ -458,17 +394,17 @@ function Dashboard() {
                                     <tr>
                                         <th>상태</th>
                                         <th>과제명</th>
+                                        <th>평가기준</th>
                                         <th>목표</th>
                                         <th>실적</th>
                                         <th>달성률</th>
-                                        <th>기간</th>
                                         <th>담당 부서</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {sortedTasks.map(task => {
-                                const statusInfo = getStatusInfo(task.status);
-                                const StatusIcon = statusInfo.icon;
+                                        const statusInfo = getStatusInfo(task.status);
+                                        const StatusIcon = statusInfo.icon;
                                         const isQualitative = task.evaluationType === 'qualitative';
 
                                         // 평가기준 표시
@@ -507,18 +443,18 @@ function Dashboard() {
                                                 return '';
                                             }
                                         };
-                                
-                                return (
+
+                                        return (
                                             <tr
-                                        key={task.id} 
+                                                key={task.id}
                                                 className="dashboard-table-row"
                                                 onClick={() => handleRowClick(task)}
                                             >
                                                 <td className="dashboard-table-status">
                                                     <span className={`dashboard-table-status-badge ${normalizeStatus(task.status)}`}>
                                                         <StatusIcon size={14} />
-                                                {statusInfo.text}
-                                            </span>
+                                                        {statusInfo.text}
+                                                    </span>
                                                 </td>
                                                 <td className="dashboard-table-task-name">
                                                     <div className="task-name-wrapper">
@@ -536,63 +472,41 @@ function Dashboard() {
                                                             ) : (
                                                                 <span className="category-text">-</span>
                                                             )}
-                                        </div>
+                                                        </div>
                                                         <div className="task-name">{task.name}</div>
-                                            </div>
-                                                </td>
-                                                <td className="dashboard-table-target">
-                                                    <div className="dashboard-value-with-tooltip">
-                                                        {isQualitative ? (
-                                                            <span className="dashboard-badge dashboard-badge-default">-</span>
-                                                        ) : (
-                                                            <span className="dashboard-badge dashboard-badge-target">
-                                                                {formatValue(task.targetValue, task.metric)}
-                                                            </span>
-                                                        )}
-                                                        <span className="dashboard-tooltip">{evaluationText} 평가</span>
                                                     </div>
                                                 </td>
+                                                <td className="dashboard-table-evaluation">
+                                                    <span className="dashboard-badge dashboard-badge-evaluation">
+                                                        {evaluationText}
+                                                    </span>
+                                                </td>
+                                                <td className="dashboard-table-target">
+                                                    {isQualitative ? (
+                                                        <span className="dashboard-badge dashboard-badge-default">-</span>
+                                                    ) : (
+                                                        <span className="dashboard-badge dashboard-badge-target">
+                                                            {formatValue(task.targetValue, task.metric)}
+                                                        </span>
+                                                    )}
+                                                </td>
                                                 <td className="dashboard-table-actual">
-                                                    <div className="dashboard-value-with-tooltip">
-                                                        {isQualitative ? (
-                                                            <span className="dashboard-badge dashboard-badge-default">-</span>
-                                                        ) : (
-                                                            <span className="dashboard-badge dashboard-badge-actual">
-                                                                {formatValue(task.actualValue, task.metric)}
-                                                            </span>
-                                                        )}
-                                                        <span className="dashboard-tooltip">{evaluationText} 평가</span>
-                                        </div>
+                                                    {isQualitative ? (
+                                                        <span className="dashboard-badge dashboard-badge-default">-</span>
+                                                    ) : (
+                                                        <span className="dashboard-badge dashboard-badge-actual">
+                                                            {formatValue(task.actualValue, task.metric)}
+                                                        </span>
+                                                    )}
                                                 </td>
                                                 <td className="dashboard-table-achievement">
-                                                    <div className="dashboard-value-with-tooltip">
-                                                        {isQualitative ? (
-                                                            <span className="dashboard-badge dashboard-badge-default">-</span>
-                                                        ) : (() => {
-                                                            const achievement = task.achievement || 0;
-                                                            let badgeClass = 'dashboard-badge-achievement';
-                                                            if (achievement >= 100) {
-                                                                badgeClass += ' dashboard-badge-achievement-excellent';
-                                                            } else if (achievement >= 80) {
-                                                                badgeClass += ' dashboard-badge-achievement-good';
-                                                            } else if (achievement >= 50) {
-                                                                badgeClass += ' dashboard-badge-achievement-normal';
-                                                            } else {
-                                                                badgeClass += ' dashboard-badge-achievement-low';
-                                                            }
-                                                            return (
-                                                                <span className={`dashboard-badge ${badgeClass}`}>
-                                                                    {achievement}%
-                                                                </span>
-                                                            );
-                                                        })()}
-                                                        <span className="dashboard-tooltip">{evaluationText} 평가</span>
-                                                        </div>
-                                                </td>
-                                                <td className="dashboard-table-period">
-                                                    {formatCompactDate(task.startDate) && formatCompactDate(task.endDate)
-                                                        ? `${formatCompactDate(task.startDate)} - ${formatCompactDate(task.endDate)}`
-                                                        : '-'}
+                                                    {isQualitative ? (
+                                                        <span className="dashboard-badge dashboard-badge-default">-</span>
+                                                    ) : (
+                                                        <span className="dashboard-badge dashboard-badge-achievement">
+                                                            {task.achievement || 0}%
+                                                        </span>
+                                                    )}
                                                 </td>
                                                 <td className="dashboard-table-dept">
                                                     {(() => {
@@ -614,13 +528,13 @@ function Dashboard() {
                                                             <div className="dashboard-badges-wrapper">
                                                                 {deptNames.map((deptName, idx) => {
                                                                     // 해당 부서의 담당자들 필터링
-                                                                    const deptManagers = task.managers.filter(manager => 
+                                                                    const deptManagers = task.managers.filter(manager =>
                                                                         manager.deptName === deptName
                                                                     );
                                                                     const validManagers = deptManagers
                                                                         .map(manager => manager.mbName)
                                                                         .filter(name => name && name !== '-');
-                                                                    
+
                                                                     let tooltipText = '';
                                                                     if (validManagers.length === 0) {
                                                                         tooltipText = '';
@@ -629,7 +543,7 @@ function Dashboard() {
                                                                     } else {
                                                                         tooltipText = `${validManagers[0]}외 ${validManagers.length - 1}명`;
                                                                     }
-                                                                    
+
                                                                     return (
                                                                         <div key={idx} className="dashboard-dept-badge-wrapper">
                                                                             <span className="dashboard-badge dashboard-badge-dept">
@@ -639,17 +553,17 @@ function Dashboard() {
                                                                                 <span className="dashboard-dept-tooltip">
                                                                                     {tooltipText}
                                                                                 </span>
-                                                    )}
-                                                </div>
+                                                                            )}
+                                                                        </div>
                                                                     );
                                                                 })}
-                                            </div>
+                                                            </div>
                                                         );
                                                     })()}
                                                 </td>
                                             </tr>
-                                );
-                            })}
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>

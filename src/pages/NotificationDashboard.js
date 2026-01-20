@@ -4,6 +4,7 @@ import { Bell, Send, RefreshCw, CheckCircle, XCircle, ChevronLeft, ChevronRight,
 import useUserStore from '../store/userStore';
 import { getAllNotifications, sendNotifications, getNotInputtedTasks } from '../api/notificationApi';
 import { formatDate } from '../utils/dateUtils';
+import { TableSkeleton, ListItemSkeleton } from '../components/Skeleton';
 import './NotificationDashboard.css';
 
 function NotificationDashboard() {
@@ -18,7 +19,7 @@ function NotificationDashboard() {
     const [tasksLoading, setTasksLoading] = useState(false);
     const [sending, setSending] = useState(false);
     const [selectedGubun, setSelectedGubun] = useState('OI');
-    
+
     // 페이징 상태
     const [currentPage, setCurrentPage] = useState(0);
     const [totalPages, setTotalPages] = useState(0);
@@ -41,7 +42,10 @@ function NotificationDashboard() {
     const loadNotInputtedTasks = async () => {
         try {
             setTasksLoading(true);
-            const data = await getNotInputtedTasks(selectedGubun);
+            const [data] = await Promise.all([
+                getNotInputtedTasks(selectedGubun),
+                new Promise(resolve => setTimeout(resolve, 300)) // 최소 300ms 딜레이
+            ]);
             setNotInputtedTasks(data);
             setSelectedTaskIds(new Set()); // 선택 초기화
         } catch (error) {
@@ -56,7 +60,10 @@ function NotificationDashboard() {
     const loadNotifications = async (page = 0) => {
         try {
             setLoading(true);
-            const data = await getAllNotifications(page, pageSize);
+            const [data] = await Promise.all([
+                getAllNotifications(page, pageSize),
+                new Promise(resolve => setTimeout(resolve, 600)) // 최소 600ms 딜레이
+            ]);
             setNotifications(data.content || []);
             setTotalPages(data.totalPages || 0);
             setTotalElements(data.totalElements || 0);
@@ -232,9 +239,8 @@ function NotificationDashboard() {
                                 </div>
                             </div>
                             {tasksLoading ? (
-                                <div className="loading-state-modern">
-                                    <RefreshCw size={20} className="spinning" />
-                                    <span>로딩 중...</span>
+                                <div className="tasks-list-modern">
+                                    <ListItemSkeleton count={5} />
                                 </div>
                             ) : notInputtedTasks.length === 0 ? (
                                 <div className="empty-state-modern">
@@ -306,10 +312,7 @@ function NotificationDashboard() {
                 </div>
 
                 {loading ? (
-                    <div className="notification-loading-state">
-                        <RefreshCw size={24} className="spinning" />
-                        <p>알림 목록을 불러오는 중...</p>
-                    </div>
+                    <TableSkeleton rows={10} columns={7} />
                 ) : notifications.length === 0 ? (
                     <div className="notification-empty-state">
                         <Bell size={48} />
@@ -373,7 +376,7 @@ function NotificationDashboard() {
                                 </tbody>
                             </table>
                         </div>
-                        
+
                         {/* 페이징 */}
                         {totalPages > 1 && (
                             <div className="pagination">

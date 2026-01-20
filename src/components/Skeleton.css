@@ -1,0 +1,191 @@
+/* 스켈레톤 애니메이션 */
+@keyframes skeleton-loading {
+    0% {
+        background-position: -200px 0;
+    }
+    100% {
+        background-position: calc(200px + 100%) 0;
+    }
+}
+
+.skeleton {
+    background: linear-gradient(
+        90deg,
+        #f0f0f0 0px,
+        #f8f8f8 40px,
+        #f0f0f0 80px
+    );
+    background-size: 200px 100%;
+    animation: skeleton-loading 1.5s ease-in-out infinite;
+    display: inline-block;
+}
+
+/* 테이블 스켈레톤 */
+.skeleton-table-container {
+    width: 100%;
+    overflow: hidden;
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    overflow-x: auto;
+}
+
+.skeleton-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.skeleton-table thead th {
+    padding: 12px 16px;
+    text-align: left;
+    background-color: #f9fafb;
+    border-bottom: 2px solid #e5e7eb;
+    font-weight: 600;
+    font-size: 13px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.skeleton-table-row {
+    border-bottom: 1px solid #e5e7eb;
+    transition: background-color 0.2s;
+}
+
+.skeleton-table-row:hover {
+    background-color: transparent;
+}
+
+.skeleton-table-row:last-child {
+    border-bottom: none;
+}
+
+.skeleton-table-cell {
+    padding: 16px;
+    vertical-align: middle;
+}
+
+.skeleton-table-cell .skeleton {
+    width: 100%;
+    max-width: 200px;
+}
+
+/* 카드 스켈레톤 */
+.skeleton-card {
+    padding: 20px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* 브리핑 섹션 카드 스타일 */
+.briefing-content .skeleton-card {
+    padding: 24px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.95) 100%);
+    border: 1px solid rgba(0, 122, 255, 0.1);
+    border-radius: 16px;
+}
+
+/* 리스트 아이템 스켈레톤 */
+.skeleton-list-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    margin-bottom: 8px;
+}
+
+.skeleton-list-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* 통계 박스 스켈레톤 */
+.skeleton-stat-box {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.skeleton-stat-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+}
+
+/* Dashboard 스타일과 통합 */
+.dashboard-status-stats .skeleton-stat-box {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* 모달 콘텐츠 스켈레톤 */
+.skeleton-modal-content {
+    padding: 24px;
+}
+
+.skeleton-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.skeleton-modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* 다크모드 지원 (선택사항) */
+@media (prefers-color-scheme: dark) {
+    .skeleton {
+        background: linear-gradient(
+            90deg,
+            #2a2a2a 0px,
+            #333333 40px,
+            #2a2a2a 80px
+        );
+        background-size: 200px 100%;
+    }
+
+    .skeleton-card,
+    .skeleton-list-item,
+    .skeleton-stat-box {
+        background: #1f1f1f;
+        border-color: #333333;
+    }
+
+    .skeleton-table thead th {
+        background-color: #1f1f1f;
+        border-bottom-color: #333333;
+    }
+
+    .skeleton-table-row {
+        border-bottom-color: #333333;
+    }
+}

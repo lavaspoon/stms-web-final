@@ -4,6 +4,7 @@ import Slider from 'rc-slider';
 import 'rc-slider/assets/index.css';
 import { inputTaskActivity, getTaskActivity, getAllPreviousActivities } from '../api/taskApi';
 import { checkSpelling, recommendActivity, improveContext } from '../api/aiApi';
+import { formatDate } from '../utils/dateUtils';
 import useUserStore from '../store/userStore';
 import './TaskInputModal.css';
 
@@ -516,17 +517,17 @@ function TaskInputModal({ isOpen, onClose, task }) {
     // 평가기준 텍스트 변환 (영어 -> 한글)
     let evaluationText = '-';
     if (task?.performance?.evaluation) {
-        evaluationText = task.performance.evaluation === 'quantitative' ? '정량' : 
-                        task.performance.evaluation === 'qualitative' ? '정성' : 
-                        task.performance.evaluation;
+        evaluationText = task.performance.evaluation === 'quantitative' ? '정량' :
+            task.performance.evaluation === 'qualitative' ? '정성' :
+                task.performance.evaluation;
     } else if (task?.performanceOriginal?.evaluation) {
-        evaluationText = task.performanceOriginal.evaluation === 'quantitative' ? '정량' : 
-                        task.performanceOriginal.evaluation === 'qualitative' ? '정성' : 
-                        task.performanceOriginal.evaluation;
+        evaluationText = task.performanceOriginal.evaluation === 'quantitative' ? '정량' :
+            task.performanceOriginal.evaluation === 'qualitative' ? '정성' :
+                task.performanceOriginal.evaluation;
     } else if (task?.evaluationType) {
-        evaluationText = task.evaluationType === 'quantitative' ? '정량' : 
-                        task.evaluationType === 'qualitative' ? '정성' : 
-                        task.evaluationType;
+        evaluationText = task.evaluationType === 'quantitative' ? '정량' :
+            task.evaluationType === 'qualitative' ? '정성' :
+                task.evaluationType;
     }
 
     return (
@@ -542,6 +543,14 @@ function TaskInputModal({ isOpen, onClose, task }) {
                             <span className={`task-input-evaluation-badge ${isQuantitative ? 'quantitative' : 'qualitative'}`}>
                                 {evaluationText}
                             </span>
+                            {task.startDate && task.endDate && (
+                                <div className="task-period-info">
+                                    <Calendar size={14} />
+                                    <span className="task-period-text">
+                                        {formatDate(task.startDate)} ~ {formatDate(task.endDate)}
+                                    </span>
+                                </div>
+                            )}
                             {task.managers && task.managers.length > 0 && (
                                 <div className="task-managers-info-inline">
                                     {getManagersByDept(task.managers).map((deptGroup, idx) => (
