@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Send, RefreshCw, CheckCircle, XCircle, ChevronLeft, ChevronRight, CheckSquare, Square, Clock } from 'lucide-react';
+import { Bell, Send, RefreshCw, CheckCircle, XCircle, ChevronLeft, ChevronRight, CheckSquare, Square, Clock, AlertCircle } from 'lucide-react';
 import useUserStore from '../store/userStore';
 import { getAllNotifications, sendNotifications, getNotInputtedTasks } from '../api/notificationApi';
 import { formatDate } from '../utils/dateUtils';
@@ -150,28 +150,16 @@ function NotificationDashboard() {
 
     return (
         <div className="notification-dashboard">
-            <div className="dashboard-header">
-                <div className="header-content">
-                    <div className="header-title">
-                        <Bell size={24} />
-                        <h1>알림 관리 대시보드</h1>
-                    </div>
-                    <p className="header-subtitle">이번 달 미입력된 과제를 선택하여 담당자에게 알림을 전송할 수 있습니다.</p>
+            <div className="notification-page-header">
+                <div>
+                    <h1>알림 관리 대시보드</h1>
+                    <p className="notification-page-subtitle">이번 달 미입력된 과제를 선택하여 담당자에게 알림을 전송할 수 있습니다.</p>
                 </div>
             </div>
 
             {/* 알림 전송 섹션 */}
             <div className="send-section">
                 <div className="send-card">
-                    <div className="send-card-header">
-                        <div className="send-card-title">
-                            <Bell size={22} />
-                            <h2>알림 전송</h2>
-                        </div>
-                        <div className="send-card-badge">
-                            {notInputtedTasks.length}개 과제
-                        </div>
-                    </div>
                     <div className="send-form">
                         <div className="form-group-modern">
                             <label className="form-label-modern">알림 유형 선택</label>
@@ -207,6 +195,7 @@ function NotificationDashboard() {
                         <div className="tasks-selection-modern">
                             <div className="tasks-header-modern">
                                 <div className="tasks-header-left">
+                                    <AlertCircle size={18} className="tasks-header-icon" />
                                     <h3>미입력 과제 목록</h3>
                                     <span className="tasks-count">{selectedTaskIds.size}개 선택됨</span>
                                 </div>
@@ -218,12 +207,12 @@ function NotificationDashboard() {
                                     >
                                         {selectedTaskIds.size === notInputtedTasks.length && notInputtedTasks.length > 0 ? (
                                             <>
-                                                <CheckSquare size={16} />
+                                                <CheckSquare size={14} />
                                                 <span>전체 해제</span>
                                             </>
                                         ) : (
                                             <>
-                                                <Square size={16} />
+                                                <Square size={14} />
                                                 <span>전체 선택</span>
                                             </>
                                         )}
@@ -234,7 +223,7 @@ function NotificationDashboard() {
                                         disabled={tasksLoading}
                                         title="새로고침"
                                     >
-                                        <RefreshCw size={16} className={tasksLoading ? 'spinning' : ''} />
+                                        <RefreshCw size={14} className={tasksLoading ? 'spinning' : ''} />
                                     </button>
                                 </div>
                             </div>
@@ -257,9 +246,9 @@ function NotificationDashboard() {
                                         >
                                             <div className="task-checkbox-modern">
                                                 {selectedTaskIds.has(task.taskId) ? (
-                                                    <CheckSquare size={20} />
+                                                    <CheckSquare size={18} />
                                                 ) : (
-                                                    <Square size={20} />
+                                                    <Square size={18} />
                                                 )}
                                             </div>
                                             <div className="task-info-modern">
@@ -283,12 +272,12 @@ function NotificationDashboard() {
                             >
                                 {sending ? (
                                     <>
-                                        <RefreshCw size={20} className="spinning" />
+                                        <RefreshCw size={18} className="spinning" />
                                         <span>전송 중...</span>
                                     </>
                                 ) : (
                                     <>
-                                        <Send size={20} />
+                                        <Send size={18} />
                                         <span>알림 전송하기</span>
                                         {selectedTaskIds.size > 0 && (
                                             <span className="send-count">{selectedTaskIds.size}</span>
@@ -306,7 +295,7 @@ function NotificationDashboard() {
                 <div className="notification-section-header">
                     <h2>알림 내역 ({totalElements}개)</h2>
                     <button className="refresh-btn" onClick={() => loadNotifications(currentPage)} disabled={loading}>
-                        <RefreshCw size={18} className={loading ? 'spinning' : ''} />
+                        <RefreshCw size={16} className={loading ? 'spinning' : ''} />
                         <span>새로고침</span>
                     </button>
                 </div>
@@ -385,7 +374,7 @@ function NotificationDashboard() {
                                     onClick={() => loadNotifications(currentPage - 1)}
                                     disabled={currentPage === 0}
                                 >
-                                    <ChevronLeft size={18} />
+                                    <ChevronLeft size={16} />
                                     <span>이전</span>
                                 </button>
                                 <div className="page-info">
@@ -398,7 +387,7 @@ function NotificationDashboard() {
                                     disabled={currentPage >= totalPages - 1}
                                 >
                                     <span>다음</span>
-                                    <ChevronRight size={18} />
+                                    <ChevronRight size={16} />
                                 </button>
                             </div>
                         )}

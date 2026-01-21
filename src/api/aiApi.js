@@ -76,17 +76,61 @@ export const generateBriefing = async (tasks) => {
  * 월간 보고서 생성
  * @param {String} taskType - 과제 유형 ('OI' 또는 '중점추진')
  * @param {Array} tasks - 과제 목록 (각 과제는 { taskName, activityContent } 형태)
+ * @param {String} format - 보고서 형식 ('html', 'markdown', null=markdown)
  * @returns {Promise<String>} 생성된 월간 보고서
  */
-export const generateMonthlyReport = async (taskType, tasks) => {
+export const generateMonthlyReport = async (taskType, tasks, format = 'markdown') => {
     try {
         const response = await axios.post(`${API_BASE_URL}/generate-monthly-report`, {
             taskType,
-            tasks
+            tasks,
+            format
         });
         return response.data.result;
     } catch (error) {
         console.error('월간 보고서 생성 실패:', error);
+        throw error;
+    }
+};
+
+/**
+ * 종합 보고서 생성
+ * @param {String} taskType - 과제 유형 ('OI' 또는 '중점추진')
+ * @param {Array} tasks - 과제 목록 (각 과제는 { taskName, activities } 형태)
+ * @param {String} format - 보고서 형식 ('html', 'markdown', null=markdown)
+ * @returns {Promise<String>} 생성된 종합 보고서
+ */
+export const generateComprehensiveReport = async (taskType, tasks, format = 'markdown') => {
+    try {
+        const response = await axios.post(`${API_BASE_URL}/generate-comprehensive-report`, {
+            taskType,
+            tasks,
+            format
+        });
+        return response.data.result;
+    } catch (error) {
+        console.error('종합 보고서 생성 실패:', error);
+        throw error;
+    }
+};
+
+/**
+ * 커스텀 보고서 생성 (질문 기반)
+ * @param {String} taskType - 과제 유형 ('OI' 또는 '중점추진')
+ * @param {Array} tasks - 과제 목록
+ * @param {String} question - 질문
+ * @returns {Promise<String>} 생성된 커스텀 보고서
+ */
+export const generateCustomReport = async (taskType, tasks, question) => {
+    try {
+        const response = await axios.post(`${API_BASE_URL}/generate-custom-report`, {
+            taskType,
+            tasks,
+            customQuestion: question
+        });
+        return response.data.result;
+    } catch (error) {
+        console.error('커스텀 보고서 생성 실패:', error);
         throw error;
     }
 };

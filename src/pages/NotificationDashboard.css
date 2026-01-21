@@ -1,40 +1,26 @@
 .notification-dashboard {
-    padding: 24px;
     max-width: 1400px;
     margin: 0 auto;
 }
 
-.dashboard-header {
-    margin-bottom: 24px;
-}
-
-.header-content {
+.notification-page-header {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 28px;
 }
 
-.header-title {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.header-title h1 {
-    font-size: 28px;
+.notification-page-header h1 {
+    font-size: 32px;
     font-weight: 600;
     color: #1d1d1f;
-    margin: 0;
+    margin: 0 0 8px 0;
     letter-spacing: -0.022em;
 }
 
-.header-title svg {
-    color: #007aff;
-}
-
-.header-subtitle {
+.notification-page-subtitle {
     font-size: 15px;
-    color: #6b7280;
+    color: #86868b;
     margin: 0;
     letter-spacing: -0.016em;
 }
@@ -45,39 +31,20 @@
 }
 
 .send-card {
-    background: linear-gradient(135deg, #ffffff 0%, #f8faff 100%);
-    border-radius: 20px;
-    padding: 32px;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04);
-    border: 1px solid rgba(0, 122, 255, 0.08);
-    position: relative;
-    overflow: hidden;
-}
-
-.send-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, #007aff 0%, #5ac8fa 50%, #007aff 100%);
-    background-size: 200% 100%;
-    animation: shimmer 3s ease-in-out infinite;
-}
-
-@keyframes shimmer {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
+    background: white;
+    border-radius: 14px;
+    padding: 24px;
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .send-card-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 28px;
-    padding-bottom: 20px;
-    border-bottom: 2px solid rgba(0, 122, 255, 0.1);
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .send-card-title {
@@ -88,29 +55,24 @@
 
 .send-card-title svg {
     color: #007aff;
-    filter: drop-shadow(0 2px 4px rgba(0, 122, 255, 0.2));
 }
 
 .send-card-title h2 {
-    font-size: 22px;
-    font-weight: 700;
+    font-size: 18px;
+    font-weight: 600;
     color: #1d1d1f;
     margin: 0;
     letter-spacing: -0.022em;
-    background: linear-gradient(135deg, #007aff 0%, #5ac8fa 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
 }
 
 .send-card-badge {
-    padding: 6px 14px;
-    background: linear-gradient(135deg, #007aff 0%, #5ac8fa 100%);
-    color: white;
-    border-radius: 20px;
+    padding: 4px 12px;
+    background: #f9fafb;
+    color: #6b7280;
+    border-radius: 8px;
     font-size: 13px;
-    font-weight: 600;
-    box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+    font-weight: 500;
+    border: 1px solid #e5e7eb;
 }
 
 .send-form {
@@ -126,11 +88,10 @@
 }
 
 .form-label-modern {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
-    color: #6b7280;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    color: #374151;
+    letter-spacing: -0.016em;
 }
 
 .radio-group-modern {
@@ -143,45 +104,23 @@
     position: relative;
     display: flex;
     align-items: center;
-    padding: 16px 20px;
-    border: 2px solid #e5e7eb;
-    border-radius: 16px;
-    background: white;
+    padding: 8px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #fafafa;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    overflow: hidden;
-}
-
-.radio-label-modern::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg, rgba(0, 122, 255, 0.05) 0%, rgba(90, 200, 250, 0.05) 100%);
-    opacity: 0;
-    transition: opacity 0.3s;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .radio-label-modern:hover {
-    border-color: #007aff;
-    transform: translateY(-2px);
-    box-shadow: 0 8px 16px rgba(0, 122, 255, 0.15);
-}
-
-.radio-label-modern:hover::before {
-    opacity: 1;
+    border-color: #d1d5db;
+    background: #f9fafb;
 }
 
 .radio-label-modern.active {
     border-color: #007aff;
-    background: linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%);
-    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.2), inset 0 0 0 1px rgba(0, 122, 255, 0.1);
-}
-
-.radio-label-modern.active::before {
-    opacity: 1;
+    background: #eff6ff;
+    box-shadow: 0 1px 3px rgba(0, 122, 255, 0.15);
 }
 
 .radio-label-modern input[type="radio"] {
@@ -198,15 +137,15 @@
 }
 
 .radio-title {
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 600;
-    color: #1d1d1f;
+    color: #374151;
     letter-spacing: -0.016em;
 }
 
 .radio-subtitle {
-    font-size: 12px;
-    color: #6b7280;
+    font-size: 11px;
+    color: #9ca3af;
     letter-spacing: -0.01em;
 }
 
@@ -215,76 +154,59 @@
 }
 
 .radio-label-modern.active .radio-subtitle {
-    color: #5ac8fa;
+    color: #3b82f6;
 }
 
 .send-btn-container {
     margin-top: 8px;
+    display: flex;
+    justify-content: flex-end;
 }
 
 .send-btn-modern {
-    width: 100%;
-    display: flex;
+    width: auto;
+    min-width: 160px;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    padding: 16px 32px;
-    background: linear-gradient(135deg, #007aff 0%, #5ac8fa 100%);
+    gap: 6px;
+    padding: 10px 14px;
+    background: #007aff;
     color: white;
     border: none;
-    border-radius: 14px;
-    font-size: 16px;
-    font-weight: 700;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     letter-spacing: -0.016em;
-    box-shadow: 0 4px 16px rgba(0, 122, 255, 0.4);
-    position: relative;
-    overflow: hidden;
-}
-
-.send-btn-modern::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-    transition: left 0.5s;
-}
-
-.send-btn-modern:hover:not(:disabled)::before {
-    left: 100%;
 }
 
 .send-btn-modern:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(0, 122, 255, 0.5);
+    background: #0051d5;
 }
 
 .send-btn-modern:active:not(:disabled) {
-    transform: translateY(0);
+    background: #003d9e;
 }
 
 .send-btn-modern:disabled {
     background: #d1d5db;
     cursor: not-allowed;
     opacity: 0.6;
-    box-shadow: none;
 }
 
 .send-count {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 24px;
-    height: 24px;
-    padding: 0 8px;
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 12px;
-    font-size: 13px;
-    font-weight: 700;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
     margin-left: 4px;
 }
 
@@ -315,13 +237,13 @@
 .refresh-btn {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 8px 16px;
+    gap: 4px;
+    padding: 6px 12px;
     background: #f9fafb;
     border: 1px solid #d1d5db;
-    border-radius: 8px;
+    border-radius: 6px;
     color: #374151;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
@@ -459,6 +381,7 @@
     from {
         transform: rotate(0deg);
     }
+
     to {
         transform: rotate(360deg);
     }
@@ -466,11 +389,11 @@
 
 /* 과제 선택 목록 - 모던 디자인 */
 .tasks-selection-modern {
-    border: 2px solid #e5e7eb;
-    border-radius: 16px;
-    padding: 20px;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 16px;
     background: white;
-    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.02);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
 .tasks-header-modern {
@@ -478,31 +401,39 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 16px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid #f3f4f6;
+    padding: 12px 16px;
+    background: #eff6ff;
+    border-radius: 8px;
+    border: 1px solid #bfdbfe;
 }
 
 .tasks-header-left {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
+}
+
+.tasks-header-icon {
+    color: #007aff;
+    flex-shrink: 0;
 }
 
 .tasks-header-modern h3 {
     font-size: 16px;
-    font-weight: 700;
-    color: #1d1d1f;
+    font-weight: 600;
+    color: #1e40af;
     margin: 0;
     letter-spacing: -0.016em;
 }
 
 .tasks-count {
     padding: 4px 10px;
-    background: linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%);
-    color: #007aff;
-    border-radius: 12px;
+    background: #dbeafe;
+    color: #1e40af;
+    border-radius: 6px;
     font-size: 12px;
     font-weight: 600;
+    border: 1px solid #93c5fd;
 }
 
 .tasks-actions-modern {
@@ -513,30 +444,28 @@
 .action-btn-modern {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 8px 14px;
-    background: #f9fafb;
-    border: 1.5px solid #e5e7eb;
-    border-radius: 10px;
-    color: #374151;
-    font-size: 13px;
-    font-weight: 600;
+    gap: 4px;
+    padding: 5px 10px;
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    color: #6b7280;
+    font-size: 12px;
+    font-weight: 500;
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .action-btn-modern.icon-only {
-    padding: 8px;
-    min-width: 36px;
+    padding: 5px;
+    min-width: 28px;
     justify-content: center;
 }
 
 .action-btn-modern:hover:not(:disabled) {
-    background: #f3f4f6;
-    border-color: #007aff;
-    color: #007aff;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0, 122, 255, 0.15);
+    background: #f9fafb;
+    border-color: #9ca3af;
+    color: #374151;
 }
 
 .action-btn-modern:disabled {
@@ -547,8 +476,8 @@
 .tasks-list-modern {
     max-height: 320px;
     overflow-y: auto;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
     gap: 10px;
     padding-right: 4px;
 }
@@ -574,74 +503,53 @@
 .task-item-modern {
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 14px 16px;
-    background: #fafafa;
-    border: 2px solid #e5e7eb;
-    border-radius: 12px;
+    gap: 12px;
+    padding: 12px 14px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
     cursor: pointer;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    overflow: hidden;
-}
-
-.task-item-modern::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 0;
-    background: linear-gradient(135deg, #007aff 0%, #5ac8fa 100%);
-    transition: width 0.3s;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .task-item-modern:hover {
-    border-color: #007aff;
-    background: #f0f9ff;
-    transform: translateX(4px);
-    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.15);
-}
-
-.task-item-modern:hover::before {
-    width: 4px;
+    border-color: #d1d5db;
+    background: #f9fafb;
 }
 
 .task-item-modern.selected {
-    border-color: #007aff;
-    background: linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%);
-    box-shadow: 0 4px 16px rgba(0, 122, 255, 0.2);
-}
-
-.task-item-modern.selected::before {
-    width: 4px;
+    border-color: #9ca3af;
+    background: #f3f4f6;
 }
 
 .task-checkbox-modern {
     display: flex;
     align-items: center;
-    color: #007aff;
+    color: #6b7280;
     flex-shrink: 0;
-    z-index: 1;
+}
+
+.task-item-modern.selected .task-checkbox-modern {
+    color: #6b7280;
 }
 
 .task-info-modern {
     flex: 1;
     min-width: 0;
-    z-index: 1;
 }
 
 .task-name-modern {
-    font-size: 15px;
-    font-weight: 600;
-    color: #1d1d1f;
-    margin-bottom: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 4px;
     letter-spacing: -0.016em;
     line-height: 1.4;
 }
 
 .task-item-modern.selected .task-name-modern {
-    color: #007aff;
+    color: #374151;
+    font-weight: 600;
 }
 
 .task-details-modern {
@@ -654,10 +562,11 @@
     align-items: center;
     gap: 4px;
     padding: 2px 8px;
-    background: rgba(0, 122, 255, 0.08);
+    background: #f3f4f6;
     border-radius: 6px;
-    color: #1e40af;
-    font-weight: 500;
+    color: #6b7280;
+    font-weight: 400;
+    font-size: 12px;
 }
 
 .loading-state-modern,
@@ -725,13 +634,13 @@
 .page-btn {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 8px 16px;
+    gap: 4px;
+    padding: 6px 12px;
     background: white;
     border: 1px solid #d1d5db;
-    border-radius: 8px;
+    border-radius: 6px;
     color: #374151;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;

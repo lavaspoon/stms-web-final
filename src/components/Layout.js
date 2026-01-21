@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Target, Briefcase, LogOut, User, Bell } from 'lucide-react';
+import { LayoutDashboard, Target, Briefcase, LogOut, User, Bell, FileText } from 'lucide-react';
 import useUserStore from '../store/userStore';
 import { getTasksByType } from '../api/taskApi';
 import './Layout.css';
@@ -82,11 +82,23 @@ function Layout({ children }) {
                         </NavLink>
                     )}
 
+                    {/* AI 보고서 생성 */}
+                    <NavLink to="/ai-report" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+                        <FileText size={20} />
+                        <span>AI 보고서 생성</span>
+                    </NavLink>
+
                     <NavLink to="/oi-tasks" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
                         <Target size={20} />
                         <span>OI 과제</span>
                         {notInputtedCount.oi > 0 && (
-                            <span className="nav-badge">{notInputtedCount.oi}</span>
+                            <span 
+                                className="nav-badge" 
+                                title="미입력과제"
+                                data-tooltip="미입력과제"
+                            >
+                                {notInputtedCount.oi}
+                            </span>
                         )}
                     </NavLink>
 
@@ -94,7 +106,13 @@ function Layout({ children }) {
                         <Briefcase size={20} />
                         <span>중점추진과제</span>
                         {notInputtedCount.key > 0 && (
-                            <span className="nav-badge">{notInputtedCount.key}</span>
+                            <span 
+                                className="nav-badge" 
+                                title="미입력과제"
+                                data-tooltip="미입력과제"
+                            >
+                                {notInputtedCount.key}
+                            </span>
                         )}
                     </NavLink>
 
