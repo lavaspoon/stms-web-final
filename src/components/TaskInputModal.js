@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, FileText, TrendingUp, Calendar, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Sparkles, CheckCircle, Wand2, Clock, AlertCircle, XCircle } from 'lucide-react';
+import { X, FileText, TrendingUp, Calendar, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Sparkles, CheckCircle, Wand2, Clock, AlertCircle, XCircle, Upload, Download, Trash2, Paperclip } from 'lucide-react';
 import Slider from 'rc-slider';
 import 'rc-slider/assets/index.css';
-import { inputTaskActivity, getTaskActivity, getAllPreviousActivities } from '../api/taskApi';
+import { inputTaskActivity, getTaskActivity, getAllPreviousActivities, uploadActivityFile, getActivityFiles, downloadActivityFile, deleteActivityFile } from '../api/taskApi';
 import { checkSpelling, recommendActivity, improveContext } from '../api/aiApi';
 import { formatDate } from '../utils/dateUtils';
 import useUserStore from '../store/userStore';
@@ -55,6 +55,12 @@ function TaskInputModal({ isOpen, onClose, task }) {
     // 뷰어 모드용 현재 보고 있는 월 상태
     const [viewingMonth, setViewingMonth] = useState(currentMonth);
 
+    // 파일 관련 상태
+    const [files, setFiles] = useState([]);
+    const [uploadingFiles, setUploadingFiles] = useState([]);
+    const [currentActivityId, setCurrentActivityId] = useState(null);
+    const fileInputRef = useRef(null);
+
     // 기존 데이터 로드
     useEffect(() => {
         if (isOpen && task) {
@@ -85,43 +91,51 @@ function TaskInputModal({ isOpen, onClose, task }) {
     const loadExistingData = async () => {
         try {
             setLoading(true);
+            let data;
             // 뷰어 모드: 현재 보고 있는 월의 활동 내역 로드
             if (isReadOnly) {
-                const data = await getTaskActivity(task.id, currentYear, viewingMonth);
-                if (data) {
-                    setFormData({
-                        activityContent: data.activityContent || '',
-                        status: task.status || 'inProgress',
-                        actualValue: data.actualValue || ''
-                    });
-                } else {
-                    setFormData({
-                        activityContent: '',
-                        status: task.status || 'inProgress',
-                        actualValue: ''
-                    });
-                }
+                data = await getTaskActivity(task.id, currentYear, viewingMonth);
             } else {
                 // 일반 모드: 현재 월의 활동 내역 로드
-                const data = await getTaskActivity(task.id);
-                if (data) {
-                    setFormData({
-                        activityContent: data.activityContent || '',
-                        status: task.status || 'inProgress',
-                        actualValue: data.actualValue || ''
-                    });
+                data = await getTaskActivity(task.id);
+            }
+
+            if (data) {
+                setFormData({
+                    activityContent: data.activityContent || '',
+                    status: task.status || 'inProgress',
+                    actualValue: data.actualValue || ''
+                });
+                setCurrentActivityId(data.activityId);
+                // 파일 목록 로드
+                if (data.activityId) {
+                    loadFiles(data.activityId);
                 } else {
-                    setFormData({
-                        activityContent: '',
-                        status: task.status || 'inProgress',
-                        actualValue: ''
-                    });
+                    setFiles([]);
                 }
+            } else {
+                setFormData({
+                    activityContent: '',
+                    status: task.status || 'inProgress',
+                    actualValue: ''
+                });
+                setCurrentActivityId(null);
+                setFiles([]);
             }
         } catch (error) {
             console.error('활동내역 조회 실패:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadFiles = async (activityId) => {
+        try {
+            const fileList = await getActivityFiles(activityId);
+            setFiles(fileList || []);
+        } catch (error) {
+            console.error('파일 목록 조회 실패:', error);
+            setFiles([]);
         }
     };
 
@@ -165,12 +179,21 @@ function TaskInputModal({ isOpen, onClose, task }) {
                             status: task.status || 'inProgress',
                             actualValue: data.actualValue || ''
                         });
+                        setCurrentActivityId(data.activityId);
+                        // 파일 목록 로드
+                        if (data.activityId) {
+                            await loadFiles(data.activityId);
+                        } else {
+                            setFiles([]);
+                        }
                     } else {
                         setFormData({
                             activityContent: '',
                             status: task.status || 'inProgress',
                             actualValue: ''
                         });
+                        setCurrentActivityId(null);
+                        setFiles([]);
                     }
                 } catch (error) {
                     console.error('활동내역 조회 실패:', error);
@@ -179,6 +202,8 @@ function TaskInputModal({ isOpen, onClose, task }) {
                         status: task.status || 'inProgress',
                         actualValue: ''
                     });
+                    setCurrentActivityId(null);
+                    setFiles([]);
                 } finally {
                     setLoading(false);
                 }
@@ -314,6 +339,75 @@ function TaskInputModal({ isOpen, onClose, task }) {
         }
     };
 
+    // 파일 업로드 핸들러
+    const handleFileUpload = async (e) => {
+        const selectedFiles = Array.from(e.target.files);
+        if (selectedFiles.length === 0) return;
+
+        // 활동내역이 저장되어 있지 않으면 먼저 저장
+        if (!currentActivityId) {
+            alert('먼저 활동내역을 저장해주세요.');
+            e.target.value = ''; // 파일 선택 초기화
+            return;
+        }
+
+        for (const file of selectedFiles) {
+            try {
+                setUploadingFiles(prev => [...prev, file.name]);
+                await uploadActivityFile(currentActivityId, file, user.skid);
+                await loadFiles(currentActivityId);
+            } catch (error) {
+                console.error('파일 업로드 실패:', error);
+                alert(`파일 "${file.name}" 업로드 중 오류가 발생했습니다.`);
+            } finally {
+                setUploadingFiles(prev => prev.filter(name => name !== file.name));
+            }
+        }
+        e.target.value = ''; // 파일 선택 초기화
+    };
+
+    // 파일 다운로드 핸들러
+    const handleFileDownload = async (file) => {
+        try {
+            const blob = await downloadActivityFile(file.fileId);
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = file.originalFileName;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (error) {
+            console.error('파일 다운로드 실패:', error);
+            alert('파일 다운로드 중 오류가 발생했습니다.');
+        }
+    };
+
+    // 파일 삭제 핸들러
+    const handleFileDelete = async (fileId) => {
+        if (!window.confirm('파일을 삭제하시겠습니까?')) {
+            return;
+        }
+
+        try {
+            await deleteActivityFile(fileId);
+            await loadFiles(currentActivityId);
+        } catch (error) {
+            console.error('파일 삭제 실패:', error);
+            alert('파일 삭제 중 오류가 발생했습니다.');
+        }
+    };
+
+    // 파일 크기 포맷팅
+    const formatFileSize = (bytes) => {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -330,11 +424,17 @@ function TaskInputModal({ isOpen, onClose, task }) {
             setSubmitting(true);
 
             // 활동내역 저장 (정량일 때만 actualValue 전송)
-            await inputTaskActivity(task.id, user.skid, {
+            const response = await inputTaskActivity(task.id, user.skid, {
                 activityContent: formData.activityContent,
                 actualValue: isQuantitative && formData.actualValue ? parseFloat(formData.actualValue) : null,
                 status: formData.status
             });
+
+            // 저장 후 activityId가 있으면 파일 목록 다시 로드
+            if (response && response.activityId) {
+                setCurrentActivityId(response.activityId);
+                await loadFiles(response.activityId);
+            }
 
             alert('활동내역이 성공적으로 저장되었습니다.');
             onClose();
@@ -727,6 +827,113 @@ function TaskInputModal({ isOpen, onClose, task }) {
                         </div>
                     </section>
 
+                    {/* 첨부파일 섹션 */}
+                    <section className="form-section file-section">
+                        <div className="file-section-header">
+                            <Paperclip size={14} />
+                            <h3>첨부파일</h3>
+                        </div>
+                        <div className="file-section-content">
+                            {!isReadOnly && (
+                                <div className="file-upload-area">
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        onChange={handleFileUpload}
+                                        multiple
+                                        style={{ display: 'none' }}
+                                        disabled={!currentActivityId}
+                                    />
+                                    <button
+                                        type="button"
+                                        className="file-upload-btn"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={!currentActivityId || submitting}
+                                    >
+                                        <Upload size={14} />
+                                        <span>파일 선택</span>
+                                    </button>
+                                    {!currentActivityId && (
+                                        <span className="file-upload-hint">
+                                            활동내역을 먼저 저장해주세요.
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+
+                            {uploadingFiles.length > 0 && (
+                                <div className="file-uploading-list">
+                                    {uploadingFiles.map((fileName, idx) => (
+                                        <div key={idx} className="file-item uploading">
+                                            <Paperclip size={14} />
+                                            <span>{fileName}</span>
+                                            <span className="uploading-text">업로드 중...</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {files.length > 0 && (
+                                <div className="file-list">
+                                    {files.map((file) => (
+                                        <div key={file.fileId} className="file-item">
+                                            <Paperclip size={14} />
+                                            <span className="file-name" title={file.originalFileName}>
+                                                {file.originalFileName}
+                                            </span>
+                                            <span className="file-size">{formatFileSize(file.fileSize)}</span>
+                                            {!isReadOnly && (
+                                                <div className="file-actions">
+                                                    <button
+                                                        type="button"
+                                                        className="file-action-btn download"
+                                                        onClick={() => handleFileDownload(file)}
+                                                        title="다운로드"
+                                                    >
+                                                        <Download size={14} />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="file-action-btn delete"
+                                                        onClick={() => handleFileDelete(file.fileId)}
+                                                        title="삭제"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
+                                            )}
+                                            {isReadOnly && (
+                                                <button
+                                                    type="button"
+                                                    className="file-action-btn download"
+                                                    onClick={() => handleFileDownload(file)}
+                                                    title="다운로드"
+                                                >
+                                                    <Download size={14} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* 활동내역이 저장된 경우: 파일이 없으면 "첨부파일 없음" 표시 */}
+                            {files.length === 0 && uploadingFiles.length === 0 && currentActivityId && (
+                                <div className="file-empty-state">
+                                    <Paperclip size={14} />
+                                    <span>첨부파일 없음</span>
+                                </div>
+                            )}
+
+                            {/* 읽기 전용 모드: 활동내역이 없는 경우에도 "첨부파일 없음" 표시 */}
+                            {isReadOnly && !currentActivityId && files.length === 0 && uploadingFiles.length === 0 && (
+                                <div className="file-empty-state">
+                                    <Paperclip size={14} />
+                                    <span>첨부파일 없음</span>
+                                </div>
+                            )}
+                        </div>
+                    </section>
 
                     {/* 목표 대비 실적 - 정량 평가일 때만 표시 */}
                     {isQuantitative && (

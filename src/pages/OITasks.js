@@ -1,13 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, AlertCircle, CheckCircle, Clock, XCircle, Check, FileText } from 'lucide-react';
+import { Plus, Search, Filter, AlertCircle, CheckCircle, Clock, XCircle, Check } from 'lucide-react';
 import useUserStore from '../store/userStore';
 import TaskRegisterModal from '../components/TaskRegisterModal';
 import TaskInputModal from '../components/TaskInputModal';
 import TaskDetailModal from '../components/TaskDetailModal';
-import MonthlyReportModal from '../components/MonthlyReportModal';
-import { getTasksByType, getTaskActivity } from '../api/taskApi';
-import { generateMonthlyReport } from '../api/aiApi';
-import { formatDate } from '../utils/dateUtils';
+import { getTasksByType } from '../api/taskApi';
 import { TableSkeleton } from '../components/Skeleton';
 import './OITasks.css';
 import './Dashboard.css';
@@ -52,9 +49,6 @@ function OITasks() {
     const [isInputModalOpen, setIsInputModalOpen] = useState(false);
     const [detailTaskId, setDetailTaskId] = useState(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-    const [isMonthlyReportModalOpen, setIsMonthlyReportModalOpen] = useState(false);
-    const [monthlyReport, setMonthlyReport] = useState('');
-    const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
     // 성과지표 영어 -> 한글 변환 함수
     const translatePerformanceType = (type) => {
@@ -265,56 +259,6 @@ function OITasks() {
         setIsRegisterModalOpen(true);
     };
 
-    // 월간 보고서 생성
-    const handleGenerateMonthlyReport = async () => {
-        try {
-            setIsGeneratingReport(true);
-            setIsMonthlyReportModalOpen(true);
-            setMonthlyReport('');
-
-            // 현재 월의 과제 목록 수집
-            const currentDate = new Date();
-            const currentYear = currentDate.getFullYear();
-            const currentMonth = currentDate.getMonth() + 1;
-
-            // 모든 과제의 현재 월 활동내역 조회
-            const tasksWithActivities = await Promise.all(
-                tasks.map(async (task) => {
-                    try {
-                        const activity = await getTaskActivity(task.id);
-                        // 현재 월인지 확인
-                        if (activity.activityYear === currentYear && activity.activityMonth === currentMonth) {
-                            return {
-                                taskName: task.name,
-                                activityContent: activity.activityContent || null
-                            };
-                        } else {
-                            return {
-                                taskName: task.name,
-                                activityContent: null
-                            };
-                        }
-                    } catch (error) {
-                        console.error(`과제 ${task.id} 활동내역 조회 실패:`, error);
-                        return {
-                            taskName: task.name,
-                            activityContent: null
-                        };
-                    }
-                })
-            );
-
-            // AI API 호출
-            const report = await generateMonthlyReport('OI', tasksWithActivities);
-            setMonthlyReport(report);
-        } catch (error) {
-            console.error('월간 보고서 생성 실패:', error);
-            alert('월간 보고서 생성 중 오류가 발생했습니다.');
-            setIsMonthlyReportModalOpen(false);
-        } finally {
-            setIsGeneratingReport(false);
-        }
-    };
 
     // 임시 데이터 (API 연동 전 백업)
     const sampleTasks = [
@@ -524,14 +468,6 @@ function OITasks() {
                     <p className="oi-page-subtitle">Operational Innovation 과제를 관리합니다</p>
                 </div>
                 <div style={{ display: 'flex', gap: '12px' }}>
-                    <button
-                        className="oi-primary-btn"
-                        onClick={handleGenerateMonthlyReport}
-                        style={{ background: '#10b981' }}
-                    >
-                        <FileText size={18} />
-                        AI 보고서 생성
-                    </button>
                     {isAdmin && (
                         <button className="oi-primary-btn" onClick={() => setIsRegisterModalOpen(true)}>
                             <Plus size={18} />
@@ -813,14 +749,6 @@ function OITasks() {
                     setDetailTaskId(null);
                 }}
                 taskId={detailTaskId}
-            />
-
-            <MonthlyReportModal
-                isOpen={isMonthlyReportModalOpen}
-                onClose={() => setIsMonthlyReportModalOpen(false)}
-                report={monthlyReport}
-                loading={isGeneratingReport}
-                onRegenerate={handleGenerateMonthlyReport}
             />
         </div>
     );

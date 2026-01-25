@@ -171,3 +171,62 @@ export const getAllPreviousActivities = async (taskId, limit = 12) => {
     );
     return response.data;
 };
+
+/**
+ * 활동내역 파일 업로드
+ * @param {Number} activityId - 활동내역 ID
+ * @param {File} file - 업로드할 파일
+ * @param {String} userId - 사용자 ID
+ * @returns {Promise} API 응답
+ */
+export const uploadActivityFile = async (activityId, file, userId) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('userId', userId);
+
+    const response = await axios.post(
+        `${API_BASE_URL}/tasks/activity/${activityId}/files`,
+        formData,
+        {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        }
+    );
+    return response.data;
+};
+
+/**
+ * 활동내역 파일 목록 조회
+ * @param {Number} activityId - 활동내역 ID
+ * @returns {Promise} 파일 목록
+ */
+export const getActivityFiles = async (activityId) => {
+    const response = await axios.get(`${API_BASE_URL}/tasks/activity/${activityId}/files`);
+    return response.data;
+};
+
+/**
+ * 활동내역 파일 다운로드
+ * @param {Number} fileId - 파일 ID
+ * @returns {Promise} 파일 다운로드 URL
+ */
+export const downloadActivityFile = async (fileId) => {
+    const response = await axios.get(
+        `${API_BASE_URL}/tasks/activity/files/${fileId}`,
+        {
+            responseType: 'blob',
+        }
+    );
+    return response.data;
+};
+
+/**
+ * 활동내역 파일 삭제
+ * @param {Number} fileId - 파일 ID
+ * @returns {Promise} API 응답
+ */
+export const deleteActivityFile = async (fileId) => {
+    const response = await axios.delete(`${API_BASE_URL}/tasks/activity/files/${fileId}`);
+    return response.data;
+};

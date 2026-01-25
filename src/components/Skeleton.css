@@ -3,18 +3,17 @@
     0% {
         background-position: -200px 0;
     }
+
     100% {
         background-position: calc(200px + 100%) 0;
     }
 }
 
 .skeleton {
-    background: linear-gradient(
-        90deg,
-        #f0f0f0 0px,
-        #f8f8f8 40px,
-        #f0f0f0 80px
-    );
+    background: linear-gradient(90deg,
+            #f0f0f0 0px,
+            #f8f8f8 40px,
+            #f0f0f0 80px);
     background-size: 200px 100%;
     animation: skeleton-loading 1.5s ease-in-out infinite;
     display: inline-block;
@@ -164,12 +163,10 @@
 /* 다크모드 지원 (선택사항) */
 @media (prefers-color-scheme: dark) {
     .skeleton {
-        background: linear-gradient(
-            90deg,
-            #2a2a2a 0px,
-            #333333 40px,
-            #2a2a2a 80px
-        );
+        background: linear-gradient(90deg,
+                #2a2a2a 0px,
+                #333333 40px,
+                #2a2a2a 80px);
         background-size: 200px 100%;
     }
 

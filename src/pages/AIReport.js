@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Target, Briefcase, FileText, Loader2, Download, AlertCircle, CheckSquare, Square, X, CheckCircle, Code, MessageCircle, Send } from 'lucide-react';
+import { Target, Briefcase, FileText, Loader2, Download, AlertCircle, CheckSquare, Square, X, CheckCircle, Code, Edit, Eye } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import useUserStore from '../store/userStore';
 import { getTasksByType, getTaskActivity, getAllPreviousActivities } from '../api/taskApi';
@@ -13,9 +13,11 @@ function AIReport() {
     
     const [activeTab, setActiveTab] = useState('oi'); // 'oi' or 'key'
     const [tasks, setTasks] = useState([]);
+    const [oiTaskCount, setOiTaskCount] = useState(0);
+    const [keyTaskCount, setKeyTaskCount] = useState(0);
     const [selectedTaskIds, setSelectedTaskIds] = useState(new Set());
     const [reportType, setReportType] = useState(null); // null, 'monthly', or 'comprehensive'
-    const [reportFormat, setReportFormat] = useState('markdown'); // 'html', 'markdown', 'custom'
+    const [reportFormat, setReportFormat] = useState('text'); // 'html', 'text'
     const [isTaskSelectModalOpen, setIsTaskSelectModalOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [loadingActivities, setLoadingActivities] = useState(false);
@@ -23,12 +25,35 @@ function AIReport() {
     const [reportFormatType, setReportFormatType] = useState('markdown'); // 실제 생성된 보고서의 형식
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState(null);
-    // 커스텀 대화형 인터페이스
-    const [customQuestion, setCustomQuestion] = useState('');
-    const [customConversations, setCustomConversations] = useState([]);
-    const [isCustomMode, setIsCustomMode] = useState(false);
+    const [isEditingReport, setIsEditingReport] = useState(false);
+    // 추가 프롬프트로 수정
+    const [modifyPrompt, setModifyPrompt] = useState('');
+    const [isModifying, setIsModifying] = useState(false);
 
     const taskType = activeTab === 'oi' ? 'OI' : '중점추진';
+
+    // 모든 탭의 과제 수 조회 (초기 로드 시 한 번만)
+    useEffect(() => {
+        const loadAllTaskCounts = async () => {
+            if (!user) return;
+            
+            try {
+                const skid = !isAdmin ? (user?.skid || user?.userId) : null;
+                
+                // OI 과제 수 조회
+                const oiData = await getTasksByType('OI', skid);
+                setOiTaskCount(oiData.length);
+                
+                // 중점추진 과제 수 조회
+                const keyData = await getTasksByType('중점추진', skid);
+                setKeyTaskCount(keyData.length);
+            } catch (error) {
+                console.error('과제 수 조회 실패:', error);
+            }
+        };
+
+        loadAllTaskCounts();
+    }, [user, isAdmin]);
 
     // 과제 목록 조회 (기본 정보만)
     useEffect(() => {
@@ -70,9 +95,8 @@ function AIReport() {
         setReportType(type);
         setSelectedTaskIds(new Set());
         setReport('');
-        setReportFormat('markdown');
-        setIsCustomMode(false);
-        setCustomConversations([]);
+        setReportFormat('text');
+        setModifyPrompt('');
         setIsTaskSelectModalOpen(true);
         
         if (type === 'monthly' && tasks.length > 0) {
@@ -216,26 +240,16 @@ function AIReport() {
 
             // AI API 호출
             let generatedReport;
-            if (reportFormat === 'custom') {
-                // 커스텀 모드로 전환
-                setIsCustomMode(true);
-                setCustomConversations([{
-                    role: 'system',
-                    message: '안녕하세요! 보고서에 대해 질문해주세요. 선택한 과제들의 활동내역을 바탕으로 답변드리겠습니다.'
-                }]);
-                setReportFormatType('custom');
-                return;
+            const format = reportFormat === 'html' ? 'html' : 'markdown';
+            
+            // 기본 프롬프트로 보고서 생성
+            if (reportType === 'monthly') {
+                generatedReport = await generateMonthlyReport(taskType, filteredTasks, format);
             } else {
-                setIsCustomMode(false);
-                const format = reportFormat === 'html' ? 'html' : 'markdown';
-                if (reportType === 'monthly') {
-                    generatedReport = await generateMonthlyReport(taskType, filteredTasks, format);
-                } else {
-                    generatedReport = await generateComprehensiveReport(taskType, filteredTasks, format);
-                }
-                setReportFormatType(format);
-                setReport(generatedReport);
+                generatedReport = await generateComprehensiveReport(taskType, filteredTasks, format);
             }
+            setReportFormatType(format);
+            setReport(generatedReport);
         } catch (error) {
             console.error('보고서 생성 실패:', error);
             setError('보고서 생성에 실패했습니다. 다시 시도해주세요.');
@@ -244,24 +258,26 @@ function AIReport() {
         }
     };
 
-    // 커스텀 질문 전송
-    const handleCustomQuestion = async () => {
-        if (!customQuestion.trim()) return;
 
-        const question = customQuestion.trim();
-        setCustomQuestion('');
-        
-        // 사용자 질문 추가
-        setCustomConversations(prev => [...prev, {
-            role: 'user',
-            message: question
-        }]);
+    // 추가 프롬프트로 보고서 수정
+    const handleModifyReport = async () => {
+        if (!modifyPrompt.trim()) {
+            alert('수정할 내용을 입력해주세요.');
+            return;
+        }
+
+        if (selectedTaskIds.size === 0) {
+            alert('과제를 선택해주세요.');
+            return;
+        }
 
         try {
-            setIsGenerating(true);
+            setIsModifying(true);
+            setError(null);
+            
             const selectedTasks = tasks.filter(t => selectedTaskIds.has(t.taskId));
             
-            // 활동내역 가져오기
+            // 각 과제의 활동내역 가져오기
             const tasksWithActivities = await Promise.all(
                 selectedTasks.map(async (task) => {
                     try {
@@ -307,44 +323,41 @@ function AIReport() {
                 ? tasksWithActivities.filter(t => t.activityContent && t.activityContent.trim() !== '')
                 : tasksWithActivities;
 
-            const answer = await generateCustomReport(taskType, filteredTasks, question);
-            
-            setCustomConversations(prev => [...prev, {
-                role: 'assistant',
-                message: answer
-            }]);
+            if (filteredTasks.length === 0) {
+                alert('활동내역이 있는 과제가 없습니다.');
+                setIsModifying(false);
+                return;
+            }
+
+            // 현재 보고서와 추가 프롬프트를 결합하여 수정
+            const combinedPrompt = `다음 보고서를 다음과 같이 수정해주세요:\n\n${modifyPrompt}\n\n기존 보고서:\n${report}`;
+            const modifiedReport = await generateCustomReport(taskType, filteredTasks, combinedPrompt);
+            setReport(modifiedReport);
+            setModifyPrompt('');
         } catch (error) {
-            console.error('질문 처리 실패:', error);
-            setCustomConversations(prev => [...prev, {
-                role: 'error',
-                message: '질문 처리에 실패했습니다. 다시 시도해주세요.'
-            }]);
+            console.error('보고서 수정 실패:', error);
+            setError('보고서 수정에 실패했습니다. 다시 시도해주세요.');
         } finally {
-            setIsGenerating(false);
+            setIsModifying(false);
         }
     };
 
     // 보고서 다운로드
     const handleDownloadReport = () => {
-        if (!report && customConversations.length === 0) return;
-
         let content = '';
         let filename = '';
         let mimeType = 'text/plain;charset=utf-8';
 
-        if (isCustomMode && customConversations.length > 0) {
-            // 커스텀 대화 내보내기
-            content = customConversations.map(c => 
-                `${c.role === 'user' ? '질문' : c.role === 'assistant' ? '답변' : '시스템'}: ${c.message}\n\n`
-            ).join('---\n\n');
-            filename = `${taskType}_커스텀_대화_${new Date().toISOString().split('T')[0]}.txt`;
-        } else if (reportFormatType === 'html') {
+        if (report && reportFormatType === 'html') {
             content = report;
             mimeType = 'text/html;charset=utf-8';
             filename = `${taskType}_${reportType === 'monthly' ? '월간' : '종합'}_보고서_${new Date().toISOString().split('T')[0]}.html`;
-        } else {
+        } else if (report) {
             content = report;
             filename = `${taskType}_${reportType === 'monthly' ? '월간' : '종합'}_보고서_${new Date().toISOString().split('T')[0]}.md`;
+            mimeType = 'text/markdown;charset=utf-8';
+        } else {
+            return;
         }
 
         const blob = new Blob([content], { type: mimeType });
@@ -375,7 +388,7 @@ function AIReport() {
                 >
                     <Target size={16} />
                     <span>OI 과제</span>
-                    <span className="tab-count">{tasks.length}</span>
+                    <span className="tab-count">{oiTaskCount}</span>
                 </button>
                 <button
                     className={`tab-btn ${activeTab === 'key' ? 'active' : ''}`}
@@ -387,7 +400,7 @@ function AIReport() {
                 >
                     <Briefcase size={16} />
                     <span>중점추진과제</span>
-                    <span className="tab-count">{tasks.length}</span>
+                    <span className="tab-count">{keyTaskCount}</span>
                 </button>
                 <div className="tab-spacer"></div>
             </div>
@@ -395,78 +408,90 @@ function AIReport() {
             {/* 탭 컨텐츠 영역 */}
             <div className="tab-content">
                 <div className="ai-report-main">
-                    {/* 좌측: 과제 목록 및 설정 */}
+                    {/* 좌측: 설정 패널 */}
                     <div className="ai-report-sidebar">
-                        {/* 보고서 유형 선택 */}
-                        <div className="report-type-selection">
-                            <h4>보고서 유형 선택</h4>
-                            <div className="report-type-buttons">
-                                <button
-                                    className={`report-type-btn ${reportType === 'monthly' ? 'active' : ''}`}
-                                    onClick={() => handleReportTypeSelect('monthly')}
-                                >
-                                    <FileText size={16} />
-                                    <span>월간 보고서</span>
-                                    <small>이번달 활동</small>
-                                </button>
-                                <button
-                                    className={`report-type-btn ${reportType === 'comprehensive' ? 'active' : ''}`}
-                                    onClick={() => handleReportTypeSelect('comprehensive')}
-                                >
-                                    <FileText size={16} />
-                                    <span>종합 보고서</span>
-                                    <small>전체 활동</small>
-                                </button>
+                        <div className="ai-report-sidebar-content">
+                            {/* Step 1: 보고서 유형 선택 */}
+                            <div className="step-section">
+                                <div className="step-header">
+                                    <span className="step-number">1</span>
+                                    <h4>보고서 유형</h4>
+                                </div>
+                                <div className="report-type-buttons">
+                                    <button
+                                        className={`report-type-btn ${reportType === 'monthly' ? 'active' : ''}`}
+                                        onClick={() => handleReportTypeSelect('monthly')}
+                                    >
+                                        <FileText size={18} />
+                                        <div>
+                                            <span>월간 보고서</span>
+                                            <small>이번달 활동내역</small>
+                                        </div>
+                                    </button>
+                                    <button
+                                        className={`report-type-btn ${reportType === 'comprehensive' ? 'active' : ''}`}
+                                        onClick={() => handleReportTypeSelect('comprehensive')}
+                                    >
+                                        <FileText size={18} />
+                                        <div>
+                                            <span>종합 보고서</span>
+                                            <small>전체 활동내역</small>
+                                        </div>
+                                    </button>
+                                </div>
                             </div>
+
+                            {reportType && (
+                                <>
+                                    {/* Step 2: 보고서 형식 선택 */}
+                                    <div className="step-section">
+                                        <div className="step-header">
+                                            <span className="step-number">2</span>
+                                            <h4>보고서 형식</h4>
+                                        </div>
+                                        <div className="report-format-buttons">
+                                            <button
+                                                className={`report-format-btn ${reportFormat === 'html' ? 'active' : ''}`}
+                                                onClick={() => setReportFormat('html')}
+                                            >
+                                                <Code size={18} />
+                                                <div>
+                                                    <span>HTML</span>
+                                                    <small>뉴스클립용</small>
+                                                </div>
+                                            </button>
+                                            <button
+                                                className={`report-format-btn ${reportFormat === 'text' ? 'active' : ''}`}
+                                                onClick={() => setReportFormat('text')}
+                                            >
+                                                <FileText size={18} />
+                                                <div>
+                                                    <span>텍스트</span>
+                                                    <small>편집 가능</small>
+                                                </div>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+
+                            {!reportType && (
+                                <div className="report-type-prompt">
+                                    <FileText size={40} />
+                                    <p>보고서 유형을 선택해주세요</p>
+                                </div>
+                            )}
                         </div>
 
-                        {!reportType && (
-                            <div className="report-type-prompt">
-                                <FileText size={48} />
-                                <p>보고서 유형을 선택해주세요</p>
-                            </div>
-                        )}
-
+                        {/* 좌측 하단: 선택된 과제 수 및 보고서 생성 버튼 */}
                         {reportType && (
-                            <>
-                                <div className="selected-info">
-                                    <p>선택된 과제: <strong>{selectedTaskIds.size}</strong>개</p>
+                            <div className="ai-report-sidebar-footer">
+                                <div className="selected-tasks-count">
+                                    <span className="selected-count-label">선택된 과제</span>
+                                    <span className="selected-count-number">{selectedTaskIds.size}</span>
                                 </div>
-
-                                {/* 보고서 형식 선택 */}
-                                <div className="report-format-selection">
-                                    <h4>보고서 형식</h4>
-                                    <div className="report-format-buttons">
-                                        <button
-                                            className={`report-format-btn ${reportFormat === 'html' ? 'active' : ''}`}
-                                            onClick={() => setReportFormat('html')}
-                                        >
-                                            <Code size={16} />
-                                            <span>HTML</span>
-                                            <small>뉴스클립</small>
-                                        </button>
-                                        <button
-                                            className={`report-format-btn ${reportFormat === 'markdown' ? 'active' : ''}`}
-                                            onClick={() => setReportFormat('markdown')}
-                                        >
-                                            <FileText size={16} />
-                                            <span>Markdown</span>
-                                            <small>문서</small>
-                                        </button>
-                                        <button
-                                            className={`report-format-btn ${reportFormat === 'custom' ? 'active' : ''}`}
-                                            onClick={() => setReportFormat('custom')}
-                                        >
-                                            <MessageCircle size={16} />
-                                            <span>커스텀</span>
-                                            <small>대화식</small>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* 보고서 생성 버튼 */}
                                 <button
-                                    className="generate-report-btn"
+                                    className="generate-report-btn-sidebar"
                                     onClick={handleGenerateReport}
                                     disabled={isGenerating || loading || loadingActivities || selectedTaskIds.size === 0}
                                 >
@@ -482,7 +507,7 @@ function AIReport() {
                                         </>
                                     )}
                                 </button>
-                            </>
+                            </div>
                         )}
                     </div>
 
@@ -498,85 +523,107 @@ function AIReport() {
                                 <AlertCircle size={32} />
                                 <p>{error}</p>
                             </div>
-                        ) : isCustomMode ? (
-                            <div className="ai-report-output custom-mode">
-                                <div className="ai-report-output-header">
-                                    <h3>커스텀 질문 모드</h3>
-                                    <button
-                                        className="download-btn"
-                                        onClick={handleDownloadReport}
-                                    >
-                                        <Download size={18} />
-                                        <span>대화 내보내기</span>
-                                    </button>
-                                </div>
-                                <div className="custom-conversation">
-                                    <div className="custom-conversation-list">
-                                        {customConversations.map((conv, index) => (
-                                            <div key={index} className={`custom-message ${conv.role}`}>
-                                                <div className="custom-message-content">
-                                                    {conv.role === 'assistant' ? (
-                                                        <ReactMarkdown>{conv.message}</ReactMarkdown>
-                                                    ) : (
-                                                        conv.message
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                        {isGenerating && (
-                                            <div className="custom-message assistant">
-                                                <div className="custom-message-content">
-                                                    <Loader2 size={16} className="spinning" />
-                                                    <span>답변 생성 중...</span>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="custom-input-area">
-                                        <textarea
-                                            className="custom-question-input"
-                                            placeholder="질문을 입력하세요..."
-                                            value={customQuestion}
-                                            onChange={(e) => setCustomQuestion(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter' && !e.shiftKey) {
-                                                    e.preventDefault();
-                                                    handleCustomQuestion();
-                                                }
-                                            }}
-                                            rows={3}
-                                            disabled={isGenerating}
-                                        />
-                                        <button
-                                            className="custom-send-btn"
-                                            onClick={handleCustomQuestion}
-                                            disabled={isGenerating || !customQuestion.trim()}
-                                        >
-                                            <Send size={18} />
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
                         ) : report ? (
                             <div className="ai-report-output">
                                 <div className="ai-report-output-header">
                                     <h3>
                                         {reportType === 'monthly' ? '월간 보고서' : '종합 보고서'}
-                                        <span className="format-badge">{reportFormatType === 'html' ? 'HTML' : 'Markdown'}</span>
+                                        <span className="format-badge">{reportFormatType === 'html' ? 'HTML' : '텍스트'}</span>
+                                        {reportFormatType === 'markdown' && report && (
+                                            <span className="markdown-length" style={{ marginLeft: '12px', fontSize: '12px', color: '#9ca3af', fontWeight: 'normal' }}>
+                                                {report.length}자
+                                            </span>
+                                        )}
                                     </h3>
-                                    <button
-                                        className="download-btn"
-                                        onClick={handleDownloadReport}
-                                    >
-                                        <Download size={18} />
-                                        <span>다운로드</span>
-                                    </button>
+                                    {reportFormatType === 'html' && (
+                                        <button
+                                            className="report-header-download-btn"
+                                            onClick={handleDownloadReport}
+                                            title="다운로드"
+                                        >
+                                            <Download size={18} />
+                                            <span>다운로드</span>
+                                        </button>
+                                    )}
                                 </div>
+                                
+                                {/* 프롬프트 수정 (텍스트 형식일 때만) */}
+                                {reportFormatType === 'markdown' && (
+                                    <div className="modify-prompt-section">
+                                        <div className="modify-prompt-integrated">
+                                            <div className="modify-prompt-label">
+                                                <Edit size={16} />
+                                                <span>프롬프트 수정</span>
+                                            </div>
+                                            <div className="modify-prompt-input-group">
+                                                <textarea
+                                                    className="modify-prompt-input"
+                                                    placeholder="예: 더 간결하게 요약해주세요.&#10;예: 각 과제별로 성과 지표를 추가해주세요."
+                                                    value={modifyPrompt}
+                                                    onChange={(e) => setModifyPrompt(e.target.value)}
+                                                    rows={2}
+                                                    disabled={isModifying}
+                                                />
+                                                <button
+                                                    className="modify-btn"
+                                                    onClick={handleModifyReport}
+                                                    disabled={isModifying || !modifyPrompt.trim()}
+                                                >
+                                                    {isModifying ? (
+                                                        <>
+                                                            <Loader2 size={16} className="spinning" />
+                                                            <span>수정 중...</span>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Edit size={16} />
+                                                            <span>수정</span>
+                                                        </>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className={`ai-report-text ${reportFormatType === 'html' ? 'html-content' : reportFormatType === 'markdown' ? 'markdown-content' : ''}`}>
+                                    {/* 리포트 내부 우측 상단 액션 버튼 (마크다운일 때만) */}
+                                    {reportFormatType === 'markdown' && (
+                                        <div className="report-inline-actions">
+                                            <button
+                                                className="report-action-icon-btn"
+                                                onClick={() => setIsEditingReport(!isEditingReport)}
+                                                title={isEditingReport ? '미리보기' : '편집'}
+                                            >
+                                                {isEditingReport ? (
+                                                    <Eye size={18} />
+                                                ) : (
+                                                    <Edit size={18} />
+                                                )}
+                                            </button>
+                                            <button
+                                                className="report-action-icon-btn"
+                                                onClick={handleDownloadReport}
+                                                title="다운로드"
+                                            >
+                                                <Download size={18} />
+                                            </button>
+                                        </div>
+                                    )}
+                                    
                                     {reportFormatType === 'html' ? (
                                         <div dangerouslySetInnerHTML={{ __html: report }} />
                                     ) : reportFormatType === 'markdown' ? (
-                                        <ReactMarkdown>{report}</ReactMarkdown>
+                                        isEditingReport ? (
+                                            <textarea
+                                                className="markdown-editor"
+                                                value={report}
+                                                onChange={(e) => setReport(e.target.value)}
+                                                placeholder="마크다운 텍스트를 편집하세요..."
+                                            />
+                                        ) : (
+                                            <ReactMarkdown>{report}</ReactMarkdown>
+                                        )
                                     ) : (
                                         <pre>{report}</pre>
                                     )}
@@ -584,9 +631,26 @@ function AIReport() {
                             </div>
                         ) : (
                             <div className="ai-report-empty">
-                                <FileText size={48} />
-                                <h3>보고서 생성 준비 완료</h3>
-                                <p>왼쪽에서 과제를 선택하고<br />보고서 유형을 선택한 후<br />"보고서 생성" 버튼을 클릭하세요.</p>
+                                <div className="empty-state-content">
+                                    <div className="empty-state-icon">
+                                        <FileText size={64} />
+                                    </div>
+                                    <h3>보고서를 생성해보세요</h3>
+                                    <div className="empty-state-steps">
+                                        <div className="empty-step">
+                                            <span className="empty-step-number">1</span>
+                                            <span>보고서 유형 선택</span>
+                                        </div>
+                                        <div className="empty-step">
+                                            <span className="empty-step-number">2</span>
+                                            <span>과제 선택</span>
+                                        </div>
+                                        <div className="empty-step">
+                                            <span className="empty-step-number">3</span>
+                                            <span>보고서 생성</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </div>

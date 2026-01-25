@@ -1920,3 +1920,187 @@
     text-align: right;
     font-variant-numeric: tabular-nums;
 }
+
+/* 파일 업로드 섹션 */
+.file-section {
+    margin-bottom: 14px;
+    padding: 0;
+    background: transparent;
+    border: none;
+}
+
+.file-section-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.file-section-header h3 {
+    font-size: 14px;
+    font-weight: 500;
+    color: #6b7280;
+    margin: 0;
+}
+
+.file-section-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.file-upload-area {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.file-upload-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    background: transparent;
+    color: #6b7280;
+    border: 1px dashed #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.file-upload-btn:hover:not(:disabled) {
+    border-color: #007aff;
+    color: #007aff;
+    background: rgba(0, 122, 255, 0.05);
+}
+
+.file-upload-btn:disabled {
+    border-color: #e5e7eb;
+    color: #d1d5db;
+    cursor: not-allowed;
+    background: transparent;
+}
+
+.file-upload-hint {
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+.file-uploading-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.file-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: #fafafa;
+    border: none;
+    border-radius: 6px;
+    transition: background 0.15s;
+}
+
+.file-item:hover {
+    background: #f3f4f6;
+}
+
+.file-item.uploading {
+    opacity: 0.6;
+}
+
+.file-item svg {
+    color: #9ca3af;
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+}
+
+.file-name {
+    flex: 1;
+    font-size: 13px;
+    color: #374151;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.file-size {
+    font-size: 11px;
+    color: #9ca3af;
+    white-space: nowrap;
+}
+
+.uploading-text {
+    font-size: 11px;
+    color: #007aff;
+}
+
+.file-actions {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.file-item:hover .file-actions {
+    opacity: 1;
+}
+
+.file-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: #9ca3af;
+}
+
+.file-action-btn:hover {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.file-action-btn.download:hover {
+    color: #007aff;
+}
+
+.file-action-btn.delete:hover {
+    color: #ef4444;
+}
+
+.file-empty-state {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 0;
+    color: #9ca3af;
+}
+
+.file-empty-state svg {
+    width: 14px;
+    height: 14px;
+    opacity: 0.4;
+}
+
+.file-empty-state span {
+    font-size: 12px;
+}
