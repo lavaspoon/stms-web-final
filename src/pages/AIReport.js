@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Target, Briefcase, FileText, Loader2, Download, AlertCircle, CheckSquare, Square, X, CheckCircle, Code, Edit, Eye } from 'lucide-react';
+import { Target, Briefcase, FileText, Loader2, Download, AlertCircle, CheckSquare, Square, X, CheckCircle, Code, Edit, Eye, Sparkles } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import useUserStore from '../store/userStore';
 import { getTasksByType, getTaskActivity, getAllPreviousActivities } from '../api/taskApi';
 import { generateMonthlyReport, generateComprehensiveReport, generateCustomReport } from '../api/aiApi';
+import { Skeleton, CardSkeleton } from '../components/Skeleton';
 import './AIReport.css';
 import './Dashboard.css';
 
 function AIReport() {
     const { user } = useUserStore();
     const isAdmin = user?.role === '관리자';
-    
+
     const [activeTab, setActiveTab] = useState('oi'); // 'oi' or 'key'
     const [tasks, setTasks] = useState([]);
     const [oiTaskCount, setOiTaskCount] = useState(0);
@@ -36,14 +37,14 @@ function AIReport() {
     useEffect(() => {
         const loadAllTaskCounts = async () => {
             if (!user) return;
-            
+
             try {
                 const skid = !isAdmin ? (user?.skid || user?.userId) : null;
-                
+
                 // OI 과제 수 조회
                 const oiData = await getTasksByType('OI', skid);
                 setOiTaskCount(oiData.length);
-                
+
                 // 중점추진 과제 수 조회
                 const keyData = await getTasksByType('중점추진', skid);
                 setKeyTaskCount(keyData.length);
@@ -62,8 +63,13 @@ function AIReport() {
                 setLoading(true);
                 setError(null);
                 const skid = !isAdmin ? (user?.skid || user?.userId) : null;
-                const data = await getTasksByType(taskType, skid);
-                
+
+                // API 호출과 최소 딜레이를 병렬로 처리
+                const [data] = await Promise.all([
+                    getTasksByType(taskType, skid),
+                    new Promise(resolve => setTimeout(resolve, 300)) // 최소 300ms 딜레이
+                ]);
+
                 // 과제 정보를 저장 (활동내역 정보는 나중에)
                 const formattedTasks = data.map(task => ({
                     taskId: task.taskId,
@@ -98,7 +104,7 @@ function AIReport() {
         setReportFormat('text');
         setModifyPrompt('');
         setIsTaskSelectModalOpen(true);
-        
+
         if (type === 'monthly' && tasks.length > 0) {
             try {
                 setLoadingActivities(true);
@@ -106,24 +112,27 @@ function AIReport() {
                 const currentYear = now.getFullYear();
                 const currentMonth = now.getMonth() + 1;
 
-                // 각 과제의 이달 활동내역 확인
-                const tasksWithActivityStatus = await Promise.all(
-                    tasks.map(async (task) => {
-                        try {
-                            const activity = await getTaskActivity(task.taskId, currentYear, currentMonth);
-                            return {
-                                ...task,
-                                hasCurrentMonthActivity: activity && activity.activityContent && activity.activityContent.trim() !== ''
-                            };
-                        } catch (err) {
-                            console.error(`과제 ${task.taskName} 활동내역 확인 실패:`, err);
-                            return {
-                                ...task,
-                                hasCurrentMonthActivity: false
-                            };
-                        }
-                    })
-                );
+                // 각 과제의 이달 활동내역 확인과 최소 딜레이를 병렬로 처리
+                const [tasksWithActivityStatus] = await Promise.all([
+                    Promise.all(
+                        tasks.map(async (task) => {
+                            try {
+                                const activity = await getTaskActivity(task.taskId, currentYear, currentMonth);
+                                return {
+                                    ...task,
+                                    hasCurrentMonthActivity: activity && activity.activityContent && activity.activityContent.trim() !== ''
+                                };
+                            } catch (err) {
+                                console.error(`과제 ${task.taskName} 활동내역 확인 실패:`, err);
+                                return {
+                                    ...task,
+                                    hasCurrentMonthActivity: false
+                                };
+                            }
+                        })
+                    ),
+                    new Promise(resolve => setTimeout(resolve, 300)) // 최소 300ms 딜레이
+                ]);
 
                 // 이달 입력된 과제 순으로 정렬
                 const sortedTasks = [...tasksWithActivityStatus].sort((a, b) => {
@@ -171,22 +180,22 @@ function AIReport() {
             setIsGenerating(true);
             setError(null);
             setReport('');
-            
+
             // 선택한 과제들만 필터링
             const selectedTasks = tasks.filter(t => selectedTaskIds.has(t.taskId));
-            
+
             // 각 과제의 활동내역 가져오기
             const tasksWithActivities = await Promise.all(
                 selectedTasks.map(async (task) => {
                     try {
                         let activities = [];
-                        
+
                         if (reportType === 'monthly') {
                             // 월간 보고서: 이번달 활동만
                             const now = new Date();
                             const currentYear = now.getFullYear();
                             const currentMonth = now.getMonth() + 1;
-                            
+
                             const activity = await getTaskActivity(task.taskId, currentYear, currentMonth);
                             if (activity && activity.activityContent) {
                                 activities = [{
@@ -204,11 +213,11 @@ function AIReport() {
                                 activityContent: act.activityContent || ''
                             }));
                         }
-                        
+
                         return {
                             taskName: task.taskName,
                             activities: activities,
-                            activityContent: reportType === 'monthly' 
+                            activityContent: reportType === 'monthly'
                                 ? (activities.length > 0 ? activities[0].activityContent : '')
                                 : undefined
                         };
@@ -224,7 +233,7 @@ function AIReport() {
             );
 
             // 월간 보고서: 활동내역이 있는 과제만 필터링
-            const filteredTasks = reportType === 'monthly' 
+            const filteredTasks = reportType === 'monthly'
                 ? tasksWithActivities.filter(t => t.activityContent && t.activityContent.trim() !== '')
                 : tasksWithActivities;
 
@@ -241,7 +250,7 @@ function AIReport() {
             // AI API 호출
             let generatedReport;
             const format = reportFormat === 'html' ? 'html' : 'markdown';
-            
+
             // 기본 프롬프트로 보고서 생성
             if (reportType === 'monthly') {
                 generatedReport = await generateMonthlyReport(taskType, filteredTasks, format);
@@ -274,9 +283,9 @@ function AIReport() {
         try {
             setIsModifying(true);
             setError(null);
-            
+
             const selectedTasks = tasks.filter(t => selectedTaskIds.has(t.taskId));
-            
+
             // 각 과제의 활동내역 가져오기
             const tasksWithActivities = await Promise.all(
                 selectedTasks.map(async (task) => {
@@ -305,7 +314,7 @@ function AIReport() {
                         return {
                             taskName: task.taskName,
                             activities: activities,
-                            activityContent: reportType === 'monthly' 
+                            activityContent: reportType === 'monthly'
                                 ? (activities.length > 0 ? activities[0].activityContent : '')
                                 : undefined
                         };
@@ -319,7 +328,7 @@ function AIReport() {
                 })
             );
 
-            const filteredTasks = reportType === 'monthly' 
+            const filteredTasks = reportType === 'monthly'
                 ? tasksWithActivities.filter(t => t.activityContent && t.activityContent.trim() !== '')
                 : tasksWithActivities;
 
@@ -514,14 +523,27 @@ function AIReport() {
                     {/* 우측: 보고서 결과 */}
                     <div className="ai-report-result">
                         {loading ? (
-                            <div className="ai-report-loading">
-                                <Loader2 size={32} className="spinning" />
-                                <p>과제 목록을 불러오는 중...</p>
+                            <div className="ai-report-skeleton">
+                                <CardSkeleton count={3} />
                             </div>
                         ) : error ? (
                             <div className="ai-report-error">
                                 <AlertCircle size={32} />
                                 <p>{error}</p>
+                            </div>
+                        ) : isGenerating ? (
+                            <div className="ai-report-generating">
+                                <div className="ai-generating-animation">
+                                    <div className="ai-sparkle-container">
+                                        <Sparkles className="ai-sparkle ai-sparkle-1" size={24} />
+                                        <Sparkles className="ai-sparkle ai-sparkle-2" size={28} />
+                                        <Sparkles className="ai-sparkle ai-sparkle-3" size={22} />
+                                    </div>
+                                    <div className="ai-generating-content">
+                                        <h3>AI가 보고서를 생성하고 있습니다</h3>
+                                        <p>선택하신 과제의 활동내역을 분석하여 보고서를 작성 중입니다...</p>
+                                    </div>
+                                </div>
                             </div>
                         ) : report ? (
                             <div className="ai-report-output">
@@ -546,7 +568,7 @@ function AIReport() {
                                         </button>
                                     )}
                                 </div>
-                                
+
                                 {/* 프롬프트 수정 (텍스트 형식일 때만) */}
                                 {reportFormatType === 'markdown' && (
                                     <div className="modify-prompt-section">
@@ -610,7 +632,7 @@ function AIReport() {
                                             </button>
                                         </div>
                                     )}
-                                    
+
                                     {reportFormatType === 'html' ? (
                                         <div dangerouslySetInnerHTML={{ __html: report }} />
                                     ) : reportFormatType === 'markdown' ? (
@@ -632,23 +654,19 @@ function AIReport() {
                         ) : (
                             <div className="ai-report-empty">
                                 <div className="empty-state-content">
-                                    <div className="empty-state-icon">
-                                        <FileText size={64} />
+                                    <div className="empty-state-icon-wrapper">
+                                        <div className="empty-state-icon-bg">
+                                            <FileText className="empty-state-icon" size={56} />
+                                        </div>
+                                        <div className="empty-state-glow"></div>
                                     </div>
-                                    <h3>보고서를 생성해보세요</h3>
-                                    <div className="empty-state-steps">
-                                        <div className="empty-step">
-                                            <span className="empty-step-number">1</span>
-                                            <span>보고서 유형 선택</span>
-                                        </div>
-                                        <div className="empty-step">
-                                            <span className="empty-step-number">2</span>
-                                            <span>과제 선택</span>
-                                        </div>
-                                        <div className="empty-step">
-                                            <span className="empty-step-number">3</span>
-                                            <span>보고서 생성</span>
-                                        </div>
+                                    <div className="empty-state-text">
+                                        <h3>AI 보고서 생성</h3>
+                                        <p>과제 활동내역을 분석하여 전문적인 보고서를 자동으로 생성합니다</p>
+                                    </div>
+                                    <div className="empty-state-notice">
+                                        <AlertCircle size={16} />
+                                        <p>AI가 생성한 보고서는 참고용이며, 실수나 부정확한 내용이 포함될 수 있습니다. 최종 확인 후 사용해주세요.</p>
                                     </div>
                                 </div>
                             </div>
@@ -678,10 +696,28 @@ function AIReport() {
                         </div>
 
                         <div className="task-select-modal-content">
-                            {loadingActivities ? (
+                            {(loadingActivities || loading) ? (
                                 <div className="task-select-modal-loading">
-                                    <Loader2 size={24} className="spinning" />
-                                    <p>활동내역 확인 중...</p>
+                                    <div className="task-select-skeleton">
+                                        <div className="task-select-skeleton-actions">
+                                            <Skeleton height="36px" width="100px" borderRadius="6px" />
+                                            <Skeleton height="20px" width="120px" borderRadius="4px" />
+                                        </div>
+                                        <div className="task-select-skeleton-grid">
+                                            {Array.from({ length: 8 }).map((_, idx) => (
+                                                <div key={idx} className="task-select-skeleton-card">
+                                                    <div className="task-select-skeleton-checkbox">
+                                                        <Skeleton width="20px" height="20px" borderRadius="4px" />
+                                                    </div>
+                                                    <div className="task-select-skeleton-content">
+                                                        <Skeleton height="18px" width="85%" borderRadius="4px" />
+                                                        <Skeleton height="14px" width="65%" borderRadius="4px" style={{ marginTop: '8px' }} />
+                                                        <Skeleton height="22px" width="50%" borderRadius="6px" style={{ marginTop: '12px' }} />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
                             ) : tasks.length === 0 ? (
                                 <div className="task-select-modal-empty">

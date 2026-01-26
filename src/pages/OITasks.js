@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, AlertCircle, CheckCircle, Clock, XCircle, Check } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Plus, Search, Filter, AlertCircle, CheckCircle, Clock, XCircle, Check, X } from 'lucide-react';
 import useUserStore from '../store/userStore';
 import TaskRegisterModal from '../components/TaskRegisterModal';
 import TaskInputModal from '../components/TaskInputModal';
@@ -49,6 +49,17 @@ function OITasks() {
     const [isInputModalOpen, setIsInputModalOpen] = useState(false);
     const [detailTaskId, setDetailTaskId] = useState(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+    // 테이블 헤더 필터 상태
+    const [headerFilters, setHeaderFilters] = useState({
+        status: [],
+        evaluation: [],
+        dept: []
+    });
+    const [activeFilterDropdown, setActiveFilterDropdown] = useState(null);
+    const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
+    const filterDropdownRef = useRef(null);
+    const filterButtonRefs = useRef({});
 
     // 성과지표 영어 -> 한글 변환 함수
     const translatePerformanceType = (type) => {
@@ -192,6 +203,81 @@ function OITasks() {
             loadTasks();
         }
     }, [user]);
+
+    // 필터 드롭다운 외부 클릭 감지
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (filterDropdownRef.current && !filterDropdownRef.current.contains(event.target)) {
+                // 필터 아이콘 버튼 클릭은 제외
+                if (!event.target.closest('.filter-icon-btn')) {
+                    setActiveFilterDropdown(null);
+                }
+            }
+        };
+
+        if (activeFilterDropdown) {
+            // 약간의 지연을 두어 현재 클릭 이벤트가 먼저 처리되도록
+            const timeoutId = setTimeout(() => {
+                document.addEventListener('mousedown', handleClickOutside);
+            }, 0);
+
+            return () => {
+                clearTimeout(timeoutId);
+                document.removeEventListener('mousedown', handleClickOutside);
+            };
+        }
+    }, [activeFilterDropdown]);
+
+    // 헤더 필터 토글
+    const toggleFilterDropdown = (column, event) => {
+        // 이벤트 전파 중지
+        if (event) {
+            event.stopPropagation();
+        }
+        // 같은 필터를 다시 클릭하면 닫기
+        if (activeFilterDropdown === column) {
+            setActiveFilterDropdown(null);
+        } else {
+            // 버튼 위치 계산
+            const buttonRef = filterButtonRefs.current[column];
+            if (buttonRef) {
+                const rect = buttonRef.getBoundingClientRect();
+                setDropdownPosition({
+                    top: rect.bottom + 8,
+                    left: rect.left + (rect.width / 2)
+                });
+            }
+            setActiveFilterDropdown(column);
+        }
+    };
+
+    // 필터 옵션 토글
+    const toggleFilterOption = (filterType, value) => {
+        setHeaderFilters(prev => {
+            const currentValues = prev[filterType] || [];
+            const newValues = currentValues.includes(value)
+                ? currentValues.filter(v => v !== value)
+                : [...currentValues, value];
+            return { ...prev, [filterType]: newValues };
+        });
+    };
+
+    // 필터 초기화
+    const clearFilter = (filterType) => {
+        setHeaderFilters(prev => ({ ...prev, [filterType]: [] }));
+    };
+
+    // 모든 필터 초기화
+    const clearAllFilters = () => {
+        setHeaderFilters({ status: [], evaluation: [], dept: [] });
+    };
+
+    // 필터 적용 여부 확인
+    const hasActiveFilters = () => {
+        return headerFilters.status.length > 0 ||
+            headerFilters.evaluation.length > 0 ||
+            headerFilters.dept.length > 0;
+    };
 
     // 과제 등록/수정 완료 후 목록 새로고침
     const handleModalClose = () => {
@@ -376,11 +462,53 @@ function OITasks() {
         return statusConfig[normalizeStatus(status)] || statusConfig.inProgress;
     };
 
+    // 모든 담당 부서 목록 추출
+    const getAllDepts = () => {
+        const deptSet = new Set();
+        tasks.forEach(task => {
+            if (task.managers && task.managers.length > 0) {
+                task.managers.forEach(manager => {
+                    if (manager.deptName) {
+                        deptSet.add(manager.deptName);
+                    }
+                });
+            }
+        });
+        return Array.from(deptSet).sort();
+    };
+
     // 필터링된 과제 목록 (정밀하게)
     // API에서 이미 사용자별 과제만 반환하므로, 상태 및 검색어 필터링만 수행
     const filteredTasks = tasks
         .filter(task => {
-            // 상태 필터링
+            // 헤더 필터: 상태
+            if (headerFilters.status.length > 0) {
+                const normalizedTaskStatus = normalizeStatus(task.status);
+                if (!headerFilters.status.includes(normalizedTaskStatus)) return false;
+            }
+
+            // 헤더 필터: 평가기준
+            if (headerFilters.evaluation.length > 0) {
+                const evaluationType = task.evaluationType || task.performance?.evaluation || task.performanceOriginal?.evaluation || '';
+                const evaluationValue = evaluationType === 'qualitative' || evaluationType === '정성' ? '정성' : '정량';
+                if (!headerFilters.evaluation.includes(evaluationValue)) return false;
+            }
+
+            // 헤더 필터: 담당 부서
+            if (headerFilters.dept.length > 0) {
+                const taskDepts = new Set();
+                if (task.managers && task.managers.length > 0) {
+                    task.managers.forEach(manager => {
+                        if (manager.deptName) {
+                            taskDepts.add(manager.deptName);
+                        }
+                    });
+                }
+                const hasMatchingDept = Array.from(taskDepts).some(dept => headerFilters.dept.includes(dept));
+                if (!hasMatchingDept) return false;
+            }
+
+            // 상태 필터링 (기존 필터 버튼)
             if (filterStatus === 'notInputted') {
                 const normalizedTaskStatus = normalizeStatus(task.status);
                 // 진행중인 과제 중 미입력인 것만 표시
@@ -493,6 +621,16 @@ function OITasks() {
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
+                    {hasActiveFilters() && (
+                        <button
+                            className="clear-all-filters-btn"
+                            onClick={clearAllFilters}
+                            title="모든 필터 초기화"
+                        >
+                            <X size={16} />
+                            필터 초기화
+                        </button>
+                    )}
                 </div>
 
                 <div className="oi-filter-buttons">
@@ -542,192 +680,363 @@ function OITasks() {
                     <table className="oi-tasks-table dashboard-table">
                         <thead>
                             <tr>
-                                <th>상태</th>
+                                <th>
+                                    <div className="table-header-filter">
+                                        <span>상태</span>
+                                        <button
+                                            ref={el => filterButtonRefs.current['status'] = el}
+                                            className={`filter-icon-btn ${headerFilters.status.length > 0 ? 'active' : ''}`}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleFilterDropdown('status', e);
+                                            }}
+                                        >
+                                            <Filter size={14} />
+                                            {headerFilters.status.length > 0 && (
+                                                <span className="filter-count">{headerFilters.status.length}</span>
+                                            )}
+                                        </button>
+                                        {activeFilterDropdown === 'status' && (
+                                            <div
+                                                className="filter-dropdown"
+                                                ref={filterDropdownRef}
+                                                style={{
+                                                    top: `${dropdownPosition.top}px`,
+                                                    left: `${dropdownPosition.left}px`,
+                                                    transform: 'translateX(-50%)'
+                                                }}
+                                            >
+                                                <div className="filter-dropdown-header">
+                                                    <span>상태 필터</span>
+                                                    {headerFilters.status.length > 0 && (
+                                                        <button
+                                                            className="filter-clear-btn"
+                                                            onClick={() => clearFilter('status')}
+                                                        >
+                                                            <X size={12} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <div className="filter-options">
+                                                    {['inProgress', 'completed', 'delayed', 'stopped'].map(status => {
+                                                        const statusMap = {
+                                                            inProgress: '진행중',
+                                                            completed: '완료',
+                                                            delayed: '지연',
+                                                            stopped: '중단'
+                                                        };
+                                                        return (
+                                                            <label key={status} className="filter-option">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={headerFilters.status.includes(status)}
+                                                                    onChange={() => toggleFilterOption('status', status)}
+                                                                />
+                                                                <span>{statusMap[status]}</span>
+                                                            </label>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </th>
                                 <th>과제명</th>
-                                <th>평가기준</th>
+                                <th>
+                                    <div className="table-header-filter">
+                                        <span>평가기준</span>
+                                        <button
+                                            ref={el => filterButtonRefs.current['evaluation'] = el}
+                                            className={`filter-icon-btn ${headerFilters.evaluation.length > 0 ? 'active' : ''}`}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleFilterDropdown('evaluation', e);
+                                            }}
+                                        >
+                                            <Filter size={14} />
+                                            {headerFilters.evaluation.length > 0 && (
+                                                <span className="filter-count">{headerFilters.evaluation.length}</span>
+                                            )}
+                                        </button>
+                                        {activeFilterDropdown === 'evaluation' && (
+                                            <div
+                                                className="filter-dropdown"
+                                                ref={filterDropdownRef}
+                                                style={{
+                                                    top: `${dropdownPosition.top}px`,
+                                                    left: `${dropdownPosition.left}px`,
+                                                    transform: 'translateX(-50%)'
+                                                }}
+                                            >
+                                                <div className="filter-dropdown-header">
+                                                    <span>평가기준 필터</span>
+                                                    {headerFilters.evaluation.length > 0 && (
+                                                        <button
+                                                            className="filter-clear-btn"
+                                                            onClick={() => clearFilter('evaluation')}
+                                                        >
+                                                            <X size={12} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <div className="filter-options">
+                                                    {['정량', '정성'].map(evalType => (
+                                                        <label key={evalType} className="filter-option">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={headerFilters.evaluation.includes(evalType)}
+                                                                onChange={() => toggleFilterOption('evaluation', evalType)}
+                                                            />
+                                                            <span>{evalType}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </th>
                                 <th>목표</th>
                                 <th>실적</th>
                                 <th>달성률</th>
-                                <th>담당 부서</th>
+                                <th>
+                                    <div className="table-header-filter">
+                                        <span>담당 부서</span>
+                                        <button
+                                            ref={el => filterButtonRefs.current['dept'] = el}
+                                            className={`filter-icon-btn ${headerFilters.dept.length > 0 ? 'active' : ''}`}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleFilterDropdown('dept', e);
+                                            }}
+                                        >
+                                            <Filter size={14} />
+                                            {headerFilters.dept.length > 0 && (
+                                                <span className="filter-count">{headerFilters.dept.length}</span>
+                                            )}
+                                        </button>
+                                        {activeFilterDropdown === 'dept' && (
+                                            <div
+                                                className="filter-dropdown filter-dropdown-wide"
+                                                ref={filterDropdownRef}
+                                                style={{
+                                                    top: `${dropdownPosition.top}px`,
+                                                    left: `${dropdownPosition.left}px`,
+                                                    transform: 'translateX(-50%)'
+                                                }}
+                                            >
+                                                <div className="filter-dropdown-header">
+                                                    <span>담당 부서 필터</span>
+                                                    {headerFilters.dept.length > 0 && (
+                                                        <button
+                                                            className="filter-clear-btn"
+                                                            onClick={() => clearFilter('dept')}
+                                                        >
+                                                            <X size={12} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <div className="filter-options">
+                                                    {getAllDepts().map(dept => (
+                                                        <label key={dept} className="filter-option">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={headerFilters.dept.includes(dept)}
+                                                                onChange={() => toggleFilterOption('dept', dept)}
+                                                            />
+                                                            <span>{dept}</span>
+                                                        </label>
+                                                    ))}
+                                                    {getAllDepts().length === 0 && (
+                                                        <div className="filter-empty">부서 정보가 없습니다</div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </th>
                                 {isAdmin && <th>액션</th>}
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredTasks.map(task => {
-                                const canView = isAdmin || isTaskManager(task);
-                                const statusInfo = getStatusInfo(task.status);
-                                const StatusIcon = statusInfo.icon;
-                                const evaluationType = task.evaluationType || task.performance?.evaluation || task.performanceOriginal?.evaluation || '';
-                                const isQualitative = evaluationType === 'qualitative' || evaluationType === '정성';
-                                const evaluationText = isQualitative ? '정성' : '정량';
+                            {filteredTasks.length === 0 ? (
+                                <tr>
+                                    <td colSpan={isAdmin ? 8 : 7} className="empty-table-message">
+                                        <div className="empty-table-content">
+                                            <Filter size={32} />
+                                            <p>조건에 맞는 과제가 없습니다.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : (
+                                filteredTasks.map(task => {
+                                    const canView = isAdmin || isTaskManager(task);
+                                    const statusInfo = getStatusInfo(task.status);
+                                    const StatusIcon = statusInfo.icon;
+                                    const evaluationType = task.evaluationType || task.performance?.evaluation || task.performanceOriginal?.evaluation || '';
+                                    const isQualitative = evaluationType === 'qualitative' || evaluationType === '정성';
+                                    const evaluationText = isQualitative ? '정성' : '정량';
 
-                                // 목표/실적 포맷팅 (정량일 때만)
-                                const formatValue = (value, metric) => {
-                                    if (value === null || value === undefined || value === 0) return '0';
-                                    const numValue = typeof value === 'number' ? value : parseFloat(value);
-                                    if (metric === 'amount') {
-                                        return numValue.toLocaleString('ko-KR') + '원';
-                                    } else if (metric === 'count') {
-                                        return numValue.toLocaleString('ko-KR') + '건';
-                                    } else if (metric === 'percent') {
-                                        return numValue.toLocaleString('ko-KR') + '%';
-                                    } else {
-                                        return numValue.toLocaleString('ko-KR');
-                                    }
-                                };
+                                    // 목표/실적 포맷팅 (정량일 때만)
+                                    const formatValue = (value, metric) => {
+                                        if (value === null || value === undefined || value === 0) return '0';
+                                        const numValue = typeof value === 'number' ? value : parseFloat(value);
+                                        if (metric === 'amount') {
+                                            return numValue.toLocaleString('ko-KR') + '원';
+                                        } else if (metric === 'count') {
+                                            return numValue.toLocaleString('ko-KR') + '건';
+                                        } else if (metric === 'percent') {
+                                            return numValue.toLocaleString('ko-KR') + '%';
+                                        } else {
+                                            return numValue.toLocaleString('ko-KR');
+                                        }
+                                    };
 
-                                // 날짜를 mm.dd 형식으로 변환
-                                const formatCompactDate = (dateString) => {
-                                    if (!dateString) return '';
-                                    try {
-                                        const date = new Date(dateString);
-                                        if (isNaN(date.getTime())) return '';
-                                        const month = String(date.getMonth() + 1).padStart(2, '0');
-                                        const day = String(date.getDate()).padStart(2, '0');
-                                        return `${month}.${day}`;
-                                    } catch (error) {
-                                        return '';
-                                    }
-                                };
+                                    // 날짜를 mm.dd 형식으로 변환
+                                    const formatCompactDate = (dateString) => {
+                                        if (!dateString) return '';
+                                        try {
+                                            const date = new Date(dateString);
+                                            if (isNaN(date.getTime())) return '';
+                                            const month = String(date.getMonth() + 1).padStart(2, '0');
+                                            const day = String(date.getDate()).padStart(2, '0');
+                                            return `${month}.${day}`;
+                                        } catch (error) {
+                                            return '';
+                                        }
+                                    };
 
-                                return (
-                                    <tr
-                                        key={task.id}
-                                        className={`dashboard-table-row ${!task.isInputted ? 'oi-not-inputted-row' : ''} ${canView ? 'oi-clickable-row' : ''}`}
-                                        onClick={(e) => canView && handleRowClick(task, e)}
-                                    >
-                                        <td className="dashboard-table-status">
-                                            <span className={`dashboard-table-status-badge ${normalizeStatus(task.status)}`}>
-                                                <StatusIcon size={14} />
-                                                {statusInfo.text}
-                                            </span>
-                                        </td>
-                                        <td className="dashboard-table-task-name">
-                                            <div className="task-name-wrapper">
-                                                <div className="task-category-path">
-                                                    {task.category1 && task.category1 !== '-' ? (
-                                                        <>
-                                                            <span className="category-text">{task.category1}</span>
-                                                            {task.category2 && task.category2 !== '-' && (
-                                                                <>
-                                                                    <span className="category-separator"> &gt; </span>
-                                                                    <span className="category-text">{task.category2}</span>
-                                                                </>
-                                                            )}
-                                                        </>
-                                                    ) : (
-                                                        <span className="category-text">-</span>
-                                                    )}
-                                                </div>
-                                                <div className="task-name">{task.name}</div>
-                                            </div>
-                                        </td>
-                                        <td className="dashboard-table-evaluation">
-                                            <span className="dashboard-badge dashboard-badge-evaluation">
-                                                {evaluationText}
-                                            </span>
-                                        </td>
-                                        <td className="dashboard-table-target">
-                                            {isQualitative ? (
-                                                <span className="dashboard-badge dashboard-badge-default">-</span>
-                                            ) : (
-                                                <span className="dashboard-badge dashboard-badge-target">
-                                                    {formatValue(task.targetValue, task.metric || task.performanceOriginal?.metric)}
+                                    return (
+                                        <tr
+                                            key={task.id}
+                                            className={`dashboard-table-row ${!task.isInputted ? 'oi-not-inputted-row' : ''} ${canView ? 'oi-clickable-row' : ''}`}
+                                            onClick={(e) => canView && handleRowClick(task, e)}
+                                        >
+                                            <td className="dashboard-table-status">
+                                                <span className={`dashboard-table-status-badge ${normalizeStatus(task.status)}`}>
+                                                    <StatusIcon size={14} />
+                                                    {statusInfo.text}
                                                 </span>
-                                            )}
-                                        </td>
-                                        <td className="dashboard-table-actual">
-                                            {isQualitative ? (
-                                                <span className="dashboard-badge dashboard-badge-default">-</span>
-                                            ) : (
-                                                <span className="dashboard-badge dashboard-badge-actual">
-                                                    {formatValue(task.actualValue, task.metric || task.performanceOriginal?.metric)}
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="dashboard-table-achievement">
-                                            {isQualitative ? (
-                                                <span className="dashboard-badge dashboard-badge-default">-</span>
-                                            ) : (
-                                                <span className="dashboard-badge dashboard-badge-achievement">
-                                                    {task.achievement || 0}%
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="dashboard-table-dept">
-                                            {(() => {
-                                                if (!task.managers || task.managers.length === 0) {
-                                                    return <span className="dashboard-badge dashboard-badge-default">-</span>;
-                                                }
-                                                // 부서명 중복 제거
-                                                const deptSet = new Set();
-                                                task.managers.forEach(manager => {
-                                                    if (manager.deptName) {
-                                                        deptSet.add(manager.deptName);
-                                                    }
-                                                });
-                                                const deptNames = Array.from(deptSet);
-                                                if (deptNames.length === 0) {
-                                                    return <span className="dashboard-badge dashboard-badge-default">-</span>;
-                                                }
-                                                return (
-                                                    <div className="dashboard-badges-wrapper">
-                                                        {deptNames.map((deptName, idx) => {
-                                                            // 해당 부서의 담당자들 필터링
-                                                            const deptManagers = task.managers.filter(manager =>
-                                                                manager.deptName === deptName
-                                                            );
-                                                            const validManagers = deptManagers
-                                                                .map(manager => manager.mbName)
-                                                                .filter(name => name && name !== '-');
-
-                                                            let tooltipText = '';
-                                                            if (validManagers.length === 0) {
-                                                                tooltipText = '';
-                                                            } else if (validManagers.length === 1) {
-                                                                tooltipText = validManagers[0];
-                                                            } else {
-                                                                tooltipText = `${validManagers[0]}외 ${validManagers.length - 1}명`;
-                                                            }
-
-                                                            return (
-                                                                <div key={idx} className="dashboard-dept-badge-wrapper">
-                                                                    <span className="dashboard-badge dashboard-badge-dept">
-                                                                        {deptName}
-                                                                    </span>
-                                                                    {tooltipText && (
-                                                                        <span className="dashboard-dept-tooltip">
-                                                                            {tooltipText}
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                            );
-                                                        })}
+                                            </td>
+                                            <td className="dashboard-table-task-name">
+                                                <div className="task-name-wrapper">
+                                                    <div className="task-category-path">
+                                                        {task.category1 && task.category1 !== '-' ? (
+                                                            <>
+                                                                <span className="category-text">{task.category1}</span>
+                                                                {task.category2 && task.category2 !== '-' && (
+                                                                    <>
+                                                                        <span className="category-separator"> &gt; </span>
+                                                                        <span className="category-text">{task.category2}</span>
+                                                                    </>
+                                                                )}
+                                                            </>
+                                                        ) : (
+                                                            <span className="category-text">-</span>
+                                                        )}
                                                     </div>
-                                                );
-                                            })()}
-                                        </td>
-                                        {isAdmin && (
-                                            <td>
-                                                <div className="oi-action-buttons" onClick={(e) => e.stopPropagation()}>
-                                                    <button className="oi-btn-edit" onClick={() => handleEditTask(task)}>수정</button>
+                                                    <div className="task-name">{task.name}</div>
                                                 </div>
                                             </td>
-                                        )}
-                                    </tr>
-                                );
-                            })}
+                                            <td className="dashboard-table-evaluation">
+                                                <span className="dashboard-badge dashboard-badge-evaluation">
+                                                    {evaluationText}
+                                                </span>
+                                            </td>
+                                            <td className="dashboard-table-target">
+                                                {isQualitative ? (
+                                                    <span className="dashboard-badge dashboard-badge-default">-</span>
+                                                ) : (
+                                                    <span className="dashboard-badge dashboard-badge-target">
+                                                        {formatValue(task.targetValue, task.metric || task.performanceOriginal?.metric)}
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="dashboard-table-actual">
+                                                {isQualitative ? (
+                                                    <span className="dashboard-badge dashboard-badge-default">-</span>
+                                                ) : (
+                                                    <span className="dashboard-badge dashboard-badge-actual">
+                                                        {formatValue(task.actualValue, task.metric || task.performanceOriginal?.metric)}
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="dashboard-table-achievement">
+                                                {isQualitative ? (
+                                                    <span className="dashboard-badge dashboard-badge-default">-</span>
+                                                ) : (
+                                                    <span className="dashboard-badge dashboard-badge-achievement">
+                                                        {task.achievement || 0}%
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="dashboard-table-dept">
+                                                {(() => {
+                                                    if (!task.managers || task.managers.length === 0) {
+                                                        return <span className="dashboard-badge dashboard-badge-default">-</span>;
+                                                    }
+                                                    // 부서명 중복 제거
+                                                    const deptSet = new Set();
+                                                    task.managers.forEach(manager => {
+                                                        if (manager.deptName) {
+                                                            deptSet.add(manager.deptName);
+                                                        }
+                                                    });
+                                                    const deptNames = Array.from(deptSet);
+                                                    if (deptNames.length === 0) {
+                                                        return <span className="dashboard-badge dashboard-badge-default">-</span>;
+                                                    }
+                                                    return (
+                                                        <div className="dashboard-badges-wrapper">
+                                                            {deptNames.map((deptName, idx) => {
+                                                                // 해당 부서의 담당자들 필터링
+                                                                const deptManagers = task.managers.filter(manager =>
+                                                                    manager.deptName === deptName
+                                                                );
+                                                                const validManagers = deptManagers
+                                                                    .map(manager => manager.mbName)
+                                                                    .filter(name => name && name !== '-');
+
+                                                                let tooltipText = '';
+                                                                if (validManagers.length === 0) {
+                                                                    tooltipText = '';
+                                                                } else if (validManagers.length === 1) {
+                                                                    tooltipText = validManagers[0];
+                                                                } else {
+                                                                    tooltipText = `${validManagers[0]}외 ${validManagers.length - 1}명`;
+                                                                }
+
+                                                                return (
+                                                                    <div key={idx} className="dashboard-dept-badge-wrapper">
+                                                                        <span className="dashboard-badge dashboard-badge-dept">
+                                                                            {deptName}
+                                                                        </span>
+                                                                        {tooltipText && (
+                                                                            <span className="dashboard-dept-tooltip">
+                                                                                {tooltipText}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    );
+                                                })()}
+                                            </td>
+                                            {isAdmin && (
+                                                <td>
+                                                    <div className="oi-action-buttons" onClick={(e) => e.stopPropagation()}>
+                                                        <button className="oi-btn-edit" onClick={() => handleEditTask(task)}>수정</button>
+                                                    </div>
+                                                </td>
+                                            )}
+                                        </tr>
+                                    );
+                                })
+                            )}
                         </tbody>
                     </table>
                 )}
             </div>
-
-            {!loading && filteredTasks.length === 0 && (
-                <div className="oi-empty-state">
-                    <Filter size={48} />
-                    <p>조건에 맞는 과제가 없습니다.</p>
-                </div>
-            )}
 
             <TaskRegisterModal
                 isOpen={isRegisterModalOpen}
