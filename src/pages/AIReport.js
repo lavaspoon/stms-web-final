@@ -205,13 +205,50 @@ function AIReport() {
                                 }];
                             }
                         } else {
-                            // 종합 보고서: 모든 활동내역
-                            const allActivities = await getAllPreviousActivities(task.taskId, 100);
-                            activities = allActivities.map(act => ({
-                                activityYear: act.activityYear,
-                                activityMonth: act.activityMonth,
-                                activityContent: act.activityContent || ''
-                            }));
+                            // 종합 보고서: 모든 활동내역 (현재 월 포함)
+                            const now = new Date();
+                            const currentYear = now.getFullYear();
+                            const currentMonth = now.getMonth() + 1;
+
+                            // 현재 월 활동내역 조회
+                            let currentActivity = null;
+                            try {
+                                currentActivity = await getTaskActivity(task.taskId, currentYear, currentMonth);
+                            } catch (err) {
+                                console.warn(`현재 월 활동내역 조회 실패: ${err}`);
+                            }
+
+                            // 이전 월 활동내역 조회
+                            const previousActivities = await getAllPreviousActivities(task.taskId, 100);
+
+                            // 현재 월과 이전 월 활동내역 합치기
+                            const allActivitiesList = [];
+
+                            // 현재 월 활동내역 추가
+                            if (currentActivity && currentActivity.activityContent) {
+                                allActivitiesList.push({
+                                    activityYear: currentYear,
+                                    activityMonth: currentMonth,
+                                    activityContent: currentActivity.activityContent || ''
+                                });
+                            }
+
+                            // 이전 월 활동내역 추가
+                            previousActivities.forEach(act => {
+                                allActivitiesList.push({
+                                    activityYear: act.activityYear,
+                                    activityMonth: act.activityMonth,
+                                    activityContent: act.activityContent || ''
+                                });
+                            });
+
+                            // 년월순으로 정렬 (최신순)
+                            activities = allActivitiesList.sort((a, b) => {
+                                if (a.activityYear !== b.activityYear) {
+                                    return b.activityYear - a.activityYear; // 년도 내림차순
+                                }
+                                return b.activityMonth - a.activityMonth; // 월 내림차순
+                            });
                         }
 
                         return {
@@ -304,12 +341,50 @@ function AIReport() {
                                 }];
                             }
                         } else {
-                            const allActivities = await getAllPreviousActivities(task.taskId, 100);
-                            activities = allActivities.map(act => ({
-                                activityYear: act.activityYear,
-                                activityMonth: act.activityMonth,
-                                activityContent: act.activityContent || ''
-                            }));
+                            // 종합 보고서: 모든 활동내역 (현재 월 포함)
+                            const now = new Date();
+                            const currentYear = now.getFullYear();
+                            const currentMonth = now.getMonth() + 1;
+
+                            // 현재 월 활동내역 조회
+                            let currentActivity = null;
+                            try {
+                                currentActivity = await getTaskActivity(task.taskId, currentYear, currentMonth);
+                            } catch (err) {
+                                console.warn(`현재 월 활동내역 조회 실패: ${err}`);
+                            }
+
+                            // 이전 월 활동내역 조회
+                            const previousActivities = await getAllPreviousActivities(task.taskId, 100);
+
+                            // 현재 월과 이전 월 활동내역 합치기
+                            const allActivitiesList = [];
+
+                            // 현재 월 활동내역 추가
+                            if (currentActivity && currentActivity.activityContent) {
+                                allActivitiesList.push({
+                                    activityYear: currentYear,
+                                    activityMonth: currentMonth,
+                                    activityContent: currentActivity.activityContent || ''
+                                });
+                            }
+
+                            // 이전 월 활동내역 추가
+                            previousActivities.forEach(act => {
+                                allActivitiesList.push({
+                                    activityYear: act.activityYear,
+                                    activityMonth: act.activityMonth,
+                                    activityContent: act.activityContent || ''
+                                });
+                            });
+
+                            // 년월순으로 정렬 (최신순)
+                            activities = allActivitiesList.sort((a, b) => {
+                                if (a.activityYear !== b.activityYear) {
+                                    return b.activityYear - a.activityYear; // 년도 내림차순
+                                }
+                                return b.activityMonth - a.activityMonth; // 월 내림차순
+                            });
                         }
                         return {
                             taskName: task.taskName,
