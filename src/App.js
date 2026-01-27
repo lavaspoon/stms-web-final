@@ -8,6 +8,7 @@ import KeyTasks from './pages/KeyTasks';
 import NotificationDashboard from './pages/NotificationDashboard';
 import AIReport from './pages/AIReport';
 import Layout from './components/Layout';
+import ScrollToTop from './components/ScrollToTop';
 import './App.css';
 
 const queryClient = new QueryClient({
@@ -23,6 +24,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Router>
+        <ScrollToTop />
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />

@@ -173,6 +173,24 @@ export const getAllPreviousActivities = async (taskId, limit = 12) => {
 };
 
 /**
+ * 월별 실적값 조회 (그래프용)
+ * @param {Number} taskId - 과제 ID
+ * @param {Number} year - 년도 (선택, 없으면 현재 년도)
+ * @returns {Promise} 월별 실적값 목록
+ */
+export const getMonthlyActualValues = async (taskId, year = null) => {
+    const params = {};
+    if (year !== null && year !== undefined) {
+        params.year = year;
+    }
+    const response = await axios.get(
+        `${API_BASE_URL}/tasks/${taskId}/monthly-actual-values`,
+        { params }
+    );
+    return response.data;
+};
+
+/**
  * 활동내역 파일 업로드
  * @param {Number} activityId - 활동내역 ID
  * @param {File} file - 업로드할 파일

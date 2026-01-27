@@ -11,6 +11,7 @@
     "axios": "^1.13.2",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.0.0",
+    "lottie-react": "^2.4.1",
     "lucide-react": "^0.562.0",
     "rc-slider": "^11.1.9",
     "react": "^19.2.3",

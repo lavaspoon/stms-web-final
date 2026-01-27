@@ -2,13 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, FileText, TrendingUp, Calendar, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Sparkles, CheckCircle, Wand2, Clock, AlertCircle, XCircle, Upload, Download, Trash2, Paperclip } from 'lucide-react';
 import Slider from 'rc-slider';
 import 'rc-slider/assets/index.css';
-import { inputTaskActivity, getTaskActivity, getAllPreviousActivities, uploadActivityFile, getActivityFiles, downloadActivityFile, deleteActivityFile } from '../api/taskApi';
+import { inputTaskActivity, getTaskActivity, getAllPreviousActivities, uploadActivityFile, getActivityFiles, downloadActivityFile, deleteActivityFile, getMonthlyActualValues } from '../api/taskApi';
 import { checkSpelling, recommendActivity, improveContext } from '../api/aiApi';
 import { formatDate } from '../utils/dateUtils';
 import useUserStore from '../store/userStore';
 import './TaskInputModal.css';
 
-function TaskInputModal({ isOpen, onClose, task }) {
+function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     const { user } = useUserStore();
     const isAdmin = user?.role === '관리자' || user?.role === '매니저';
 
@@ -26,8 +26,8 @@ function TaskInputModal({ isOpen, onClose, task }) {
         });
     };
 
-    // 읽기 전용 모드: 관리자이지만 담당자가 아닌 경우
-    const isReadOnly = isAdmin && !isTaskManager();
+    // 읽기 전용 모드: forceReadOnly가 true이거나 담당자가 아닌 경우
+    const isReadOnly = forceReadOnly || !isTaskManager();
 
     const [formData, setFormData] = useState({
         activityContent: '',
@@ -61,6 +61,22 @@ function TaskInputModal({ isOpen, onClose, task }) {
     const [currentActivityId, setCurrentActivityId] = useState(null);
     const fileInputRef = useRef(null);
 
+    // 월별 실적값 그래프용 상태
+    const [monthlyActualValues, setMonthlyActualValues] = useState([]);
+    const [hoveredPoint, setHoveredPoint] = useState(null); // 마우스 오버된 점 정보
+
+    // 월별 실적값 로드 함수
+    const loadMonthlyActualValues = async () => {
+        if (!task?.id) return;
+        try {
+            const data = await getMonthlyActualValues(task.id, currentYear);
+            setMonthlyActualValues(data || []);
+        } catch (error) {
+            console.error('월별 실적값 조회 실패:', error);
+            setMonthlyActualValues([]);
+        }
+    };
+
     // 기존 데이터 로드
     useEffect(() => {
         if (isOpen && task) {
@@ -76,6 +92,11 @@ function TaskInputModal({ isOpen, onClose, task }) {
             }
             loadExistingData();
             loadPreviousActivities();
+            // 정량 평가일 때만 월별 실적값 로드
+            const evaluationType = task?.performance?.evaluation || task?.performanceOriginal?.evaluation || task?.evaluationType || '';
+            if (evaluationType === 'quantitative' || evaluationType === '정량') {
+                loadMonthlyActualValues();
+            }
         } else {
             // 모달 닫을 때 초기화
             setFormData({
@@ -85,6 +106,7 @@ function TaskInputModal({ isOpen, onClose, task }) {
             });
             setPreviousActivities([]);
             setViewingMonth(currentMonth);
+            setMonthlyActualValues([]);
         }
     }, [isOpen, task]);
 
@@ -101,10 +123,22 @@ function TaskInputModal({ isOpen, onClose, task }) {
             }
 
             if (data) {
+                // 월별 실적값 사용 (백엔드에서 월별로 저장된 값 반환)
+                // 소수점 유지를 위해 숫자 값을 그대로 문자열로 변환
+                let actualValueStr = '';
+                if (data.actualValue != null) {
+                    if (typeof data.actualValue === 'number') {
+                        // 숫자인 경우 소수점 유지
+                        actualValueStr = data.actualValue.toString();
+                    } else {
+                        // 문자열인 경우 그대로 사용
+                        actualValueStr = String(data.actualValue);
+                    }
+                }
                 setFormData({
                     activityContent: data.activityContent || '',
                     status: task.status || 'inProgress',
-                    actualValue: data.actualValue || ''
+                    actualValue: actualValueStr
                 });
                 setCurrentActivityId(data.activityId);
                 // 파일 목록 로드
@@ -174,10 +208,22 @@ function TaskInputModal({ isOpen, onClose, task }) {
                     setLoading(true);
                     const data = await getTaskActivity(task.id, currentYear, viewingMonth);
                     if (data) {
+                        // 월별 실적값 사용 (백엔드에서 월별로 저장된 값 반환)
+                        // 소수점 유지를 위해 숫자 값을 그대로 문자열로 변환
+                        let actualValueStr = '';
+                        if (data.actualValue != null) {
+                            if (typeof data.actualValue === 'number') {
+                                // 숫자인 경우 소수점 유지
+                                actualValueStr = data.actualValue.toString();
+                            } else {
+                                // 문자열인 경우 그대로 사용
+                                actualValueStr = String(data.actualValue);
+                            }
+                        }
                         setFormData({
                             activityContent: data.activityContent || '',
                             status: task.status || 'inProgress',
-                            actualValue: data.actualValue || ''
+                            actualValue: actualValueStr
                         });
                         setCurrentActivityId(data.activityId);
                         // 파일 목록 로드
@@ -237,6 +283,9 @@ function TaskInputModal({ isOpen, onClose, task }) {
 
     // 프로그레스바 드래그 핸들러 (0~100% 범위)
     const handleProgressChange = (value) => {
+        // 읽기 전용 모드에서는 변경 불가
+        if (isReadOnly) return;
+
         const percentage = typeof value === 'number' ? value : parseFloat(value);
         // 100%를 초과하지 않도록 제한
         const clampedPercentage = Math.min(percentage, 100);
@@ -249,6 +298,9 @@ function TaskInputModal({ isOpen, onClose, task }) {
 
 
     const handleStatusChange = (status) => {
+        // 읽기 전용 모드에서는 변경 불가
+        if (isReadOnly) return;
+
         setFormData(prev => ({ ...prev, status }));
     };
 
@@ -411,6 +463,12 @@ function TaskInputModal({ isOpen, onClose, task }) {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
+        // 읽기 전용 모드에서는 저장 불가
+        if (isReadOnly) {
+            alert('담당자만 활동내역을 입력할 수 있습니다.');
+            return;
+        }
+
         if (!formData.activityContent.trim()) {
             alert('활동내역을 입력해주세요.');
             return;
@@ -434,6 +492,12 @@ function TaskInputModal({ isOpen, onClose, task }) {
             if (response && response.activityId) {
                 setCurrentActivityId(response.activityId);
                 await loadFiles(response.activityId);
+            }
+
+            // 월별 실적값 다시 로드 (그래프 업데이트)
+            const evaluationType = task?.performance?.evaluation || task?.performanceOriginal?.evaluation || task?.evaluationType || '';
+            if (evaluationType === 'quantitative' || evaluationType === '정량') {
+                await loadMonthlyActualValues();
             }
 
             alert('활동내역이 성공적으로 저장되었습니다.');
@@ -498,8 +562,10 @@ function TaskInputModal({ isOpen, onClose, task }) {
     console.log('TaskInputModal - metricUnit:', metricUnit);
     console.log('TaskInputModal - metricLabel:', metricLabel);
 
-    // 목표값과 실적값 (task에서 가져옴)
+    // 목표값과 실적값
+    // 목표값은 task에서 가져오고, 실적값은 월별로 저장된 값(formData.actualValue)을 우선 사용
     const targetValue = task?.targetValue != null && task.targetValue !== 0 ? parseFloat(task.targetValue) : 0;
+    // 월별 실적값이 있으면 사용, 없으면 task의 실적값 사용 (호환성)
     const actualValue = formData.actualValue ? parseFloat(formData.actualValue) : (task?.actualValue != null && task.actualValue !== 0 ? parseFloat(task.actualValue) : 0);
     const achievement = task?.achievement != null ? parseFloat(task.achievement) : 0;
 
@@ -608,6 +674,185 @@ function TaskInputModal({ isOpen, onClose, task }) {
                 <Icon size={14} />
                 {config.text}
             </span>
+        );
+    };
+
+    // 월별 실적 그래프 컴포넌트
+    const MonthlyLineChart = ({ data, color, targetValue: chartTargetValue, metricUnit: chartMetricUnit }) => {
+        if (!data || data.length === 0) return null;
+
+        const width = 140;
+        const height = 60;
+        const padding = { top: 18, right: 5, bottom: 5, left: 5 };
+        const chartWidth = width - padding.left - padding.right;
+        const chartHeight = height - padding.top - padding.bottom;
+
+        // 목표값과 실적값 중 최대값으로 정규화
+        const maxActualValue = Math.max(...data.map(d => d.actualValue || 0), 0);
+        const maxValue = Math.max(maxActualValue, chartTargetValue || 0, 1);
+
+        const normalizedData = data.map(d => ({
+            ...d,
+            normalized: (d.actualValue || 0) / maxValue
+        }));
+
+        // 목표선 Y 좌표 계산
+        const targetNormalized = chartTargetValue && maxValue > 0 ? chartTargetValue / maxValue : 0;
+        const targetY = padding.top + chartHeight - (targetNormalized * chartHeight);
+
+        // 점 좌표 계산
+        const points = normalizedData.map((d, index) => {
+            const x = padding.left + (index / (normalizedData.length - 1 || 1)) * chartWidth;
+            const y = padding.top + chartHeight - (d.normalized * chartHeight);
+            // 목표치 달성 여부 확인
+            const isAchieved = chartTargetValue > 0 && d.actualValue >= chartTargetValue;
+            return { x, y, value: d.actualValue, month: d.month, isAchieved };
+        });
+
+        // 경로 생성 (꺾은선)
+        const pathData = points.map((point, index) => {
+            return `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`;
+        }).join(' ');
+
+        // 월 이름 배열
+        const monthNames = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
+
+        return (
+            <div className="monthly-chart-wrapper">
+                <div className="monthly-chart-label">월별 실적 그래프</div>
+                <div className="monthly-chart-svg-container"
+                    onMouseLeave={() => setHoveredPoint(null)}>
+                    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+                        <defs>
+                            <linearGradient id={`lineGradient-${task?.id || 'default'}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+                                <stop offset="100%" stopColor={color} stopOpacity="0" />
+                            </linearGradient>
+                        </defs>
+
+                        {/* 목표선 */}
+                        {chartTargetValue > 0 && (
+                            <>
+                                <line
+                                    x1={padding.left}
+                                    y1={targetY}
+                                    x2={width - padding.right}
+                                    y2={targetY}
+                                    stroke="#9ca3af"
+                                    strokeWidth="1.5"
+                                    strokeDasharray="3 3"
+                                    opacity="0.6"
+                                />
+                                {/* 목표값 라벨 */}
+                                <text
+                                    x={width - padding.right - 2}
+                                    y={targetY - 3}
+                                    fontSize="9"
+                                    fill="#6b7280"
+                                    textAnchor="end"
+                                    fontWeight="600"
+                                >
+                                    목표 {chartTargetValue.toLocaleString()}
+                                </text>
+                            </>
+                        )}
+
+                        {/* 영역 채우기 */}
+                        <path
+                            d={`${pathData} L ${points[points.length - 1].x} ${height - padding.bottom} L ${padding.left} ${height - padding.bottom} Z`}
+                            fill={`url(#lineGradient-${task?.id || 'default'})`}
+                        />
+
+                        {/* 꺾은선 */}
+                        <path
+                            d={pathData}
+                            fill="none"
+                            stroke={color}
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        />
+
+                        {/* 점 및 호버 영역 */}
+                        {points.map((point, index) => {
+                            const monthName = monthNames[point.month - 1] || `${point.month}월`;
+                            const isHovered = hoveredPoint?.index === index;
+
+                            return (
+                                <g key={index}>
+                                    {/* 호버 영역 (더 큰 원) */}
+                                    <circle
+                                        cx={point.x}
+                                        cy={point.y}
+                                        r="8"
+                                        fill="transparent"
+                                        onMouseEnter={() => setHoveredPoint({ index, ...point, monthName })}
+                                        style={{ cursor: 'pointer' }}
+                                    />
+
+                                    {/* 목표 달성 시 강조 원 */}
+                                    {point.isAchieved && (
+                                        <circle
+                                            cx={point.x}
+                                            cy={point.y}
+                                            r={isHovered ? "7" : "6"}
+                                            fill="rgba(16, 185, 129, 0.15)"
+                                            stroke="rgba(16, 185, 129, 0.3)"
+                                            strokeWidth="1.5"
+                                            style={{ transition: 'r 0.2s ease' }}
+                                        />
+                                    )}
+
+                                    {/* 점 */}
+                                    <circle
+                                        cx={point.x}
+                                        cy={point.y}
+                                        r={isHovered ? "4" : (point.isAchieved ? "3.5" : "2.5")}
+                                        fill={point.isAchieved ? "#10b981" : color}
+                                        stroke="white"
+                                        strokeWidth={isHovered ? "2" : (point.isAchieved ? "2" : "1")}
+                                        style={{ transition: 'r 0.2s ease' }}
+                                    />
+
+                                    {/* 목표 달성 체크마크 */}
+                                    {point.isAchieved && (
+                                        <g transform={`translate(${point.x}, ${point.y})`}>
+                                            <path
+                                                d="M -3.5 -0.5 L -1 2 L 3.5 -2.5"
+                                                stroke="white"
+                                                strokeWidth="1.8"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                fill="none"
+                                            />
+                                        </g>
+                                    )}
+                                </g>
+                            );
+                        })}
+                    </svg>
+
+                    {/* 툴팁 */}
+                    {hoveredPoint && (
+                        <div
+                            className="monthly-chart-tooltip"
+                            style={{
+                                left: `${(hoveredPoint.x / 140) * 100}%`,
+                                top: `${(hoveredPoint.y / 60) * 100 - 60}%`,
+                                transform: 'translateX(-50%)'
+                            }}
+                        >
+                            <div className="tooltip-month">
+                                {hoveredPoint.monthName}
+                                {hoveredPoint.isAchieved && (
+                                    <span className="tooltip-achieved-badge">✓ 달성</span>
+                                )}
+                            </div>
+                            <div className="tooltip-value">{hoveredPoint.value.toLocaleString()}{chartMetricUnit}</div>
+                        </div>
+                    )}
+                </div>
+            </div>
         );
     };
 
@@ -736,21 +981,12 @@ function TaskInputModal({ isOpen, onClose, task }) {
                                 <div className="ai-actions">
                                     <button
                                         type="button"
-                                        className="ai-btn reference-btn"
-                                        onClick={() => setShowPreviousActivitiesModal(true)}
-                                        title="다른 월 활동내역 참조"
-                                    >
-                                        <Calendar size={16} />
-                                        <span>이전 활동내역 참조</span>
-                                    </button>
-                                    <button
-                                        type="button"
                                         className="ai-btn"
                                         onClick={handleRecommendActivity}
-                                        disabled={aiProcessing}
+                                        disabled={aiProcessing || previousActivities.length === 0}
                                     >
                                         <Sparkles size={16} />
-                                        <span>활동내역 추천</span>
+                                        <span>지난달 기반 AI 추천</span>
                                     </button>
                                     <button
                                         type="button"
@@ -759,7 +995,7 @@ function TaskInputModal({ isOpen, onClose, task }) {
                                         disabled={aiProcessing || !formData.activityContent.trim()}
                                     >
                                         <CheckCircle size={16} />
-                                        <span>맞춤법 검사</span>
+                                        <span>AI 맞춤법·띄어쓰기 교정</span>
                                     </button>
                                     <button
                                         type="button"
@@ -768,7 +1004,16 @@ function TaskInputModal({ isOpen, onClose, task }) {
                                         disabled={aiProcessing || !formData.activityContent.trim()}
                                     >
                                         <Wand2 size={16} />
-                                        <span>문맥 교정</span>
+                                        <span>AI 문맥·표현 개선</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="ai-btn reference-btn"
+                                        onClick={() => setShowPreviousActivitiesModal(true)}
+                                        title="다른 월 활동내역 참조"
+                                    >
+                                        <Calendar size={16} />
+                                        <span>이전 활동내역 참조</span>
                                     </button>
                                 </div>
                             )}
@@ -964,6 +1209,7 @@ function TaskInputModal({ isOpen, onClose, task }) {
                                                 step={taskMetric === 'percent' ? 0.1 : 0.5}
                                                 value={targetValue > 0 ? Math.min((actualValue / targetValue) * 100, 100) : 0}
                                                 onChange={handleProgressChange}
+                                                disabled={isReadOnly}
                                                 trackStyle={{ backgroundColor: progressColor, height: '3px' }}
                                                 handleStyle={{
                                                     borderColor: progressColor,
@@ -994,6 +1240,8 @@ function TaskInputModal({ isOpen, onClose, task }) {
                                             step={taskMetric === 'percent' ? '0.01' : '1'}
                                             min="0"
                                             max={targetValue || undefined}
+                                            disabled={isReadOnly}
+                                            readOnly={isReadOnly}
                                             className="performance-actual-value-compact-input"
                                         />
                                     )}
@@ -1015,6 +1263,18 @@ function TaskInputModal({ isOpen, onClose, task }) {
                                         {calculatedAchievement.toFixed(1)}%
                                     </span>
                                 </div>
+
+                                {/* 월별 실적 그래프 */}
+                                {monthlyActualValues.length > 0 && (
+                                    <div className="monthly-chart-compact">
+                                        <MonthlyLineChart
+                                            data={monthlyActualValues}
+                                            color={progressColor}
+                                            targetValue={targetValue}
+                                            metricUnit={metricUnit}
+                                        />
+                                    </div>
+                                )}
                             </div>
                         </section>
                     )}

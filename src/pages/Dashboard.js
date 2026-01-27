@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Target, Briefcase, AlertCircle, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { Target, Briefcase, AlertCircle, CheckCircle, Clock, XCircle, Filter, ArrowUpDown, X } from 'lucide-react';
 import useUserStore from '../store/userStore';
 import TaskInputModal from '../components/TaskInputModal';
 import { getTasksByType } from '../api/taskApi';
@@ -31,6 +31,23 @@ function Dashboard() {
     const [loading, setLoading] = useState(false);
     const [inputTask, setInputTask] = useState(null);
     const [isInputModalOpen, setIsInputModalOpen] = useState(false);
+
+    // 테이블 헤더 필터 상태
+    const [headerFilters, setHeaderFilters] = useState({
+        status: [],
+        evaluation: [],
+        dept: []
+    });
+    const [activeFilterDropdown, setActiveFilterDropdown] = useState(null);
+    const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
+    const filterDropdownRef = useRef(null);
+    const filterButtonRefs = useRef({});
+
+    // 정렬 상태
+    const [sortConfig, setSortConfig] = useState({
+        column: null,
+        direction: null // 'asc' or 'desc'
+    });
 
     // 과제 목록 조회
     const loadTasks = async () => {
@@ -85,6 +102,30 @@ function Dashboard() {
         }
     }, [isAdmin]);
 
+    // 필터 드롭다운 외부 클릭 감지
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (filterDropdownRef.current && !filterDropdownRef.current.contains(event.target)) {
+                // 필터 아이콘 버튼 클릭은 제외
+                if (!event.target.closest('.filter-icon-btn')) {
+                    setActiveFilterDropdown(null);
+                }
+            }
+        };
+
+        if (activeFilterDropdown) {
+            // 약간의 지연을 두어 현재 클릭 이벤트가 먼저 처리되도록
+            const timeoutId = setTimeout(() => {
+                document.addEventListener('mousedown', handleClickOutside);
+            }, 0);
+
+            return () => {
+                clearTimeout(timeoutId);
+                document.removeEventListener('mousedown', handleClickOutside);
+            };
+        }
+    }, [activeFilterDropdown]);
+
     if (!isAdmin) {
         return null;
     }
@@ -133,7 +174,170 @@ function Dashboard() {
     const currentTasks = activeTab === 'oi' ? oiTasks : keyTasks;
     const taskType = activeTab === 'oi' ? 'OI' : '중점추진';
 
-    // 상태별 정렬 (진행/완료/지연/중단 순)
+    // 헤더 필터 토글
+    const toggleFilterDropdown = (column, event) => {
+        // 이벤트 전파 중지
+        if (event) {
+            event.stopPropagation();
+        }
+        // 같은 필터를 다시 클릭하면 닫기
+        if (activeFilterDropdown === column) {
+            setActiveFilterDropdown(null);
+        } else {
+            // 버튼 위치 계산
+            const buttonRef = filterButtonRefs.current[column];
+            if (buttonRef) {
+                const rect = buttonRef.getBoundingClientRect();
+                setDropdownPosition({
+                    top: rect.bottom + 8,
+                    left: rect.left + (rect.width / 2)
+                });
+            }
+            setActiveFilterDropdown(column);
+        }
+    };
+
+    // 필터 옵션 토글
+    const toggleFilterOption = (filterType, value) => {
+        setHeaderFilters(prev => {
+            const currentValues = prev[filterType] || [];
+            const newValues = currentValues.includes(value)
+                ? currentValues.filter(v => v !== value)
+                : [...currentValues, value];
+            return { ...prev, [filterType]: newValues };
+        });
+    };
+
+    // 필터 초기화
+    const clearFilter = (filterType) => {
+        setHeaderFilters(prev => ({ ...prev, [filterType]: [] }));
+    };
+
+    // 모든 필터 초기화
+    const clearAllFilters = () => {
+        setHeaderFilters({ status: [], evaluation: [], dept: [] });
+    };
+
+    // 필터 적용 여부 확인
+    const hasActiveFilters = () => {
+        return headerFilters.status.length > 0 ||
+            headerFilters.evaluation.length > 0 ||
+            headerFilters.dept.length > 0;
+    };
+
+    // 모든 담당 본부 목록 추출
+    const getAllDepts = () => {
+        const deptSet = new Set();
+        currentTasks.forEach(task => {
+            if (task.managers && task.managers.length > 0) {
+                task.managers.forEach(manager => {
+                    if (manager.topDeptName) {
+                        deptSet.add(manager.topDeptName);
+                    }
+                });
+            }
+            // 담당자가 없거나 본부 정보가 없으면 과제의 본부 사용
+            if (deptSet.size === 0 && task.topDeptName) {
+                deptSet.add(task.topDeptName);
+            }
+        });
+        return Array.from(deptSet).sort();
+    };
+
+    // 헤더 클릭 정렬 핸들러
+    const handleSort = (column) => {
+        setSortConfig(prevConfig => {
+            if (prevConfig.column === column) {
+                // 같은 컬럼 클릭 시: asc -> desc -> null (정렬 해제)
+                if (prevConfig.direction === 'asc') {
+                    return { column, direction: 'desc' };
+                } else if (prevConfig.direction === 'desc') {
+                    return { column: null, direction: null };
+                }
+            }
+            // 새로운 컬럼 클릭 시: asc로 시작
+            return { column, direction: 'asc' };
+        });
+    };
+
+    // 필터링된 과제 목록
+    const filteredTasks = currentTasks.filter(task => {
+        // 헤더 필터: 상태
+        if (headerFilters.status.length > 0) {
+            const normalizedTaskStatus = normalizeStatus(task.status);
+            if (!headerFilters.status.includes(normalizedTaskStatus)) return false;
+        }
+
+        // 헤더 필터: 평가기준
+        if (headerFilters.evaluation.length > 0) {
+            const evaluationType = task.evaluationType || 'quantitative';
+            const evaluationValue = evaluationType === 'qualitative' || evaluationType === '정성' ? '정성' : '정량';
+            if (!headerFilters.evaluation.includes(evaluationValue)) return false;
+        }
+
+        // 헤더 필터: 담당 본부
+        if (headerFilters.dept.length > 0) {
+            const taskDepts = new Set();
+            if (task.managers && task.managers.length > 0) {
+                task.managers.forEach(manager => {
+                    if (manager.topDeptName) {
+                        taskDepts.add(manager.topDeptName);
+                    }
+                });
+            }
+            // 담당자가 없거나 본부 정보가 없으면 과제의 본부 사용
+            if (taskDepts.size === 0 && task.topDeptName) {
+                taskDepts.add(task.topDeptName);
+            }
+            const hasMatchingDept = Array.from(taskDepts).some(dept => headerFilters.dept.includes(dept));
+            if (!hasMatchingDept) return false;
+        }
+
+        return true;
+    });
+
+    // 정렬 함수
+    const getSortValue = (task, column) => {
+        switch (column) {
+            case 'status':
+                const statusOrder = {
+                    'inProgress': 1,
+                    'completed': 2,
+                    'delayed': 3,
+                    'stopped': 4
+                };
+                return statusOrder[normalizeStatus(task.status)] || 99;
+            case 'name':
+                return task.name || '';
+            case 'evaluation':
+                const evaluationType = task.evaluationType || 'quantitative';
+                return evaluationType === 'qualitative' || evaluationType === '정성' ? '정성' : '정량';
+            case 'target':
+                return task.targetValue || 0;
+            case 'actual':
+                return task.actualValue || 0;
+            case 'achievement':
+                return task.achievement || 0;
+            case 'dept':
+                const topDeptSet = new Set();
+                if (task.managers && task.managers.length > 0) {
+                    task.managers.forEach(manager => {
+                        if (manager.topDeptName) {
+                            topDeptSet.add(manager.topDeptName);
+                        }
+                    });
+                }
+                // 담당자가 없거나 본부 정보가 없으면 과제의 본부 사용
+                if (topDeptSet.size === 0 && task.topDeptName) {
+                    topDeptSet.add(task.topDeptName);
+                }
+                return Array.from(topDeptSet).sort().join(',');
+            default:
+                return '';
+        }
+    };
+
+    // 상태별 정렬 (진행/완료/지연/중단 순) - 정렬이 없을 때 기본 정렬
     const statusOrder = {
         'inProgress': 1,
         'completed': 2,
@@ -141,7 +345,23 @@ function Dashboard() {
         'stopped': 4
     };
 
-    const sortedTasks = [...currentTasks].sort((a, b) => {
+    const sortedTasks = [...filteredTasks].sort((a, b) => {
+        // 정렬 설정이 있으면 해당 정렬 적용
+        if (sortConfig.column && sortConfig.direction) {
+            const aValue = getSortValue(a, sortConfig.column);
+            const bValue = getSortValue(b, sortConfig.column);
+
+            let comparison = 0;
+            if (typeof aValue === 'string' && typeof bValue === 'string') {
+                comparison = aValue.localeCompare(bValue, 'ko');
+            } else {
+                comparison = aValue - bValue;
+            }
+
+            return sortConfig.direction === 'asc' ? comparison : -comparison;
+        }
+
+        // 정렬이 없으면 기본 상태별 정렬
         const statusA = normalizeStatus(a.status);
         const statusB = normalizeStatus(b.status);
         const orderA = statusOrder[statusA] || 99;
@@ -392,13 +612,223 @@ function Dashboard() {
                             <table className="dashboard-table">
                                 <thead>
                                     <tr>
-                                        <th>상태</th>
-                                        <th>과제명</th>
-                                        <th>평가기준</th>
-                                        <th>목표</th>
-                                        <th>실적</th>
-                                        <th>달성률</th>
-                                        <th>담당 부서</th>
+                                        <th>
+                                            <div className="table-header-filter">
+                                                <span
+                                                    className="sortable-header"
+                                                    onClick={() => handleSort('status')}
+                                                >
+                                                    상태
+                                                </span>
+                                                <button
+                                                    ref={el => filterButtonRefs.current['status'] = el}
+                                                    className={`filter-icon-btn ${headerFilters.status.length > 0 ? 'active' : ''}`}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        toggleFilterDropdown('status', e);
+                                                    }}
+                                                >
+                                                    <Filter size={14} />
+                                                    {headerFilters.status.length > 0 && (
+                                                        <span className="filter-count">{headerFilters.status.length}</span>
+                                                    )}
+                                                </button>
+                                                {activeFilterDropdown === 'status' && (
+                                                    <div
+                                                        className="filter-dropdown"
+                                                        ref={filterDropdownRef}
+                                                        style={{
+                                                            top: `${dropdownPosition.top}px`,
+                                                            left: `${dropdownPosition.left}px`,
+                                                            transform: 'translateX(-50%)'
+                                                        }}
+                                                    >
+                                                        <div className="filter-dropdown-header">
+                                                            <span>상태 필터</span>
+                                                            {headerFilters.status.length > 0 && (
+                                                                <button
+                                                                    className="filter-clear-btn"
+                                                                    onClick={() => clearFilter('status')}
+                                                                >
+                                                                    <X size={12} />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                        <div className="filter-options">
+                                                            {['inProgress', 'completed', 'delayed', 'stopped'].map(status => {
+                                                                const statusMap = {
+                                                                    inProgress: '진행중',
+                                                                    completed: '완료',
+                                                                    delayed: '지연',
+                                                                    stopped: '중단'
+                                                                };
+                                                                return (
+                                                                    <label key={status} className="filter-option">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={headerFilters.status.includes(status)}
+                                                                            onChange={() => toggleFilterOption('status', status)}
+                                                                        />
+                                                                        <span>{statusMap[status]}</span>
+                                                                    </label>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </th>
+                                        <th>
+                                            <span
+                                                className="sortable-header"
+                                                onClick={() => handleSort('name')}
+                                            >
+                                                과제명
+                                            </span>
+                                        </th>
+                                        <th>
+                                            <div className="table-header-filter">
+                                                <span
+                                                    className="sortable-header"
+                                                    onClick={() => handleSort('evaluation')}
+                                                >
+                                                    평가기준
+                                                </span>
+                                                <button
+                                                    ref={el => filterButtonRefs.current['evaluation'] = el}
+                                                    className={`filter-icon-btn ${headerFilters.evaluation.length > 0 ? 'active' : ''}`}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        toggleFilterDropdown('evaluation', e);
+                                                    }}
+                                                >
+                                                    <Filter size={14} />
+                                                    {headerFilters.evaluation.length > 0 && (
+                                                        <span className="filter-count">{headerFilters.evaluation.length}</span>
+                                                    )}
+                                                </button>
+                                                {activeFilterDropdown === 'evaluation' && (
+                                                    <div
+                                                        className="filter-dropdown"
+                                                        ref={filterDropdownRef}
+                                                        style={{
+                                                            top: `${dropdownPosition.top}px`,
+                                                            left: `${dropdownPosition.left}px`,
+                                                            transform: 'translateX(-50%)'
+                                                        }}
+                                                    >
+                                                        <div className="filter-dropdown-header">
+                                                            <span>평가기준 필터</span>
+                                                            {headerFilters.evaluation.length > 0 && (
+                                                                <button
+                                                                    className="filter-clear-btn"
+                                                                    onClick={() => clearFilter('evaluation')}
+                                                                >
+                                                                    <X size={12} />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                        <div className="filter-options">
+                                                            {['정량', '정성'].map(evalType => (
+                                                                <label key={evalType} className="filter-option">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={headerFilters.evaluation.includes(evalType)}
+                                                                        onChange={() => toggleFilterOption('evaluation', evalType)}
+                                                                    />
+                                                                    <span>{evalType}</span>
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </th>
+                                        <th>
+                                            <span
+                                                className="sortable-header"
+                                                onClick={() => handleSort('target')}
+                                            >
+                                                목표
+                                            </span>
+                                        </th>
+                                        <th>
+                                            <span
+                                                className="sortable-header"
+                                                onClick={() => handleSort('actual')}
+                                            >
+                                                실적
+                                            </span>
+                                        </th>
+                                        <th>
+                                            <span
+                                                className="sortable-header"
+                                                onClick={() => handleSort('achievement')}
+                                            >
+                                                달성률
+                                            </span>
+                                        </th>
+                                        <th>
+                                            <div className="table-header-filter">
+                                                <span
+                                                    className="sortable-header"
+                                                    onClick={() => handleSort('dept')}
+                                                >
+                                                    담당 본부
+                                                </span>
+                                                <button
+                                                    ref={el => filterButtonRefs.current['dept'] = el}
+                                                    className={`filter-icon-btn ${headerFilters.dept.length > 0 ? 'active' : ''}`}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        toggleFilterDropdown('dept', e);
+                                                    }}
+                                                >
+                                                    <Filter size={14} />
+                                                    {headerFilters.dept.length > 0 && (
+                                                        <span className="filter-count">{headerFilters.dept.length}</span>
+                                                    )}
+                                                </button>
+                                                {activeFilterDropdown === 'dept' && (
+                                                    <div
+                                                        className="filter-dropdown filter-dropdown-wide"
+                                                        ref={filterDropdownRef}
+                                                        style={{
+                                                            top: `${dropdownPosition.top}px`,
+                                                            left: `${dropdownPosition.left}px`,
+                                                            transform: 'translateX(-50%)'
+                                                        }}
+                                                    >
+                                                        <div className="filter-dropdown-header">
+                                                            <span>담당 본부 필터</span>
+                                                            {headerFilters.dept.length > 0 && (
+                                                                <button
+                                                                    className="filter-clear-btn"
+                                                                    onClick={() => clearFilter('dept')}
+                                                                >
+                                                                    <X size={12} />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                        <div className="filter-options">
+                                                            {getAllDepts().map(dept => (
+                                                                <label key={dept} className="filter-option">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={headerFilters.dept.includes(dept)}
+                                                                        onChange={() => toggleFilterOption('dept', dept)}
+                                                                    />
+                                                                    <span>{dept}</span>
+                                                                </label>
+                                                            ))}
+                                                            {getAllDepts().length === 0 && (
+                                                                <div className="filter-empty">본부 정보가 없습니다</div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -510,44 +940,50 @@ function Dashboard() {
                                                 </td>
                                                 <td className="dashboard-table-dept">
                                                     {(() => {
-                                                        if (!task.managers || task.managers.length === 0) {
-                                                            return <span className="dashboard-badge dashboard-badge-default">-</span>;
+                                                        // 본부명 중복 제거
+                                                        const topDeptSet = new Set();
+                                                        if (task.managers && task.managers.length > 0) {
+                                                            task.managers.forEach(manager => {
+                                                                if (manager.topDeptName) {
+                                                                    topDeptSet.add(manager.topDeptName);
+                                                                }
+                                                            });
                                                         }
-                                                        // 부서명 중복 제거
-                                                        const deptSet = new Set();
-                                                        task.managers.forEach(manager => {
-                                                            if (manager.deptName) {
-                                                                deptSet.add(manager.deptName);
-                                                            }
-                                                        });
-                                                        const deptNames = Array.from(deptSet);
-                                                        if (deptNames.length === 0) {
+                                                        // 담당자가 없거나 본부 정보가 없으면 과제의 본부 사용
+                                                        if (topDeptSet.size === 0 && task.topDeptName) {
+                                                            topDeptSet.add(task.topDeptName);
+                                                        }
+                                                        const topDeptNames = Array.from(topDeptSet);
+                                                        if (topDeptNames.length === 0) {
                                                             return <span className="dashboard-badge dashboard-badge-default">-</span>;
                                                         }
                                                         return (
                                                             <div className="dashboard-badges-wrapper">
-                                                                {deptNames.map((deptName, idx) => {
-                                                                    // 해당 부서의 담당자들 필터링
-                                                                    const deptManagers = task.managers.filter(manager =>
-                                                                        manager.deptName === deptName
-                                                                    );
-                                                                    const validManagers = deptManagers
-                                                                        .map(manager => manager.mbName)
-                                                                        .filter(name => name && name !== '-');
+                                                                {topDeptNames.map((topDeptName, idx) => {
+                                                                    // 해당 본부의 팀들 필터링
+                                                                    const topDeptManagers = task.managers ? task.managers.filter(manager =>
+                                                                        manager.topDeptName === topDeptName
+                                                                    ) : [];
+                                                                    // 팀명(deptName) 중복 제거
+                                                                    const teamNames = Array.from(new Set(
+                                                                        topDeptManagers
+                                                                            .map(manager => manager.deptName)
+                                                                            .filter(name => name && name !== '-')
+                                                                    ));
 
                                                                     let tooltipText = '';
-                                                                    if (validManagers.length === 0) {
+                                                                    if (teamNames.length === 0) {
                                                                         tooltipText = '';
-                                                                    } else if (validManagers.length === 1) {
-                                                                        tooltipText = validManagers[0];
+                                                                    } else if (teamNames.length === 1) {
+                                                                        tooltipText = teamNames[0];
                                                                     } else {
-                                                                        tooltipText = `${validManagers[0]}외 ${validManagers.length - 1}명`;
+                                                                        tooltipText = `${teamNames[0]}외 ${teamNames.length - 1}개 팀`;
                                                                     }
 
                                                                     return (
                                                                         <div key={idx} className="dashboard-dept-badge-wrapper">
                                                                             <span className="dashboard-badge dashboard-badge-dept">
-                                                                                {deptName}
+                                                                                {topDeptName}
                                                                             </span>
                                                                             {tooltipText && (
                                                                                 <span className="dashboard-dept-tooltip">
@@ -571,11 +1007,12 @@ function Dashboard() {
                 </div>
             </div>
 
-            {/* 활동내역 입력 모달 */}
+            {/* 활동내역 입력 모달 - 통합 대시보드에서는 읽기 전용 */}
             <TaskInputModal
                 isOpen={isInputModalOpen}
                 onClose={handleInputModalClose}
                 task={inputTask}
+                forceReadOnly={true}
             />
         </div>
     );

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Target, Briefcase, LogOut, User, Bell, FileText } from 'lucide-react';
+import Lottie from 'lottie-react';
+import aiLottieData from '../assets/lotties/ailottie.json';
 import useUserStore from '../store/userStore';
 import { getTasksByType } from '../api/taskApi';
 import './Layout.css';
@@ -21,13 +23,9 @@ function Layout({ children }) {
 
         const loadNotInputtedCounts = async () => {
             try {
-                // 사용자 ID 가져오기 (일반 사용자인 경우)
-                const skid = !isAdmin ? (user?.skid || user?.userId) : null;
-
-                // OI 과제 조회 (일반 사용자는 자신이 담당한 과제만 조회)
-                const oiTasks = await getTasksByType('OI', skid);
-                // 중점추진과제 조회 (일반 사용자는 자신이 담당한 과제만 조회)
-                const keyTasks = await getTasksByType('중점추진', skid);
+                // 모든 과제 조회 (관리자는 전체, 담당자는 본부 전체)
+                const oiTasks = await getTasksByType('OI', null);
+                const keyTasks = await getTasksByType('중점추진', null);
 
                 let oiNotInputted, keyNotInputted;
 
@@ -36,9 +34,49 @@ function Layout({ children }) {
                     oiNotInputted = oiTasks.filter(task => task.isInputted !== 'Y').length;
                     keyNotInputted = keyTasks.filter(task => task.isInputted !== 'Y').length;
                 } else {
-                    // 일반 사용자: 백엔드에서 이미 자신이 담당한 과제만 반환되므로 필터링만 수행
-                    oiNotInputted = oiTasks.filter(task => task.isInputted !== 'Y').length;
-                    keyNotInputted = keyTasks.filter(task => task.isInputted !== 'Y').length;
+                    // 담당자: 본부 기준으로 필터링
+                    const skid = user?.skid || user?.userId;
+                    
+                    // 사용자의 본부 정보 찾기
+                    let userTopDeptName = null;
+                    for (const task of [...oiTasks, ...keyTasks]) {
+                        if (task.managers && task.managers.length > 0) {
+                            const userManager = task.managers.find(m => 
+                                (m.userId || m.mbId) === skid
+                            );
+                            if (userManager && userManager.topDeptName) {
+                                userTopDeptName = userManager.topDeptName;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (userTopDeptName) {
+                        // 본부 기준으로 필터링
+                        const filteredOiTasks = oiTasks.filter(task => {
+                            if (task.managers && task.managers.length > 0) {
+                                return task.managers.some(manager => 
+                                    manager.topDeptName === userTopDeptName
+                                );
+                            }
+                            return task.topDeptName === userTopDeptName;
+                        });
+                        
+                        const filteredKeyTasks = keyTasks.filter(task => {
+                            if (task.managers && task.managers.length > 0) {
+                                return task.managers.some(manager => 
+                                    manager.topDeptName === userTopDeptName
+                                );
+                            }
+                            return task.topDeptName === userTopDeptName;
+                        });
+
+                        oiNotInputted = filteredOiTasks.filter(task => task.isInputted !== 'Y').length;
+                        keyNotInputted = filteredKeyTasks.filter(task => task.isInputted !== 'Y').length;
+                    } else {
+                        oiNotInputted = 0;
+                        keyNotInputted = 0;
+                    }
                 }
 
                 setNotInputtedCount({
@@ -82,12 +120,6 @@ function Layout({ children }) {
                         </NavLink>
                     )}
 
-                    {/* AI 보고서 생성 */}
-                    <NavLink to="/ai-report" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-                        <FileText size={20} />
-                        <span>AI 보고서 생성</span>
-                    </NavLink>
-
                     <NavLink to="/oi-tasks" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
                         <Target size={20} />
                         <span>OI 과제</span>
@@ -125,17 +157,35 @@ function Layout({ children }) {
                     )}
                 </nav>
 
-                <div className="sidebar-footer">
-                    <div className="user-info">
-                        <User size={18} />
-                        <div className="user-details">
-                            <div className="user-name">{user.userName}</div>
-                            <div className="user-role">{user.role} · {user.deptName}</div>
+                {/* AI 보고서 생성 배너 */}
+                <div className="ai-report-banner">
+                    <NavLink to="/ai-report" className={({ isActive }) => `ai-report-banner-link ${isActive ? 'active' : ''}`}>
+                        <div className="ai-report-banner-content">
+                            <div className="ai-report-banner-icon">
+                                <Lottie 
+                                    animationData={aiLottieData} 
+                                    loop={true}
+                                    style={{ width: 56, height: 56 }}
+                                />
+                            </div>
+                            <div className="ai-report-banner-text">
+                                <div className="ai-report-banner-title">AI 보고서 생성</div>
+                                <div className="ai-report-banner-subtitle">자동으로 보고서를 생성해보세요</div>
+                            </div>
                         </div>
-                    </div>
-                    <button onClick={handleLogout} className="logout-btn">
+                    </NavLink>
+                </div>
+
+                <div className="sidebar-footer">
+                    <button onClick={handleLogout} className="user-logout-btn">
+                        <div className="user-info-section">
+                            <User size={18} />
+                            <div className="user-details">
+                                <div className="user-name">{user.userName}</div>
+                                <div className="user-role">{user.role} · {user.deptName}</div>
+                            </div>
+                        </div>
                         <LogOut size={18} />
-                        <span>로그아웃</span>
                     </button>
                 </div>
             </aside>

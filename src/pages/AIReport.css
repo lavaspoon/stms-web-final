@@ -363,7 +363,7 @@
     opacity: 1;
 }
 
-.report-type-btn > div {
+.report-type-btn>div {
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -433,7 +433,7 @@
     opacity: 1;
 }
 
-.report-format-btn > div {
+.report-format-btn>div {
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -476,7 +476,7 @@
     position: relative;
 }
 
-.ai-report-text.html-content > div {
+.ai-report-text.html-content>div {
     padding: 24px;
     background: white;
     position: relative;
@@ -1391,7 +1391,7 @@
         padding: 40px 20px;
     }
 
-    .ai-sparkle-container {
+    .ai-lottie-container {
         width: 100px;
         height: 100px;
     }
@@ -1467,6 +1467,7 @@
     from {
         transform: rotate(0deg);
     }
+
     to {
         transform: rotate(360deg);
     }
@@ -1699,51 +1700,13 @@
     width: 100%;
 }
 
-.ai-sparkle-container {
+.ai-lottie-container {
     position: relative;
     width: 120px;
     height: 120px;
     display: flex;
     align-items: center;
     justify-content: center;
-}
-
-.ai-sparkle {
-    position: absolute;
-    color: #4A90E2;
-    opacity: 0.8;
-    animation: sparkle-float 2s ease-in-out infinite;
-}
-
-.ai-sparkle-1 {
-    top: 20%;
-    left: 20%;
-    animation-delay: 0s;
-}
-
-.ai-sparkle-2 {
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    animation-delay: 0.4s;
-    color: #5BA3F5;
-}
-
-.ai-sparkle-3 {
-    bottom: 20%;
-    right: 20%;
-    animation-delay: 0.8s;
-}
-
-@keyframes sparkle-float {
-    0%, 100% {
-        transform: translate(0, 0) scale(1);
-        opacity: 0.6;
-    }
-    50% {
-        transform: translate(10px, -10px) scale(1.1);
-        opacity: 1;
-    }
 }
 
 .ai-generating-content {
@@ -1818,10 +1781,13 @@
 }
 
 @keyframes glow-pulse {
-    0%, 100% {
+
+    0%,
+    100% {
         opacity: 0.5;
         transform: translate(-50%, -50%) scale(1);
     }
+
     50% {
         opacity: 0.8;
         transform: translate(-50%, -50%) scale(1.1);

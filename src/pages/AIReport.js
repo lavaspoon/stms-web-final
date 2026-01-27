@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Target, Briefcase, FileText, Loader2, Download, AlertCircle, CheckSquare, Square, X, CheckCircle, Code, Edit, Eye, Sparkles } from 'lucide-react';
+import { Target, Briefcase, FileText, Loader2, Download, AlertCircle, CheckSquare, Square, X, CheckCircle, Code, Edit, Eye } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import Lottie from 'lottie-react';
+import aiLottieData from '../assets/lotties/ailottie.json';
 import useUserStore from '../store/userStore';
 import { getTasksByType, getTaskActivity, getAllPreviousActivities } from '../api/taskApi';
 import { generateMonthlyReport, generateComprehensiveReport, generateCustomReport } from '../api/aiApi';
@@ -609,10 +611,12 @@ function AIReport() {
                         ) : isGenerating ? (
                             <div className="ai-report-generating">
                                 <div className="ai-generating-animation">
-                                    <div className="ai-sparkle-container">
-                                        <Sparkles className="ai-sparkle ai-sparkle-1" size={24} />
-                                        <Sparkles className="ai-sparkle ai-sparkle-2" size={28} />
-                                        <Sparkles className="ai-sparkle ai-sparkle-3" size={22} />
+                                    <div className="ai-lottie-container">
+                                        <Lottie
+                                            animationData={aiLottieData}
+                                            loop={true}
+                                            style={{ width: 120, height: 120 }}
+                                        />
                                     </div>
                                     <div className="ai-generating-content">
                                         <h3>AI가 보고서를 생성하고 있습니다</h3>

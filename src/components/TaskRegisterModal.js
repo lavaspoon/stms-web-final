@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, User, Target, TrendingUp, ChevronRight, ChevronDown } from 'lucide-react';
+import { X, Calendar, User, Target, TrendingUp, ChevronRight, ChevronDown, Search } from 'lucide-react';
 import { getAllDepts, getDeptMembers } from '../api/deptApi';
 import { createTask, updateTask } from '../api/taskApi';
 import './TaskRegisterModal.css';
@@ -19,10 +19,13 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
         metric: 'count',
         targetValue: '', // 목표값 (정량일 때만)
         status: 'inProgress',
+        visibleYn: 'Y', // 공개여부 (기본값 Y)
     });
 
     const [departments, setDepartments] = useState([]);
     const [availableManagers, setAvailableManagers] = useState([]);
+    const [allManagers, setAllManagers] = useState([]); // 모든 부서의 구성원 (검색용)
+    const [managerSearchTerm, setManagerSearchTerm] = useState(''); // 구성원 검색어
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [expandedDepts, setExpandedDepts] = useState(new Set());
@@ -33,6 +36,68 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
             loadDepartments();
         }
     }, [isOpen]);
+
+    // 모든 부서의 구성원 조회 (검색용)
+    useEffect(() => {
+        if (isOpen && departments.length > 0) {
+            loadAllManagers();
+        }
+    }, [isOpen, departments.length]);
+
+    // allManagers가 로드된 후 수정 모드의 담당자 부서 정보 업데이트
+    useEffect(() => {
+        if (isOpen && editData && allManagers.length > 0 && formData.managers.length > 0) {
+            // 담당자들의 부서 정보를 allManagers에서 찾아서 업데이트
+            const updatedManagers = formData.managers.map(manager => {
+                const foundInAll = allManagers.find(m => m.userId === manager.userId);
+                if (foundInAll && foundInAll.deptName) {
+                    return {
+                        ...manager,
+                        deptName: foundInAll.deptName,
+                        deptId: foundInAll.deptId
+                    };
+                }
+                return manager;
+            });
+
+            // 부서 정보가 업데이트된 경우에만 상태 업데이트
+            const hasChanges = updatedManagers.some((m, idx) =>
+                m.deptName !== formData.managers[idx]?.deptName
+            );
+
+            if (hasChanges) {
+                setFormData(prev => ({
+                    ...prev,
+                    managers: updatedManagers
+                }));
+            }
+        }
+    }, [allManagers.length, isOpen, editData]);
+
+    const loadAllManagers = async () => {
+        try {
+            const allMembers = [];
+            // 모든 부서의 구성원을 순회하며 가져오기
+            for (const dept of departments) {
+                try {
+                    const members = await getDeptMembers(dept.id);
+                    // 부서 정보를 각 구성원에 추가
+                    const membersWithDept = members.map(member => ({
+                        ...member,
+                        deptId: dept.id,
+                        deptName: dept.deptName
+                    }));
+                    allMembers.push(...membersWithDept);
+                } catch (error) {
+                    console.error(`부서 ${dept.deptName}의 구성원 조회 실패:`, error);
+                }
+            }
+            setAllManagers(allMembers);
+        } catch (error) {
+            console.error('전체 구성원 조회 실패:', error);
+            setAllManagers([]);
+        }
+    };
 
     // 수정 모드일 때 폼 데이터 설정 (부서 목록이 로드된 후 실행)
     useEffect(() => {
@@ -67,11 +132,11 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
             if (editData.managers && editData.managers.length > 0) {
                 const firstManager = editData.managers[0];
                 const managerDeptName = firstManager.deptName || firstManager.topDeptName;
-                
+
                 if (managerDeptName) {
                     // 부서 목록에서 부서 이름으로 부서 ID 찾기
-                    const foundDept = departments.find(dept => 
-                        dept.deptName === managerDeptName || 
+                    const foundDept = departments.find(dept =>
+                        dept.deptName === managerDeptName ||
                         dept.deptName === firstManager.topDeptName
                     );
                     if (foundDept) {
@@ -95,6 +160,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 metric: editData.performance?.metric || editData.metric || 'count',
                 targetValue: formatTargetValue(editData.targetValue || editData.target),
                 status: editData.status || 'inProgress',
+                visibleYn: editData.visibleYn || 'Y', // 공개여부
             }));
 
             // 부서 ID가 있으면 해당 부서의 담당자 목록 로드
@@ -117,8 +183,10 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 metric: 'count',
                 targetValue: '',
                 status: 'inProgress',
+                visibleYn: 'Y',
             });
             setAvailableManagers([]);
+            setManagerSearchTerm('');
         } else if (!isOpen) {
             // 모달이 닫힐 때 폼 초기화
             setFormData({
@@ -135,8 +203,10 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 metric: 'count',
                 targetValue: '',
                 status: 'inProgress',
+                visibleYn: 'Y',
             });
             setAvailableManagers([]);
+            setManagerSearchTerm('');
             setExpandedDepts(new Set());
         }
     }, [isOpen, editData, departments]);
@@ -325,7 +395,8 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 evaluationType: formData.evaluationType,
                 metric: formData.evaluationType === 'quantitative' ? formData.metric : null, // 정성일 때는 null
                 targetValue: formData.evaluationType === 'quantitative' ? formData.targetValue : null, // 정량일 때만 목표값
-                status: formData.status
+                status: formData.status,
+                visibleYn: formData.visibleYn || 'Y' // 공개여부
             };
 
             if (editData) {
@@ -359,6 +430,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 metric: 'count',
                 targetValue: '',
                 status: 'inProgress',
+                visibleYn: 'Y',
             });
 
             onClose();
@@ -605,6 +677,40 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                         </div>
                     </section>
 
+                    {/* 공개여부 */}
+                    <section className="form-section performance-criteria-section">
+                        <div className="task-register-section-header">
+                            <Target size={18} />
+                            <h3>공개 설정</h3>
+                        </div>
+
+                        <div className="form-group-compact">
+                            <label>공개여부 <span className="required">*</span></label>
+                            <div className="radio-group-compact">
+                                <label className="radio-label-compact">
+                                    <input
+                                        type="radio"
+                                        name="visibleYn"
+                                        value="Y"
+                                        checked={formData.visibleYn === 'Y'}
+                                        onChange={handleChange}
+                                    />
+                                    <span>공개</span>
+                                </label>
+                                <label className="radio-label-compact">
+                                    <input
+                                        type="radio"
+                                        name="visibleYn"
+                                        value="N"
+                                        checked={formData.visibleYn === 'N'}
+                                        onChange={handleChange}
+                                    />
+                                    <span>비공개 (관리자와 담당자만 조회 가능)</span>
+                                </label>
+                            </div>
+                        </div>
+                    </section>
+
                     {/* 담당자 */}
                     <section className="form-section">
                         <div className="task-register-section-header">
@@ -631,53 +737,130 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                                 </span>
                             </label>
 
-                            {formData.department ? (
+                            {/* 구성원 검색 입력 */}
+                            <div className="manager-search-box" style={{ marginBottom: '12px' }}>
+                                <Search size={16} style={{ color: '#9ca3af' }} />
+                                <input
+                                    type="text"
+                                    placeholder="구성원 이름으로 검색..."
+                                    value={managerSearchTerm}
+                                    onChange={(e) => setManagerSearchTerm(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '8px 12px 8px 32px',
+                                        border: '1px solid #e5e7eb',
+                                        borderRadius: '6px',
+                                        fontSize: '14px'
+                                    }}
+                                />
+                            </div>
+
+                            {/* 선택된 담당자 목록 - 항상 표시 */}
+                            {formData.managers.length > 0 && (
+                                <div className="selected-managers" style={{ marginBottom: '12px' }}>
+                                    <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px', fontWeight: '500' }}>
+                                        선택된 담당자 ({formData.managers.length}명)
+                                    </div>
+                                    {formData.managers.map(manager => (
+                                        <span key={manager.userId} className="manager-tag">
+                                            {manager.mbName}
+                                            {manager.deptName && (
+                                                <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: '4px' }}>
+                                                    ({manager.deptName})
+                                                </span>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveManager(manager.userId)}
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+
+                            {managerSearchTerm ? (
+                                // 검색어가 있으면 모든 부서의 구성원에서 검색
                                 <>
-                                    {loading ? (
-                                        <div className="empty-state-text">로딩 중...</div>
-                                    ) : availableManagers.length > 0 ? (
-                                        <>
+                                    {(() => {
+                                        const filteredManagers = allManagers.filter(manager => {
+                                            const name = manager.mbName || '';
+                                            const position = manager.mbPositionName || '';
+                                            const deptName = manager.deptName || '';
+                                            const searchLower = managerSearchTerm.toLowerCase();
+                                            return name.toLowerCase().includes(searchLower) ||
+                                                position.toLowerCase().includes(searchLower) ||
+                                                deptName.toLowerCase().includes(searchLower);
+                                        });
+
+                                        return filteredManagers.length > 0 ? (
                                             <div className="manager-select-container">
-                                                {availableManagers.map(manager => (
+                                                {filteredManagers.map(manager => (
                                                     <div key={manager.userId} className="manager-checkbox-item">
                                                         <input
                                                             type="checkbox"
-                                                            id={`manager-${manager.userId}`}
+                                                            id={`manager-search-${manager.userId}`}
                                                             checked={formData.managers.some(m => m.userId === manager.userId)}
                                                             onChange={() => handleManagerToggle(manager)}
                                                         />
-                                                        <label htmlFor={`manager-${manager.userId}`}>
+                                                        <label htmlFor={`manager-search-${manager.userId}`}>
                                                             <div className="manager-info">
                                                                 <span>{manager.mbName}</span>
                                                                 <span className="manager-position">{manager.mbPositionName}</span>
+                                                                <span className="manager-dept" style={{ fontSize: '11px', color: '#9ca3af', marginLeft: '8px' }}>
+                                                                    ({manager.deptName})
+                                                                </span>
                                                             </div>
                                                         </label>
                                                     </div>
                                                 ))}
                                             </div>
-
-                                            {formData.managers.length > 0 && (
-                                                <div className="selected-managers">
-                                                    {formData.managers.map(manager => (
-                                                        <span key={manager.userId} className="manager-tag">
-                                                            {manager.mbName}
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleRemoveManager(manager.userId)}
-                                                            >
-                                                                <X size={14} />
-                                                            </button>
-                                                        </span>
-                                                    ))}
+                                        ) : (
+                                            <div className="empty-state-text">검색 결과가 없습니다.</div>
+                                        );
+                                    })()}
+                                </>
+                            ) : formData.department ? (
+                                // 검색어가 없으면 선택된 부서의 구성원만 표시
+                                <>
+                                    {loading ? (
+                                        <div className="empty-state-text">로딩 중...</div>
+                                    ) : availableManagers.length > 0 ? (
+                                        <div className="manager-select-container">
+                                            {availableManagers.map(manager => (
+                                                <div key={manager.userId} className="manager-checkbox-item">
+                                                    <input
+                                                        type="checkbox"
+                                                        id={`manager-${manager.userId}`}
+                                                        checked={formData.managers.some(m => m.userId === manager.userId)}
+                                                        onChange={() => handleManagerToggle(manager)}
+                                                    />
+                                                    <label htmlFor={`manager-${manager.userId}`}>
+                                                        <div className="manager-info">
+                                                            <span>{manager.mbName}</span>
+                                                            <span className="manager-position">{manager.mbPositionName}</span>
+                                                        </div>
+                                                    </label>
                                                 </div>
-                                            )}
-                                        </>
+                                            ))}
+                                        </div>
                                     ) : (
                                         <div className="empty-state-text">해당 부서에 담당자가 없습니다</div>
                                     )}
                                 </>
                             ) : (
-                                <div className="empty-state-text">부서를 먼저 선택해주세요</div>
+                                // 부서가 선택되지 않았을 때
+                                <>
+                                    {formData.managers.length > 0 ? (
+                                        // 수정 모드이고 담당자가 있으면 안내 메시지 표시
+                                        <div className="empty-state-text" style={{ color: '#6b7280', fontSize: '13px' }}>
+                                            부서를 선택하면 해당 부서의 구성원을 추가할 수 있습니다.
+                                        </div>
+                                    ) : (
+                                        <div className="empty-state-text">부서를 먼저 선택해주세요</div>
+                                    )}
+                                </>
                             )}
                         </div>
                     </section>

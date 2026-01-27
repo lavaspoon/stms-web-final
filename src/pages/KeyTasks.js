@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Search, AlertCircle, CheckCircle, Clock, XCircle, Filter, ChevronDown, X } from 'lucide-react';
+import { Plus, Search, AlertCircle, CheckCircle, Clock, XCircle, Filter, ChevronDown, X, ArrowUpDown } from 'lucide-react';
 import useUserStore from '../store/userStore';
 import TaskRegisterModal from '../components/TaskRegisterModal';
 import TaskInputModal from '../components/TaskInputModal';
@@ -60,6 +60,12 @@ function KeyTasks() {
     const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
     const filterDropdownRef = useRef(null);
     const filterButtonRefs = useRef({});
+
+    // 정렬 상태
+    const [sortConfig, setSortConfig] = useState({
+        column: null,
+        direction: null // 'asc' or 'desc'
+    });
 
     // 성과지표 영어 -> 한글 변환 함수
     const translatePerformanceType = (type) => {
@@ -140,18 +146,35 @@ function KeyTasks() {
     const loadTasks = async () => {
         try {
             setLoading(true);
-            const skid = user?.skid || user?.userId;
-            // 담당자인 경우 자신이 담당한 과제만 조회, 관리자는 모든 과제 조회
+            // 관리자는 모든 과제 조회, 담당자는 본부 전체 과제 조회
             const [data] = await Promise.all([
-                getTasksByType('중점추진', skid),
+                getTasksByType('중점추진', null), // 모든 과제 조회
                 new Promise(resolve => setTimeout(resolve, 300)) // 최소 300ms 딜레이
             ]);
 
             console.log('Loaded tasks:', data.length);
             console.log('Current user:', user);
 
+            // 사용자의 본부 정보 찾기 (담당자인 경우)
+            let userTopDeptName = null;
+            if (!isAdmin && user) {
+                const skid = user?.skid || user?.userId;
+                // 사용자가 담당자인 과제에서 본부 정보 찾기
+                for (const task of data) {
+                    if (task.managers && task.managers.length > 0) {
+                        const userManager = task.managers.find(m =>
+                            (m.userId || m.mbId) === skid
+                        );
+                        if (userManager && userManager.topDeptName) {
+                            userTopDeptName = userManager.topDeptName;
+                            break;
+                        }
+                    }
+                }
+            }
+
             // 백엔드 데이터를 화면 포맷으로 변환
-            const formattedTasks = data.map(task => ({
+            let formattedTasks = data.map(task => ({
                 id: task.taskId,
                 category1: task.category1,
                 category2: task.category2,
@@ -163,6 +186,7 @@ function KeyTasks() {
                 managers: task.managers || [],
                 startDate: task.startDate,
                 endDate: task.endDate,
+                topDeptName: task.topDeptName || '-', // 담당 본부
                 performance: {
                     type: translatePerformanceType(task.performanceType),
                     evaluation: translateEvaluationType(task.evaluationType),
@@ -178,8 +202,37 @@ function KeyTasks() {
                 targetValue: task.targetValue || 0, // 목표값
                 actualValue: task.actualValue || 0, // 실적값
                 evaluationType: task.evaluationType, // 평가 유형 (정량/정성)
-                metric: task.metric // 지표 (건수/금액/%)
+                metric: task.metric, // 지표 (건수/금액/%)
+                visibleYn: task.visibleYn || 'Y' // 공개여부
             }));
+
+            // 공개여부 필터링: 공개여부가 N인 경우 관리자와 담당자만 볼 수 있음
+            formattedTasks = formattedTasks.filter(task => {
+                // 공개여부가 Y이면 모든 사용자에게 표시
+                if (task.visibleYn === 'Y') {
+                    return true;
+                }
+                // 공개여부가 N이면 관리자 또는 담당자만 볼 수 있음
+                if (isAdmin) {
+                    return true; // 관리자는 모든 과제 조회 가능
+                }
+                // 담당자인지 확인
+                return isTaskManager(task);
+            });
+
+            // 담당자인 경우 본부 기준으로 필터링
+            if (!isAdmin && userTopDeptName) {
+                formattedTasks = formattedTasks.filter(task => {
+                    // 과제의 담당자 중 사용자의 본부와 일치하는 본부가 있는지 확인
+                    if (task.managers && task.managers.length > 0) {
+                        return task.managers.some(manager =>
+                            manager.topDeptName === userTopDeptName
+                        );
+                    }
+                    // 담당자가 없으면 과제의 본부 확인
+                    return task.topDeptName === userTopDeptName;
+                });
+            }
 
             console.log('Loaded tasks:', formattedTasks.length);
             console.log('Tasks with isInputted status:', formattedTasks.map(t => ({
@@ -281,6 +334,63 @@ function KeyTasks() {
             headerFilters.dept.length > 0;
     };
 
+    // 헤더 클릭 정렬 핸들러
+    const handleSort = (column) => {
+        setSortConfig(prevConfig => {
+            if (prevConfig.column === column) {
+                // 같은 컬럼 클릭 시: asc -> desc -> null (정렬 해제)
+                if (prevConfig.direction === 'asc') {
+                    return { column, direction: 'desc' };
+                } else if (prevConfig.direction === 'desc') {
+                    return { column: null, direction: null };
+                }
+            }
+            // 새로운 컬럼 클릭 시: asc로 시작
+            return { column, direction: 'asc' };
+        });
+    };
+
+    // 정렬 함수
+    const getSortValue = (task, column) => {
+        switch (column) {
+            case 'status':
+                const statusOrder = {
+                    'inProgress': 1,
+                    'completed': 2,
+                    'delayed': 3,
+                    'stopped': 4
+                };
+                return statusOrder[normalizeStatus(task.status)] || 99;
+            case 'name':
+                return task.name || '';
+            case 'evaluation':
+                const evaluationType = task.evaluationType || task.performance?.evaluation || task.performanceOriginal?.evaluation || '';
+                return evaluationType === 'qualitative' || evaluationType === '정성' ? '정성' : '정량';
+            case 'target':
+                return task.targetValue || 0;
+            case 'actual':
+                return task.actualValue || 0;
+            case 'achievement':
+                return task.achievement || 0;
+            case 'dept':
+                const topDeptSet = new Set();
+                if (task.managers && task.managers.length > 0) {
+                    task.managers.forEach(manager => {
+                        if (manager.topDeptName) {
+                            topDeptSet.add(manager.topDeptName);
+                        }
+                    });
+                }
+                // 담당자가 없거나 본부 정보가 없으면 과제의 본부 사용
+                if (topDeptSet.size === 0 && task.topDeptName) {
+                    topDeptSet.add(task.topDeptName);
+                }
+                return Array.from(topDeptSet).sort().join(',');
+            default:
+                return '';
+        }
+    };
+
     // 과제 등록/수정 완료 후 목록 새로고침
     const handleModalClose = () => {
         setIsRegisterModalOpen(false);
@@ -288,13 +398,9 @@ function KeyTasks() {
         loadTasks(); // 목록 새로고침
     };
 
-    // 활동내역 입력 모달 열기 (담당자 및 관리자용)
+    // 활동내역 입력 모달 열기 (모든 과제 열람 가능, 담당자가 아닌 경우 읽기 전용)
     const handleInputTask = (task) => {
-        // 관리자 또는 담당자만 입력 가능
-        if (!isAdmin && !isTaskManager(task)) {
-            alert('해당 과제의 담당자만 입력할 수 있습니다.');
-            return;
-        }
+        // 모든 과제를 열람 가능 (TaskInputModal에서 담당자 여부에 따라 읽기 전용 모드 적용)
         console.log('handleInputTask - task:', task);
         console.log('handleInputTask - task.performance:', task.performance);
         console.log('handleInputTask - task.performanceOriginal:', task.performanceOriginal);
@@ -314,10 +420,8 @@ function KeyTasks() {
         if (e.target.closest('button') || e.target.closest('.action-buttons')) {
             return;
         }
-        // 관리자는 입력 모달 열기, 담당자도 입력 모달 열기
-        if (isAdmin || isTaskManager(task)) {
-            handleInputTask(task);
-        }
+        // 모든 과제를 열람 가능 (담당자가 아닌 경우 읽기 전용 모드로 열림)
+        handleInputTask(task);
     };
 
 
@@ -341,6 +445,7 @@ function KeyTasks() {
             managers: task.managers,
             status: task.status,
             targetValue: task.targetValue, // 목표값 추가
+            visibleYn: task.visibleYn || 'Y', // 공개여부
             // 수정 모드에서는 원본 영어 값 사용
             performance: task.performanceOriginal || task.performance
         });
@@ -469,16 +574,20 @@ function KeyTasks() {
     };
 
 
-    // 모든 담당 부서 목록 추출
+    // 모든 담당 본부 목록 추출
     const getAllDepts = () => {
         const deptSet = new Set();
         tasks.forEach(task => {
             if (task.managers && task.managers.length > 0) {
                 task.managers.forEach(manager => {
-                    if (manager.deptName) {
-                        deptSet.add(manager.deptName);
+                    if (manager.topDeptName) {
+                        deptSet.add(manager.topDeptName);
                     }
                 });
+            }
+            // 담당자가 없거나 본부 정보가 없으면 과제의 본부 사용
+            if (deptSet.size === 0 && task.topDeptName) {
+                deptSet.add(task.topDeptName);
             }
         });
         return Array.from(deptSet).sort();
@@ -500,15 +609,19 @@ function KeyTasks() {
                 if (!headerFilters.evaluation.includes(evaluationValue)) return false;
             }
 
-            // 헤더 필터: 담당 부서
+            // 헤더 필터: 담당 본부
             if (headerFilters.dept.length > 0) {
                 const taskDepts = new Set();
                 if (task.managers && task.managers.length > 0) {
                     task.managers.forEach(manager => {
-                        if (manager.deptName) {
-                            taskDepts.add(manager.deptName);
+                        if (manager.topDeptName) {
+                            taskDepts.add(manager.topDeptName);
                         }
                     });
+                }
+                // 담당자가 없거나 본부 정보가 없으면 과제의 본부 사용
+                if (taskDepts.size === 0 && task.topDeptName) {
+                    taskDepts.add(task.topDeptName);
                 }
                 const hasMatchingDept = Array.from(taskDepts).some(dept => headerFilters.dept.includes(dept));
                 if (!hasMatchingDept) return false;
@@ -519,6 +632,15 @@ function KeyTasks() {
                 const normalizedTaskStatus = normalizeStatus(task.status);
                 // 진행중인 과제 중 미입력인 것만 표시
                 if (normalizedTaskStatus !== 'inProgress' || task.isInputted) return false;
+            } else if (filterStatus === 'myTeam') {
+                // 내팀 필터: 사용자의 팀과 같은 팀에 속한 담당자가 있는 과제만 표시
+                const userDeptName = user?.deptName;
+                if (!userDeptName) return false;
+                if (!task.managers || task.managers.length === 0) return false;
+                const hasMyTeamManager = task.managers.some(manager =>
+                    manager.deptName === userDeptName
+                );
+                if (!hasMyTeamManager) return false;
             } else if (filterStatus !== 'all') {
                 const normalizedTaskStatus = normalizeStatus(task.status);
                 if (normalizedTaskStatus !== filterStatus) return false;
@@ -528,13 +650,35 @@ function KeyTasks() {
             if (searchTerm) {
                 const searchLower = searchTerm.toLowerCase();
                 const matchName = task.name.toLowerCase().includes(searchLower);
-                const matchManager = task.manager.toLowerCase().includes(searchLower);
+                // 모든 담당자 이름 검색
+                const matchManager = task.managers && task.managers.length > 0
+                    ? task.managers.some(manager => {
+                        const managerName = manager.mbName || '';
+                        return managerName.toLowerCase().includes(searchLower);
+                    })
+                    : false;
                 if (!matchName && !matchManager) return false;
             }
 
             return true;
         })
         .sort((a, b) => {
+            // 정렬 설정이 있으면 해당 정렬 적용
+            if (sortConfig.column && sortConfig.direction) {
+                const aValue = getSortValue(a, sortConfig.column);
+                const bValue = getSortValue(b, sortConfig.column);
+
+                let comparison = 0;
+                if (typeof aValue === 'string' && typeof bValue === 'string') {
+                    comparison = aValue.localeCompare(bValue, 'ko');
+                } else {
+                    comparison = aValue - bValue;
+                }
+
+                return sortConfig.direction === 'asc' ? comparison : -comparison;
+            }
+
+            // 정렬이 없으면 기본 정렬 (진행중(미입력) > 진행중(입력) > 완료 > 지연 > 중단)
             const getSortPriority = (task) => {
                 const normalizedStatus = normalizeStatus(task.status);
                 const isInProgress = normalizedStatus === 'inProgress';
@@ -620,6 +764,17 @@ function KeyTasks() {
                     >
                         전체 ({userTasks.length})
                     </button>
+                    {user?.deptName && (
+                        <button
+                            className={filterStatus === 'myTeam' ? 'key-filter-btn active my-team' : 'key-filter-btn my-team'}
+                            onClick={() => setFilterStatus('myTeam')}
+                        >
+                            {user.deptName} ({userTasks.filter(t => {
+                                if (!t.managers || t.managers.length === 0) return false;
+                                return t.managers.some(manager => manager.deptName === user.deptName);
+                            }).length})
+                        </button>
+                    )}
                     <button
                         className={filterStatus === 'notInputted' ? 'key-filter-btn active warning' : 'key-filter-btn warning'}
                         onClick={() => setFilterStatus('notInputted')}
@@ -662,7 +817,12 @@ function KeyTasks() {
                             <tr>
                                 <th>
                                     <div className="table-header-filter">
-                                        <span>상태</span>
+                                        <span
+                                            className="sortable-header"
+                                            onClick={() => handleSort('status')}
+                                        >
+                                            상태
+                                        </span>
                                         <button
                                             ref={el => filterButtonRefs.current['status'] = el}
                                             className={`filter-icon-btn ${headerFilters.status.length > 0 ? 'active' : ''}`}
@@ -721,10 +881,22 @@ function KeyTasks() {
                                         )}
                                     </div>
                                 </th>
-                                <th>과제명</th>
+                                <th>
+                                    <span
+                                        className="sortable-header"
+                                        onClick={() => handleSort('name')}
+                                    >
+                                        과제명
+                                    </span>
+                                </th>
                                 <th>
                                     <div className="table-header-filter">
-                                        <span>평가기준</span>
+                                        <span
+                                            className="sortable-header"
+                                            onClick={() => handleSort('evaluation')}
+                                        >
+                                            평가기준
+                                        </span>
                                         <button
                                             ref={el => filterButtonRefs.current['evaluation'] = el}
                                             className={`filter-icon-btn ${headerFilters.evaluation.length > 0 ? 'active' : ''}`}
@@ -775,12 +947,38 @@ function KeyTasks() {
                                         )}
                                     </div>
                                 </th>
-                                <th>목표</th>
-                                <th>실적</th>
-                                <th>달성률</th>
+                                <th>
+                                    <span
+                                        className="sortable-header"
+                                        onClick={() => handleSort('target')}
+                                    >
+                                        목표
+                                    </span>
+                                </th>
+                                <th>
+                                    <span
+                                        className="sortable-header"
+                                        onClick={() => handleSort('actual')}
+                                    >
+                                        실적
+                                    </span>
+                                </th>
+                                <th>
+                                    <span
+                                        className="sortable-header"
+                                        onClick={() => handleSort('achievement')}
+                                    >
+                                        달성률
+                                    </span>
+                                </th>
                                 <th>
                                     <div className="table-header-filter">
-                                        <span>담당 부서</span>
+                                        <span
+                                            className="sortable-header"
+                                            onClick={() => handleSort('dept')}
+                                        >
+                                            담당 본부
+                                        </span>
                                         <button
                                             ref={el => filterButtonRefs.current['dept'] = el}
                                             className={`filter-icon-btn ${headerFilters.dept.length > 0 ? 'active' : ''}`}
@@ -805,7 +1003,7 @@ function KeyTasks() {
                                                 }}
                                             >
                                                 <div className="filter-dropdown-header">
-                                                    <span>담당 부서 필터</span>
+                                                    <span>담당 본부 필터</span>
                                                     {headerFilters.dept.length > 0 && (
                                                         <button
                                                             className="filter-clear-btn"
@@ -827,7 +1025,7 @@ function KeyTasks() {
                                                         </label>
                                                     ))}
                                                     {getAllDepts().length === 0 && (
-                                                        <div className="filter-empty">부서 정보가 없습니다</div>
+                                                        <div className="filter-empty">본부 정보가 없습니다</div>
                                                     )}
                                                 </div>
                                             </div>
@@ -849,7 +1047,8 @@ function KeyTasks() {
                                 </tr>
                             ) : (
                                 filteredTasks.map(task => {
-                                    const canView = isAdmin || isTaskManager(task);
+                                    // 모든 과제를 열람 가능
+                                    const canView = true;
                                     const statusInfo = getStatusInfo(task.status);
                                     const StatusIcon = statusInfo.icon;
                                     const evaluationType = task.evaluationType || task.performance?.evaluation || task.performanceOriginal?.evaluation || '';
@@ -913,6 +1112,9 @@ function KeyTasks() {
                                                         ) : (
                                                             <span className="category-text">-</span>
                                                         )}
+                                                        {task.visibleYn === 'N' && (
+                                                            <span className="private-badge" title="비공개 과제">Private</span>
+                                                        )}
                                                     </div>
                                                     <div className="task-name">{task.name}</div>
                                                 </div>
@@ -951,44 +1153,50 @@ function KeyTasks() {
                                             </td>
                                             <td className="dashboard-table-dept">
                                                 {(() => {
-                                                    if (!task.managers || task.managers.length === 0) {
-                                                        return <span className="dashboard-badge dashboard-badge-default">-</span>;
+                                                    // 본부명 중복 제거
+                                                    const topDeptSet = new Set();
+                                                    if (task.managers && task.managers.length > 0) {
+                                                        task.managers.forEach(manager => {
+                                                            if (manager.topDeptName) {
+                                                                topDeptSet.add(manager.topDeptName);
+                                                            }
+                                                        });
                                                     }
-                                                    // 부서명 중복 제거
-                                                    const deptSet = new Set();
-                                                    task.managers.forEach(manager => {
-                                                        if (manager.deptName) {
-                                                            deptSet.add(manager.deptName);
-                                                        }
-                                                    });
-                                                    const deptNames = Array.from(deptSet);
-                                                    if (deptNames.length === 0) {
+                                                    // 담당자가 없거나 본부 정보가 없으면 과제의 본부 사용
+                                                    if (topDeptSet.size === 0 && task.topDeptName) {
+                                                        topDeptSet.add(task.topDeptName);
+                                                    }
+                                                    const topDeptNames = Array.from(topDeptSet);
+                                                    if (topDeptNames.length === 0) {
                                                         return <span className="dashboard-badge dashboard-badge-default">-</span>;
                                                     }
                                                     return (
                                                         <div className="dashboard-badges-wrapper">
-                                                            {deptNames.map((deptName, idx) => {
-                                                                // 해당 부서의 담당자들 필터링
-                                                                const deptManagers = task.managers.filter(manager =>
-                                                                    manager.deptName === deptName
-                                                                );
-                                                                const validManagers = deptManagers
-                                                                    .map(manager => manager.mbName)
-                                                                    .filter(name => name && name !== '-');
+                                                            {topDeptNames.map((topDeptName, idx) => {
+                                                                // 해당 본부의 팀들 필터링
+                                                                const topDeptManagers = task.managers ? task.managers.filter(manager =>
+                                                                    manager.topDeptName === topDeptName
+                                                                ) : [];
+                                                                // 팀명(deptName) 중복 제거
+                                                                const teamNames = Array.from(new Set(
+                                                                    topDeptManagers
+                                                                        .map(manager => manager.deptName)
+                                                                        .filter(name => name && name !== '-')
+                                                                ));
 
                                                                 let tooltipText = '';
-                                                                if (validManagers.length === 0) {
+                                                                if (teamNames.length === 0) {
                                                                     tooltipText = '';
-                                                                } else if (validManagers.length === 1) {
-                                                                    tooltipText = validManagers[0];
+                                                                } else if (teamNames.length === 1) {
+                                                                    tooltipText = teamNames[0];
                                                                 } else {
-                                                                    tooltipText = `${validManagers[0]}외 ${validManagers.length - 1}명`;
+                                                                    tooltipText = `${teamNames[0]}외 ${teamNames.length - 1}개 팀`;
                                                                 }
 
                                                                 return (
                                                                     <div key={idx} className="dashboard-dept-badge-wrapper">
                                                                         <span className="dashboard-badge dashboard-badge-dept">
-                                                                            {deptName}
+                                                                            {topDeptName}
                                                                         </span>
                                                                         {tooltipText && (
                                                                             <span className="dashboard-dept-tooltip">

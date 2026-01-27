@@ -654,7 +654,7 @@
     .detail-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .task-detail-modal {
         width: 95%;
         max-height: 95vh;
