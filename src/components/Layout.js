@@ -36,12 +36,12 @@ function Layout({ children }) {
                 } else {
                     // 담당자: 본부 기준으로 필터링
                     const skid = user?.skid || user?.userId;
-                    
+
                     // 사용자의 본부 정보 찾기
                     let userTopDeptName = null;
                     for (const task of [...oiTasks, ...keyTasks]) {
                         if (task.managers && task.managers.length > 0) {
-                            const userManager = task.managers.find(m => 
+                            const userManager = task.managers.find(m =>
                                 (m.userId || m.mbId) === skid
                             );
                             if (userManager && userManager.topDeptName) {
@@ -55,16 +55,16 @@ function Layout({ children }) {
                         // 본부 기준으로 필터링
                         const filteredOiTasks = oiTasks.filter(task => {
                             if (task.managers && task.managers.length > 0) {
-                                return task.managers.some(manager => 
+                                return task.managers.some(manager =>
                                     manager.topDeptName === userTopDeptName
                                 );
                             }
                             return task.topDeptName === userTopDeptName;
                         });
-                        
+
                         const filteredKeyTasks = keyTasks.filter(task => {
                             if (task.managers && task.managers.length > 0) {
-                                return task.managers.some(manager => 
+                                return task.managers.some(manager =>
                                     manager.topDeptName === userTopDeptName
                                 );
                             }
@@ -124,8 +124,8 @@ function Layout({ children }) {
                         <Target size={20} />
                         <span>OI 과제</span>
                         {notInputtedCount.oi > 0 && (
-                            <span 
-                                className="nav-badge" 
+                            <span
+                                className="nav-badge"
                                 title="미입력과제"
                                 data-tooltip="미입력과제"
                             >
@@ -138,8 +138,8 @@ function Layout({ children }) {
                         <Briefcase size={20} />
                         <span>중점추진과제</span>
                         {notInputtedCount.key > 0 && (
-                            <span 
-                                className="nav-badge" 
+                            <span
+                                className="nav-badge"
                                 title="미입력과제"
                                 data-tooltip="미입력과제"
                             >
@@ -162,8 +162,8 @@ function Layout({ children }) {
                     <NavLink to="/ai-report" className={({ isActive }) => `ai-report-banner-link ${isActive ? 'active' : ''}`}>
                         <div className="ai-report-banner-content">
                             <div className="ai-report-banner-icon">
-                                <Lottie 
-                                    animationData={aiLottieData} 
+                                <Lottie
+                                    animationData={aiLottieData}
                                     loop={true}
                                     style={{ width: 56, height: 56 }}
                                 />

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Target, Briefcase, AlertCircle, CheckCircle, Clock, XCircle, Filter, ArrowUpDown, X } from 'lucide-react';
+import { Target, Briefcase, AlertCircle, CheckCircle, Clock, XCircle, Filter, ArrowUpDown, X, Table2, GanttChart } from 'lucide-react';
 import useUserStore from '../store/userStore';
 import TaskInputModal from '../components/TaskInputModal';
 import { getTasksByType } from '../api/taskApi';
@@ -26,6 +26,7 @@ function Dashboard() {
     }, [user, isAdmin, navigate]);
 
     const [activeTab, setActiveTab] = useState('oi'); // 'oi' or 'key'
+    const [viewMode, setViewMode] = useState('table'); // 'table' or 'milestone'
     const [oiTasks, setOiTasks] = useState([]);
     const [keyTasks, setKeyTasks] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -598,6 +599,46 @@ function Dashboard() {
                     </div>
                 )}
 
+                {/* 뷰 선택 버튼 */}
+                {!loading && sortedTasks.length > 0 && (
+                    <div className="dashboard-view-selector">
+                        <button
+                            className={`view-selector-btn ${viewMode === 'table' ? 'active' : ''}`}
+                            onClick={() => setViewMode('table')}
+                        >
+                            <Table2 size={16} />
+                            <span>테이블</span>
+                        </button>
+                        <button
+                            className={`view-selector-btn ${viewMode === 'milestone' ? 'active' : ''}`}
+                            onClick={() => setViewMode('milestone')}
+                        >
+                            <GanttChart size={16} />
+                            <span>마일스톤</span>
+                        </button>
+                        {viewMode === 'milestone' && (
+                            <div className="milestone-legend">
+                                <div className="legend-item">
+                                    <div className="legend-color inProgress"></div>
+                                    <span>진행중</span>
+                                </div>
+                                <div className="legend-item">
+                                    <div className="legend-color completed"></div>
+                                    <span>완료</span>
+                                </div>
+                                <div className="legend-item">
+                                    <div className="legend-color delayed"></div>
+                                    <span>지연</span>
+                                </div>
+                                <div className="legend-item">
+                                    <div className="legend-color stopped"></div>
+                                    <span>중단</span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* 컴팩트 카드 그리드 */}
                 <div className="tasks-section-in-tab">
                     {loading ? (
@@ -607,7 +648,7 @@ function Dashboard() {
                             <div className="dashboard-empty-icon">📭</div>
                             <p>{taskType} 과제가 없습니다.</p>
                         </div>
-                    ) : (
+                    ) : viewMode === 'table' ? (
                         <div className="dashboard-table-container">
                             <table className="dashboard-table">
                                 <thead>
@@ -1002,6 +1043,176 @@ function Dashboard() {
                                     })}
                                 </tbody>
                             </table>
+                        </div>
+                    ) : (
+                        <div className="dashboard-milestone-view">
+                            <div className="milestone-header">
+                                <div className="milestone-task-header">과제명</div>
+                                <div className="milestone-timeline-header">
+                                    <div className="milestone-months">
+                                        {Array.from({ length: 12 }, (_, i) => {
+                                            const currentMonth = new Date().getMonth() + 1;
+                                            const isCurrentMonth = (i + 1) === currentMonth;
+                                            return (
+                                                <div
+                                                    key={i}
+                                                    className={`milestone-month-label ${isCurrentMonth ? 'current-month' : ''}`}
+                                                >
+                                                    {i + 1}월
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="milestone-tasks">
+                                {sortedTasks.map(task => {
+                                    const normalizedStatus = normalizeStatus(task.status);
+                                    const startDate = task.startDate ? new Date(task.startDate) : null;
+                                    const endDate = task.endDate ? new Date(task.endDate) : null;
+                                    const currentYear = new Date().getFullYear();
+
+                                    // 과제 기간 계산 (현재 년도 기준)
+                                    let startMonth = null;
+                                    let endMonth = null;
+
+                                    if (startDate && endDate) {
+                                        const startYear = startDate.getFullYear();
+                                        const endYear = endDate.getFullYear();
+
+                                        // 현재 년도와 겹치는 기간만 표시
+                                        if (endYear >= currentYear && startYear <= currentYear) {
+                                            if (startYear === currentYear) {
+                                                startMonth = startDate.getMonth() + 1;
+                                            } else if (startYear < currentYear) {
+                                                startMonth = 1; // 년도가 이전이면 1월부터
+                                            }
+
+                                            if (endYear === currentYear) {
+                                                endMonth = endDate.getMonth() + 1;
+                                            } else if (endYear > currentYear) {
+                                                endMonth = 12; // 년도가 이후면 12월까지
+                                            }
+                                        }
+                                    }
+
+                                    // 본부 정보 추출
+                                    const topDeptSet = new Set();
+                                    if (task.managers && task.managers.length > 0) {
+                                        task.managers.forEach(manager => {
+                                            if (manager.topDeptName) {
+                                                topDeptSet.add(manager.topDeptName);
+                                            }
+                                        });
+                                    }
+                                    if (topDeptSet.size === 0 && task.topDeptName) {
+                                        topDeptSet.add(task.topDeptName);
+                                    }
+                                    const topDeptNames = Array.from(topDeptSet);
+
+                                    // 목표/실적/달성률 포맷팅
+                                    const isQualitative = task.evaluationType === 'qualitative';
+                                    const formatValue = (value, metric) => {
+                                        if (value === null || value === undefined || value === 0) return '0';
+                                        const numValue = typeof value === 'number' ? value : parseFloat(value);
+                                        if (metric === 'amount') {
+                                            return numValue.toLocaleString('ko-KR') + '원';
+                                        } else if (metric === 'count') {
+                                            return numValue.toLocaleString('ko-KR') + '건';
+                                        } else if (metric === 'percent') {
+                                            return numValue.toLocaleString('ko-KR') + '%';
+                                        } else {
+                                            return numValue.toLocaleString('ko-KR');
+                                        }
+                                    };
+
+                                    // 정성 평가의 경우 현재 월까지 진행률 계산
+                                    let progressPercentage = task.achievement || 0;
+                                    if (isQualitative && startMonth !== null && endMonth !== null) {
+                                        const now = new Date();
+                                        const currentMonth = now.getMonth() + 1;
+                                        const totalMonths = endMonth - startMonth + 1;
+                                        const elapsedMonths = Math.min(Math.max(currentMonth - startMonth + 1, 0), totalMonths);
+                                        progressPercentage = Math.round((elapsedMonths / totalMonths) * 100);
+                                    }
+
+                                    return (
+                                        <div key={task.id} className="milestone-row" onClick={() => handleRowClick(task)}>
+                                            <div className="milestone-task-info">
+                                                <div className="milestone-task-name">{task.name}</div>
+                                                <div className="milestone-task-meta">
+                                                    {topDeptNames.length > 0 && (
+                                                        <div className="milestone-dept-section">
+                                                            <span className={`milestone-evaluation-badge ${isQualitative ? 'qualitative' : 'quantitative'}`}>
+                                                                {isQualitative ? '정성' : '정량'}
+                                                            </span>
+                                                            <div className="milestone-dept-badges">
+                                                                {topDeptNames.map((deptName, idx) => (
+                                                                    <span key={idx} className="milestone-dept-badge">
+                                                                        {deptName}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {topDeptNames.length === 0 && (
+                                                        <span className={`milestone-evaluation-badge ${isQualitative ? 'qualitative' : 'quantitative'}`}>
+                                                            {isQualitative ? '정성' : '정량'}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="milestone-timeline">
+                                                <div className="milestone-progress-container">
+                                                    {Array.from({ length: 12 }, (_, i) => (
+                                                        <div key={i + 1} className="milestone-month-cell"></div>
+                                                    ))}
+                                                    {startMonth !== null && endMonth !== null && (
+                                                        <div
+                                                            className={`milestone-progress-bar-wrapper ${normalizedStatus}`}
+                                                            style={{
+                                                                gridColumn: `${startMonth} / ${endMonth + 1}`,
+                                                                ['--achievement']: `${Math.min(progressPercentage, 100)}%`
+                                                            }}
+                                                        >
+                                                            {!isQualitative && (
+                                                                <div className="milestone-achievement-label">
+                                                                    {task.achievement || 0}%
+                                                                </div>
+                                                            )}
+                                                            <div className={`milestone-progress-bar ${normalizedStatus}`}>
+                                                                <div className="milestone-progress-fill"></div>
+                                                            </div>
+                                                            {!isQualitative ? (
+                                                                <div className="milestone-progress-tooltip">
+                                                                    <div className="tooltip-row">
+                                                                        <span className="tooltip-label">목표</span>
+                                                                        <span className="tooltip-value">{formatValue(task.targetValue, task.metric)}</span>
+                                                                    </div>
+                                                                    <div className="tooltip-row">
+                                                                        <span className="tooltip-label">실적</span>
+                                                                        <span className="tooltip-value">{formatValue(task.actualValue, task.metric)}</span>
+                                                                    </div>
+                                                                    <div className="tooltip-row achievement">
+                                                                        <span className="tooltip-label">달성률</span>
+                                                                        <span className="tooltip-value">{task.achievement || 0}%</span>
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="milestone-progress-tooltip">
+                                                                    <div className="tooltip-row">
+                                                                        <span className="tooltip-value">정성 평가 입니다.</span>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
                     )}
                 </div>

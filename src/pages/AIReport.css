@@ -1256,6 +1256,13 @@
     padding-right: 28px;
 }
 
+.task-select-card-name-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
 .task-select-card-name {
     font-size: 14px;
     font-weight: 600;
@@ -1266,6 +1273,8 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
     text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
 }
 
 .task-select-card-category {
@@ -1295,13 +1304,45 @@
 }
 
 .activity-status.inputted {
-    background: #f0fdf4;
-    color: #16a34a;
+    background: #E8F2FF;
+    color: #4A90E2;
 }
 
 .activity-status.not-inputted {
     background: #fef2f2;
     color: #dc2626;
+}
+
+/* 과제 진행 상태 뱃지 (선택 모달용) */
+.task-status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.task-status-badge.inProgress {
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.task-status-badge.completed {
+    background: #ecfdf3;
+    color: #16a34a;
+}
+
+.task-status-badge.delayed {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+.task-status-badge.stopped {
+    background: #f3f4f6;
+    color: #4b5563;
 }
 
 .task-select-modal-footer {

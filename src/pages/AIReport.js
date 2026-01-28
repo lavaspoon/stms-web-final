@@ -35,6 +35,35 @@ function AIReport() {
 
     const taskType = activeTab === 'oi' ? 'OI' : '중점추진';
 
+    // 과제 진행 상태 정규화
+    const normalizeStatus = (status) => {
+        if (!status) return 'inProgress';
+
+        const statusMap = {
+            '진행중': 'inProgress',
+            '완료': 'completed',
+            '지연': 'delayed',
+            '중단': 'stopped',
+            'inProgress': 'inProgress',
+            'completed': 'completed',
+            'delayed': 'delayed',
+            'stopped': 'stopped'
+        };
+
+        return statusMap[status] || 'inProgress';
+    };
+
+    const getStatusLabel = (status) => {
+        const normalized = normalizeStatus(status);
+        const config = {
+            inProgress: { text: '진행중' },
+            completed: { text: '완료' },
+            delayed: { text: '지연' },
+            stopped: { text: '중단' }
+        };
+        return config[normalized] || config.inProgress;
+    };
+
     // 모든 탭의 과제 수 조회 (초기 로드 시 한 번만)
     useEffect(() => {
         const loadAllTaskCounts = async () => {
@@ -78,6 +107,8 @@ function AIReport() {
                     taskName: task.taskName,
                     category1: task.category1 || '-',
                     category2: task.category2 || '-',
+                    status: task.status || 'inProgress',
+                    isInputted: task.isInputted === 'Y',
                     hasCurrentMonthActivity: null, // 나중에 확인
                 }));
 
@@ -107,7 +138,8 @@ function AIReport() {
         setModifyPrompt('');
         setIsTaskSelectModalOpen(true);
 
-        if (type === 'monthly' && tasks.length > 0) {
+        // 보고서 유형과 상관없이 이달 활동 입력 여부 확인
+        if (tasks.length > 0) {
             try {
                 setLoadingActivities(true);
                 const now = new Date();
@@ -818,7 +850,8 @@ function AIReport() {
                                     <div className="task-select-grid">
                                         {tasks.map((task) => {
                                             const isSelected = selectedTaskIds.has(task.taskId);
-                                            const showActivityStatus = reportType === 'monthly' && task.hasCurrentMonthActivity !== null;
+                                            const showActivityStatus = task.hasCurrentMonthActivity !== null;
+                                            const statusInfo = getStatusLabel(task.status);
                                             return (
                                                 <div
                                                     key={task.taskId}
@@ -833,7 +866,14 @@ function AIReport() {
                                                         )}
                                                     </div>
                                                     <div className="task-select-card-content">
-                                                        <div className="task-select-card-name">{task.taskName}</div>
+                                                        <div className="task-select-card-name-row">
+                                                            {task.status && (
+                                                                <span className={`task-status-badge ${normalizeStatus(task.status)}`}>
+                                                                    {statusInfo.text}
+                                                                </span>
+                                                            )}
+                                                            <div className="task-select-card-name">{task.taskName}</div>
+                                                        </div>
                                                         {(task.category1 && task.category1 !== '-') && (
                                                             <div className="task-select-card-category">
                                                                 {task.category1}
