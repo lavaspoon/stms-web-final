@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, User, Target, TrendingUp, ChevronRight, ChevronDown, Search } from 'lucide-react';
-import { getAllDepts, getDeptMembers } from '../api/deptApi';
+import { getAllDepts, getDeptMembers, getAllMembers } from '../api/deptApi';
 import { createTask, updateTask } from '../api/taskApi';
 import './TaskRegisterModal.css';
 
@@ -76,23 +76,20 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
 
     const loadAllManagers = async () => {
         try {
-            const allMembers = [];
-            // 모든 부서의 구성원을 순회하며 가져오기
-            for (const dept of departments) {
-                try {
-                    const members = await getDeptMembers(dept.id);
-                    // 부서 정보를 각 구성원에 추가
-                    const membersWithDept = members.map(member => ({
-                        ...member,
-                        deptId: dept.id,
-                        deptName: dept.deptName
-                    }));
-                    allMembers.push(...membersWithDept);
-                } catch (error) {
-                    console.error(`부서 ${dept.deptName}의 구성원 조회 실패:`, error);
-                }
-            }
-            setAllManagers(allMembers);
+            // 모든 활성 구성원을 한 번에 조회 (단일 API 호출)
+            const allMembers = await getAllMembers();
+
+            // 부서 정보를 각 구성원에 추가 (deptIdx를 사용하여 부서 ID 매핑)
+            const membersWithDept = allMembers.map(member => {
+                // deptIdx를 deptId로 사용 (이미 부서 ID가 포함되어 있음)
+                return {
+                    ...member,
+                    deptId: member.deptIdx,
+                    deptName: member.deptName
+                };
+            });
+
+            setAllManagers(membersWithDept);
         } catch (error) {
             console.error('전체 구성원 조회 실패:', error);
             setAllManagers([]);
@@ -408,7 +405,8 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 alert('과제가 성공적으로 수정되었습니다.');
             } else {
                 // 등록 모드
-                taskData.taskType = taskType === 'OI' ? 'OI' : '중점추진';
+                // taskType이 전달된 그대로 사용 (OI, 중점추진, KPI)
+                taskData.taskType = taskType || '중점추진';
                 console.log('등록 요청 - taskData:', taskData);
                 const result = await createTask(taskData);
                 console.log('등록 응답:', result);
@@ -452,8 +450,8 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 <div className="modal-header">
                     <h2>
                         {editData
-                            ? `${taskType === 'OI' ? 'OI 과제' : '중점추진과제'} 수정`
-                            : `${taskType === 'OI' ? 'OI 과제' : '중점추진과제'} 등록`
+                            ? `${taskType === 'OI' ? 'OI 과제' : taskType === 'KPI' ? 'KPI 과제' : '중점추진과제'} 수정`
+                            : `${taskType === 'OI' ? 'OI 과제' : taskType === 'KPI' ? 'KPI 과제' : '중점추진과제'} 등록`
                         }
                     </h2>
                     <button className="close-btn" onClick={onClose}>

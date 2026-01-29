@@ -346,8 +346,8 @@ function AIReport() {
             return;
         }
 
-        if (selectedTaskIds.size === 0) {
-            alert('과제를 선택해주세요.');
+        if (!report || !report.trim()) {
+            alert('수정할 보고서가 없습니다.');
             return;
         }
 
@@ -355,101 +355,8 @@ function AIReport() {
             setIsModifying(true);
             setError(null);
 
-            const selectedTasks = tasks.filter(t => selectedTaskIds.has(t.taskId));
-
-            // 각 과제의 활동내역 가져오기
-            const tasksWithActivities = await Promise.all(
-                selectedTasks.map(async (task) => {
-                    try {
-                        let activities = [];
-                        if (reportType === 'monthly') {
-                            const now = new Date();
-                            const currentYear = now.getFullYear();
-                            const currentMonth = now.getMonth() + 1;
-                            const activity = await getTaskActivity(task.taskId, currentYear, currentMonth);
-                            if (activity && activity.activityContent) {
-                                activities = [{
-                                    activityYear: currentYear,
-                                    activityMonth: currentMonth,
-                                    activityContent: activity.activityContent
-                                }];
-                            }
-                        } else {
-                            // 종합 보고서: 모든 활동내역 (현재 월 포함)
-                            const now = new Date();
-                            const currentYear = now.getFullYear();
-                            const currentMonth = now.getMonth() + 1;
-
-                            // 현재 월 활동내역 조회
-                            let currentActivity = null;
-                            try {
-                                currentActivity = await getTaskActivity(task.taskId, currentYear, currentMonth);
-                            } catch (err) {
-                                console.warn(`현재 월 활동내역 조회 실패: ${err}`);
-                            }
-
-                            // 이전 월 활동내역 조회
-                            const previousActivities = await getAllPreviousActivities(task.taskId, 100);
-
-                            // 현재 월과 이전 월 활동내역 합치기
-                            const allActivitiesList = [];
-
-                            // 현재 월 활동내역 추가
-                            if (currentActivity && currentActivity.activityContent) {
-                                allActivitiesList.push({
-                                    activityYear: currentYear,
-                                    activityMonth: currentMonth,
-                                    activityContent: currentActivity.activityContent || ''
-                                });
-                            }
-
-                            // 이전 월 활동내역 추가
-                            previousActivities.forEach(act => {
-                                allActivitiesList.push({
-                                    activityYear: act.activityYear,
-                                    activityMonth: act.activityMonth,
-                                    activityContent: act.activityContent || ''
-                                });
-                            });
-
-                            // 년월순으로 정렬 (최신순)
-                            activities = allActivitiesList.sort((a, b) => {
-                                if (a.activityYear !== b.activityYear) {
-                                    return b.activityYear - a.activityYear; // 년도 내림차순
-                                }
-                                return b.activityMonth - a.activityMonth; // 월 내림차순
-                            });
-                        }
-                        return {
-                            taskName: task.taskName,
-                            activities: activities,
-                            activityContent: reportType === 'monthly'
-                                ? (activities.length > 0 ? activities[0].activityContent : '')
-                                : undefined
-                        };
-                    } catch (err) {
-                        return {
-                            taskName: task.taskName,
-                            activities: [],
-                            activityContent: ''
-                        };
-                    }
-                })
-            );
-
-            const filteredTasks = reportType === 'monthly'
-                ? tasksWithActivities.filter(t => t.activityContent && t.activityContent.trim() !== '')
-                : tasksWithActivities;
-
-            if (filteredTasks.length === 0) {
-                alert('활동내역이 있는 과제가 없습니다.');
-                setIsModifying(false);
-                return;
-            }
-
-            // 현재 보고서와 추가 프롬프트를 결합하여 수정
-            const combinedPrompt = `다음 보고서를 다음과 같이 수정해주세요:\n\n${modifyPrompt}\n\n기존 보고서:\n${report}`;
-            const modifiedReport = await generateCustomReport(taskType, filteredTasks, combinedPrompt);
+            // 기존 보고서 텍스트와 프롬프트만 전달
+            const modifiedReport = await generateCustomReport(null, null, `${report}\n\n${modifyPrompt}`);
             setReport(modifiedReport);
             setModifyPrompt('');
         } catch (error) {

@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import OITasks from './pages/OITasks';
 import KeyTasks from './pages/KeyTasks';
+import KPITasks from './pages/KPITasks';
 import NotificationDashboard from './pages/NotificationDashboard';
 import AIReport from './pages/AIReport';
 import Layout from './components/Layout';
@@ -30,6 +31,7 @@ function App() {
           <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
           <Route path="/oi-tasks" element={<Layout><OITasks /></Layout>} />
           <Route path="/key-tasks" element={<Layout><KeyTasks /></Layout>} />
+          <Route path="/kpi-tasks" element={<Layout><KPITasks /></Layout>} />
           <Route path="/notifications" element={<Layout><NotificationDashboard /></Layout>} />
           <Route path="/ai-report" element={<Layout><AIReport /></Layout>} />
           <Route path="*" element={<Navigate to="/" replace />} />

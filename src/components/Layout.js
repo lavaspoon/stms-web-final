@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Target, Briefcase, LogOut, User, Bell, FileText } from 'lucide-react';
+import { LayoutDashboard, Target, Briefcase, LogOut, User, Bell, FileText, TrendingUp } from 'lucide-react';
 import Lottie from 'lottie-react';
 import aiLottieData from '../assets/lotties/ailottie.json';
 import useUserStore from '../store/userStore';
@@ -12,7 +12,8 @@ function Layout({ children }) {
     const { user, clearUser } = useUserStore();
     const [notInputtedCount, setNotInputtedCount] = useState({
         oi: 0,
-        key: 0
+        key: 0,
+        kpi: 0
     });
 
     const isAdmin = user?.role === '관리자';
@@ -26,20 +27,22 @@ function Layout({ children }) {
                 // 모든 과제 조회 (관리자는 전체, 담당자는 본부 전체)
                 const oiTasks = await getTasksByType('OI', null);
                 const keyTasks = await getTasksByType('중점추진', null);
+                const kpiTasks = await getTasksByType('KPI', null);
 
-                let oiNotInputted, keyNotInputted;
+                let oiNotInputted, keyNotInputted, kpiNotInputted;
 
                 if (isAdmin) {
                     // 관리자: 전체 과제 중 미입력
                     oiNotInputted = oiTasks.filter(task => task.isInputted !== 'Y').length;
                     keyNotInputted = keyTasks.filter(task => task.isInputted !== 'Y').length;
+                    kpiNotInputted = kpiTasks.filter(task => task.isInputted !== 'Y').length;
                 } else {
                     // 담당자: 본부 기준으로 필터링
                     const skid = user?.skid || user?.userId;
 
                     // 사용자의 본부 정보 찾기
                     let userTopDeptName = null;
-                    for (const task of [...oiTasks, ...keyTasks]) {
+                    for (const task of [...oiTasks, ...keyTasks, ...kpiTasks]) {
                         if (task.managers && task.managers.length > 0) {
                             const userManager = task.managers.find(m =>
                                 (m.userId || m.mbId) === skid
@@ -71,17 +74,29 @@ function Layout({ children }) {
                             return task.topDeptName === userTopDeptName;
                         });
 
+                        const filteredKpiTasks = kpiTasks.filter(task => {
+                            if (task.managers && task.managers.length > 0) {
+                                return task.managers.some(manager =>
+                                    manager.topDeptName === userTopDeptName
+                                );
+                            }
+                            return task.topDeptName === userTopDeptName;
+                        });
+
                         oiNotInputted = filteredOiTasks.filter(task => task.isInputted !== 'Y').length;
                         keyNotInputted = filteredKeyTasks.filter(task => task.isInputted !== 'Y').length;
+                        kpiNotInputted = filteredKpiTasks.filter(task => task.isInputted !== 'Y').length;
                     } else {
                         oiNotInputted = 0;
                         keyNotInputted = 0;
+                        kpiNotInputted = 0;
                     }
                 }
 
                 setNotInputtedCount({
                     oi: oiNotInputted,
-                    key: keyNotInputted
+                    key: keyNotInputted,
+                    kpi: kpiNotInputted
                 });
             } catch (error) {
                 console.error('미입력 과제 수 조회 실패:', error);
@@ -144,6 +159,20 @@ function Layout({ children }) {
                                 data-tooltip="미입력과제"
                             >
                                 {notInputtedCount.key}
+                            </span>
+                        )}
+                    </NavLink>
+
+                    <NavLink to="/kpi-tasks" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+                        <TrendingUp size={20} />
+                        <span>KPI 과제</span>
+                        {notInputtedCount.kpi > 0 && (
+                            <span
+                                className="nav-badge"
+                                title="미입력과제"
+                                data-tooltip="미입력과제"
+                            >
+                                {notInputtedCount.kpi}
                             </span>
                         )}
                     </NavLink>

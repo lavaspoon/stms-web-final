@@ -11,3 +11,8 @@ export const getDeptMembers = async (deptId) => {
     const response = await axios.get(`${API_BASE_URL}/depts/${deptId}/members`);
     return response.data;
 };
+
+export const getAllMembers = async () => {
+    const response = await axios.get(`${API_BASE_URL}/depts/members`);
+    return response.data;
+};
