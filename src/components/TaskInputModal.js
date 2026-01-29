@@ -54,6 +54,9 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
 
     // 뷰어 모드용 현재 보고 있는 월 상태
     const [viewingMonth, setViewingMonth] = useState(currentMonth);
+    
+    // 입력 모드용 선택한 월 상태 (담당자가 입력할 월)
+    const [inputMonth, setInputMonth] = useState(currentMonth);
 
     // 파일 관련 상태
     const [files, setFiles] = useState([]);
@@ -84,11 +87,8 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
             if (isReadOnly) {
                 setViewingMonth(currentMonth);
             } else {
-                // selectedMonth가 currentMonth와 같으면 이전 월로 설정
-                const current = new Date().getMonth() + 1;
-                if (selectedMonth === current) {
-                    setSelectedMonth(current === 1 ? 12 : current - 1);
-                }
+                // 입력 모드: inputMonth를 현재 월로 초기화
+                setInputMonth(currentMonth);
             }
             loadExistingData();
             loadPreviousActivities();
@@ -106,6 +106,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
             });
             setPreviousActivities([]);
             setViewingMonth(currentMonth);
+            setInputMonth(currentMonth);
             setMonthlyActualValues([]);
         }
     }, [isOpen, task]);
@@ -118,8 +119,8 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
             if (isReadOnly) {
                 data = await getTaskActivity(task.id, currentYear, viewingMonth);
             } else {
-                // 일반 모드: 현재 월의 활동 내역 로드
-                data = await getTaskActivity(task.id);
+                // 입력 모드: 선택한 월의 활동 내역 로드
+                data = await getTaskActivity(task.id, currentYear, inputMonth);
             }
 
             if (data) {
@@ -258,6 +259,64 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
         }
     }, [viewingMonth, isReadOnly, isOpen, task, currentYear]);
 
+    // 입력 모드에서 월이 변경될 때 해당 월의 활동내역 로드
+    useEffect(() => {
+        if (!isReadOnly && isOpen && task) {
+            const loadInputMonthData = async () => {
+                try {
+                    setLoading(true);
+                    const data = await getTaskActivity(task.id, currentYear, inputMonth);
+                    if (data) {
+                        // 월별 실적값 사용 (백엔드에서 월별로 저장된 값 반환)
+                        // 소수점 유지를 위해 숫자 값을 그대로 문자열로 변환
+                        let actualValueStr = '';
+                        if (data.actualValue != null) {
+                            if (typeof data.actualValue === 'number') {
+                                // 숫자인 경우 소수점 유지
+                                actualValueStr = data.actualValue.toString();
+                            } else {
+                                // 문자열인 경우 그대로 사용
+                                actualValueStr = String(data.actualValue);
+                            }
+                        }
+                        setFormData({
+                            activityContent: data.activityContent || '',
+                            status: task.status || 'inProgress',
+                            actualValue: actualValueStr
+                        });
+                        setCurrentActivityId(data.activityId);
+                        // 파일 목록 로드
+                        if (data.activityId) {
+                            await loadFiles(data.activityId);
+                        } else {
+                            setFiles([]);
+                        }
+                    } else {
+                        setFormData({
+                            activityContent: '',
+                            status: task.status || 'inProgress',
+                            actualValue: ''
+                        });
+                        setCurrentActivityId(null);
+                        setFiles([]);
+                    }
+                } catch (error) {
+                    console.error('활동내역 조회 실패:', error);
+                    setFormData({
+                        activityContent: '',
+                        status: task.status || 'inProgress',
+                        actualValue: ''
+                    });
+                    setCurrentActivityId(null);
+                    setFiles([]);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            loadInputMonthData();
+        }
+    }, [inputMonth, isReadOnly, isOpen, task, currentYear]);
+
     // 뷰어 모드에서 월 이동 함수
     const handleViewingMonthChange = (direction) => {
         if (direction === 'prev') {
@@ -267,6 +326,21 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
             });
         } else {
             setViewingMonth(prev => {
+                if (prev === 12) return 1;
+                return prev + 1;
+            });
+        }
+    };
+
+    // 입력 모드에서 월 이동 함수
+    const handleInputMonthChange = (direction) => {
+        if (direction === 'prev') {
+            setInputMonth(prev => {
+                if (prev === 1) return 12;
+                return prev - 1;
+            });
+        } else {
+            setInputMonth(prev => {
                 if (prev === 12) return 1;
                 return prev + 1;
             });
@@ -481,11 +555,13 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
         try {
             setSubmitting(true);
 
-            // 활동내역 저장 (정량일 때만 actualValue 전송)
+            // 활동내역 저장 (정량일 때만 actualValue 전송, 선택한 월 정보 포함)
             const response = await inputTaskActivity(task.id, user.skid, {
                 activityContent: formData.activityContent,
                 actualValue: isQuantitative && formData.actualValue ? parseFloat(formData.actualValue) : null,
-                status: formData.status
+                status: formData.status,
+                year: currentYear,
+                month: inputMonth
             });
 
             // 저장 후 activityId가 있으면 파일 목록 다시 로드
@@ -957,7 +1033,30 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                         <span className="read-only-badge">읽기 전용</span>
                                     </div>
                                 ) : (
-                                    <h3>이번 달 활동내역 입력 (필수)</h3>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <h3>활동내역 입력 (필수)</h3>
+                                        <div className="month-navigation-inline">
+                                            <button
+                                                type="button"
+                                                className="month-nav-btn-inline"
+                                                onClick={() => handleInputMonthChange('prev')}
+                                                title="이전 월"
+                                            >
+                                                <ChevronLeft size={18} />
+                                            </button>
+                                            <span className="month-display-inline">
+                                                {currentYear}년 {inputMonth}월
+                                            </span>
+                                            <button
+                                                type="button"
+                                                className="month-nav-btn-inline"
+                                                onClick={() => handleInputMonthChange('next')}
+                                                title="다음 월"
+                                            >
+                                                <ChevronRight size={18} />
+                                            </button>
+                                        </div>
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -967,7 +1066,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                     name="activityContent"
                                     value={formData.activityContent}
                                     onChange={handleChange}
-                                    placeholder={isReadOnly ? "활동내역이 없습니다" : "이번 달 진행한 활동내역을 입력하세요"}
+                                    placeholder={isReadOnly ? "활동내역이 없습니다" : `${inputMonth}월 진행한 활동내역을 입력하세요`}
                                     rows="10"
                                     required={!isReadOnly}
                                     disabled={isReadOnly}
