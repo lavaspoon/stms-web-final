@@ -591,24 +591,39 @@ function KPITasks() {
                 return sortConfig.direction === 'asc' ? comparison : -comparison;
             }
 
-            // 정렬이 없으면 기본 정렬 (진행중(미입력) > 진행중(입력) > 완료 > 지연 > 중단)
-            const getSortPriority = (task) => {
-                const normalizedStatus = normalizeStatus(task.status);
-                const isInProgress = normalizedStatus === 'inProgress';
+            // 정렬이 없으면 기본 정렬: 미입력 > 상태 > 평가기준 > 담당본부
+            // 1. 미입력 과제가 최상단
+            if (a.isInputted !== b.isInputted) {
+                return a.isInputted ? 1 : -1; // 미입력(false)이 먼저
+            }
 
-                // 진행중(미입력) > 진행중(입력) > 완료 > 지연 > 중단
-                if (isInProgress && !task.isInputted) return 1; // 진행중(미입력)
-                if (isInProgress && task.isInputted) return 2; // 진행중(입력)
-                if (normalizedStatus === 'completed') return 3; // 완료
-                if (normalizedStatus === 'delayed') return 4; // 지연
-                if (normalizedStatus === 'stopped') return 5; // 중단
-                return 6; // 기타
+            // 2. 상태별 정렬
+            const statusOrder = {
+                'inProgress': 1,
+                'completed': 2,
+                'delayed': 3,
+                'stopped': 4
             };
+            const statusA = normalizeStatus(a.status);
+            const statusB = normalizeStatus(b.status);
+            const orderA = statusOrder[statusA] || 99;
+            const orderB = statusOrder[statusB] || 99;
+            if (orderA !== orderB) {
+                return orderA - orderB;
+            }
 
-            const priorityA = getSortPriority(a);
-            const priorityB = getSortPriority(b);
+            // 3. 평가기준 정렬 (정성 < 정량)
+            const evalA = getSortValue(a, 'evaluation');
+            const evalB = getSortValue(b, 'evaluation');
+            const evalComparison = evalA.localeCompare(evalB, 'ko');
+            if (evalComparison !== 0) {
+                return evalComparison;
+            }
 
-            return priorityA - priorityB;
+            // 4. 담당본부 정렬
+            const deptA = getSortValue(a, 'dept');
+            const deptB = getSortValue(b, 'dept');
+            return deptA.localeCompare(deptB, 'ko');
         });
 
     console.log('Filtered tasks count:', filteredTasks.length);

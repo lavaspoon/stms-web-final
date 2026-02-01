@@ -190,6 +190,19 @@ function NotificationDashboard() {
                                         <span className="radio-subtitle">Key Tasks</span>
                                     </div>
                                 </label>
+                                <label className={`radio-label-modern ${selectedGubun === 'KPI' ? 'active' : ''}`}>
+                                    <input
+                                        type="radio"
+                                        name="gubun"
+                                        value="KPI"
+                                        checked={selectedGubun === 'KPI'}
+                                        onChange={(e) => setSelectedGubun(e.target.value)}
+                                    />
+                                    <div className="radio-content">
+                                        <span className="radio-title">KPI 과제</span>
+                                        <span className="radio-subtitle">Key Performance Indicator</span>
+                                    </div>
+                                </label>
                             </div>
                         </div>
                         <div className="tasks-selection-modern">

@@ -8,6 +8,28 @@ import { formatDate } from '../utils/dateUtils';
 import useUserStore from '../store/userStore';
 import './TaskInputModal.css';
 
+// 날짜와 시간을 포맷팅하는 함수
+const formatDateTime = (dateString) => {
+    if (!dateString) return '';
+    
+    try {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) {
+            return '';
+        }
+
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        
+        return `${year}-${month}-${day} ${hours}:${minutes}`;
+    } catch (error) {
+        return '';
+    }
+};
+
 function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     const { user } = useUserStore();
     const isAdmin = user?.role === '관리자' || user?.role === '매니저';
@@ -38,17 +60,9 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     const [submitting, setSubmitting] = useState(false);
     const [loading, setLoading] = useState(false);
     const [showAllActivities, setShowAllActivities] = useState(false);
-    // 초기값: 현재 월이 1월이면 12월, 아니면 현재 월 - 1
-    const getInitialMonth = () => {
-        const current = new Date().getMonth() + 1;
-        return current === 1 ? 12 : current - 1;
-    };
-    const [selectedMonth, setSelectedMonth] = useState(getInitialMonth());
-    const [selectedMonthActivity, setSelectedMonthActivity] = useState('');
     const [aiProcessing, setAiProcessing] = useState(false);
     const [aiSuggestion, setAiSuggestion] = useState(null);
     const [aiSuggestionType, setAiSuggestionType] = useState(null);
-    const [showPreviousActivitiesModal, setShowPreviousActivitiesModal] = useState(false);
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth() + 1;
 
@@ -58,11 +72,21 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     // 입력 모드용 선택한 월 상태 (담당자가 입력할 월)
     const [inputMonth, setInputMonth] = useState(currentMonth);
 
+    // 각 월별로 입력 중인 데이터를 임시 저장 (키: "year-month", 값: formData)
+    const [monthlyInputCache, setMonthlyInputCache] = useState({});
+
+    // 활동내역 입력 시간 상태
+    const [activityUpdatedAt, setActivityUpdatedAt] = useState(null);
+
     // 파일 관련 상태
     const [files, setFiles] = useState([]);
     const [uploadingFiles, setUploadingFiles] = useState([]);
     const [currentActivityId, setCurrentActivityId] = useState(null);
     const fileInputRef = useRef(null);
+
+    // 최신 formData와 currentActivityId를 추적하기 위한 ref
+    const formDataRef = useRef(formData);
+    const currentActivityIdRef = useRef(null);
 
     // 월별 실적값 그래프용 상태
     const [monthlyActualValues, setMonthlyActualValues] = useState([]);
@@ -87,8 +111,9 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
             if (isReadOnly) {
                 setViewingMonth(currentMonth);
             } else {
-                // 입력 모드: inputMonth를 현재 월로 초기화
-                setInputMonth(currentMonth);
+                // 입력 모드: inputMonth를 현재 월로 초기화 (미래 달이면 현재 달로)
+                const initialMonth = inputMonth > currentMonth ? currentMonth : inputMonth;
+                setInputMonth(initialMonth);
             }
             loadExistingData();
             loadPreviousActivities();
@@ -108,6 +133,8 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
             setViewingMonth(currentMonth);
             setInputMonth(currentMonth);
             setMonthlyActualValues([]);
+            setMonthlyInputCache({}); // 캐시도 초기화
+            setActivityUpdatedAt(null);
         }
     }, [isOpen, task]);
 
@@ -136,12 +163,17 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                         actualValueStr = String(data.actualValue);
                     }
                 }
-                setFormData({
+                const newFormData = {
                     activityContent: data.activityContent || '',
                     status: task.status || 'inProgress',
                     actualValue: actualValueStr
-                });
+                };
+                setFormData(newFormData);
+                formDataRef.current = newFormData; // ref 업데이트
                 setCurrentActivityId(data.activityId);
+                currentActivityIdRef.current = data.activityId; // ref 업데이트
+                // 활동내역 입력 시간 저장 (updatedAt 우선, 없으면 createdAt)
+                setActivityUpdatedAt(data.updatedAt || data.createdAt || null);
                 // 파일 목록 로드
                 if (data.activityId) {
                     loadFiles(data.activityId);
@@ -149,12 +181,16 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                     setFiles([]);
                 }
             } else {
-                setFormData({
+                const emptyFormData = {
                     activityContent: '',
                     status: task.status || 'inProgress',
                     actualValue: ''
-                });
+                };
+                setFormData(emptyFormData);
+                formDataRef.current = emptyFormData; // ref 업데이트
                 setCurrentActivityId(null);
+                currentActivityIdRef.current = null; // ref 업데이트
+                setActivityUpdatedAt(null);
                 setFiles([]);
             }
         } catch (error) {
@@ -178,28 +214,10 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
         try {
             const data = await getAllPreviousActivities(task.id, 12);
             setPreviousActivities(data);
-
-            // 선택된 월의 활동내역 로드
-            if (selectedMonth !== currentMonth) {
-                const selectedActivity = data.find(
-                    a => a.activityYear === currentYear && a.activityMonth === selectedMonth
-                );
-                setSelectedMonthActivity(selectedActivity?.activityContent || '');
-            }
         } catch (error) {
             console.error('이전 활동내역 조회 실패:', error);
         }
     };
-
-    // 선택된 월이 변경될 때 해당 월의 활동내역 로드
-    useEffect(() => {
-        if (previousActivities.length > 0 && selectedMonth !== currentMonth) {
-            const selectedActivity = previousActivities.find(
-                a => a.activityYear === currentYear && a.activityMonth === selectedMonth
-            );
-            setSelectedMonthActivity(selectedActivity?.activityContent || '');
-        }
-    }, [selectedMonth, previousActivities, currentMonth, currentYear]);
 
     // 뷰어 모드에서 월이 변경될 때 해당 월의 활동내역 로드
     useEffect(() => {
@@ -221,12 +239,17 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                 actualValueStr = String(data.actualValue);
                             }
                         }
-                        setFormData({
+                        const newFormData = {
                             activityContent: data.activityContent || '',
                             status: task.status || 'inProgress',
                             actualValue: actualValueStr
-                        });
+                        };
+                        setFormData(newFormData);
+                        formDataRef.current = newFormData; // ref 업데이트
                         setCurrentActivityId(data.activityId);
+                        currentActivityIdRef.current = data.activityId; // ref 업데이트
+                        // 활동내역 입력 시간 저장 (updatedAt 우선, 없으면 createdAt)
+                        setActivityUpdatedAt(data.updatedAt || data.createdAt || null);
                         // 파일 목록 로드
                         if (data.activityId) {
                             await loadFiles(data.activityId);
@@ -234,22 +257,30 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                             setFiles([]);
                         }
                     } else {
-                        setFormData({
+                        const emptyFormData = {
                             activityContent: '',
                             status: task.status || 'inProgress',
                             actualValue: ''
-                        });
+                        };
+                        setFormData(emptyFormData);
+                        formDataRef.current = emptyFormData; // ref 업데이트
                         setCurrentActivityId(null);
+                        currentActivityIdRef.current = null; // ref 업데이트
+                        setActivityUpdatedAt(null);
                         setFiles([]);
                     }
                 } catch (error) {
                     console.error('활동내역 조회 실패:', error);
-                    setFormData({
+                    const emptyFormData = {
                         activityContent: '',
                         status: task.status || 'inProgress',
                         actualValue: ''
-                    });
+                    };
+                    setFormData(emptyFormData);
+                    formDataRef.current = emptyFormData; // ref 업데이트
                     setCurrentActivityId(null);
+                    currentActivityIdRef.current = null; // ref 업데이트
+                    setActivityUpdatedAt(null);
                     setFiles([]);
                 } finally {
                     setLoading(false);
@@ -259,14 +290,53 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
         }
     }, [viewingMonth, isReadOnly, isOpen, task, currentYear]);
 
+    // formData와 currentActivityId 변경 시 ref 동기화
+    useEffect(() => {
+        formDataRef.current = formData;
+    }, [formData]);
+
+    useEffect(() => {
+        currentActivityIdRef.current = currentActivityId;
+    }, [currentActivityId]);
+
     // 입력 모드에서 월이 변경될 때 해당 월의 활동내역 로드
     useEffect(() => {
         if (!isReadOnly && isOpen && task) {
             const loadInputMonthData = async () => {
                 try {
                     setLoading(true);
+                    
+                    // 먼저 캐시에서 해당 월의 입력 데이터 확인
+                    const cacheKey = `${currentYear}-${inputMonth}`;
+                    const cachedData = monthlyInputCache[cacheKey];
+                    
+                    // 서버에서 데이터 로드
                     const data = await getTaskActivity(task.id, currentYear, inputMonth);
-                    if (data) {
+                    
+                    // 캐시된 데이터가 있고, 서버 데이터와 activityId가 같거나 서버에 데이터가 없는 경우 캐시 사용
+                    // (서버에 저장된 최신 데이터가 있으면 서버 데이터 우선)
+                    if (cachedData && (!data || !data.activityId || data.activityId === cachedData.activityId)) {
+                        // 캐시된 데이터 사용
+                        const cachedFormData = {
+                            activityContent: cachedData.activityContent || '',
+                            status: cachedData.status || task.status || 'inProgress',
+                            actualValue: cachedData.actualValue || ''
+                        };
+                        setFormData(cachedFormData);
+                        formDataRef.current = cachedFormData; // ref 업데이트
+                        setCurrentActivityId(cachedData.activityId || null);
+                        currentActivityIdRef.current = cachedData.activityId || null; // ref 업데이트
+                        // 캐시에는 시간 정보가 없으므로 null로 설정
+                        setActivityUpdatedAt(null);
+                        
+                        // 파일 목록 로드 (activityId가 있으면)
+                        if (cachedData.activityId) {
+                            await loadFiles(cachedData.activityId);
+                        } else {
+                            setFiles([]);
+                        }
+                    } else if (data) {
+                        // 서버 데이터 사용
                         // 월별 실적값 사용 (백엔드에서 월별로 저장된 값 반환)
                         // 소수점 유지를 위해 숫자 값을 그대로 문자열로 변환
                         let actualValueStr = '';
@@ -279,12 +349,17 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                 actualValueStr = String(data.actualValue);
                             }
                         }
-                        setFormData({
+                        const newFormData = {
                             activityContent: data.activityContent || '',
                             status: task.status || 'inProgress',
                             actualValue: actualValueStr
-                        });
+                        };
+                        setFormData(newFormData);
+                        formDataRef.current = newFormData; // ref 업데이트
                         setCurrentActivityId(data.activityId);
+                        currentActivityIdRef.current = data.activityId; // ref 업데이트
+                        // 활동내역 입력 시간 저장 (updatedAt 우선, 없으면 createdAt)
+                        setActivityUpdatedAt(data.updatedAt || data.createdAt || null);
                         // 파일 목록 로드
                         if (data.activityId) {
                             await loadFiles(data.activityId);
@@ -292,23 +367,49 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                             setFiles([]);
                         }
                     } else {
-                        setFormData({
+                        // 데이터 없음
+                        const emptyFormData = {
                             activityContent: '',
                             status: task.status || 'inProgress',
                             actualValue: ''
-                        });
+                        };
+                        setFormData(emptyFormData);
+                        formDataRef.current = emptyFormData; // ref 업데이트
                         setCurrentActivityId(null);
+                        currentActivityIdRef.current = null; // ref 업데이트
+                        setActivityUpdatedAt(null);
                         setFiles([]);
                     }
                 } catch (error) {
                     console.error('활동내역 조회 실패:', error);
-                    setFormData({
-                        activityContent: '',
-                        status: task.status || 'inProgress',
-                        actualValue: ''
-                    });
-                    setCurrentActivityId(null);
-                    setFiles([]);
+                    // 에러 발생 시 캐시 확인
+                    const cacheKey = `${currentYear}-${inputMonth}`;
+                    const cachedData = monthlyInputCache[cacheKey];
+                    if (cachedData) {
+                        const cachedFormData = {
+                            activityContent: cachedData.activityContent || '',
+                            status: cachedData.status || task.status || 'inProgress',
+                            actualValue: cachedData.actualValue || ''
+                        };
+                        setFormData(cachedFormData);
+                        formDataRef.current = cachedFormData; // ref 업데이트
+                        setCurrentActivityId(cachedData.activityId || null);
+                        currentActivityIdRef.current = cachedData.activityId || null; // ref 업데이트
+                        setActivityUpdatedAt(null);
+                        setFiles([]);
+                    } else {
+                        const emptyFormData = {
+                            activityContent: '',
+                            status: task.status || 'inProgress',
+                            actualValue: ''
+                        };
+                        setFormData(emptyFormData);
+                        formDataRef.current = emptyFormData; // ref 업데이트
+                        setCurrentActivityId(null);
+                        currentActivityIdRef.current = null; // ref 업데이트
+                        setActivityUpdatedAt(null);
+                        setFiles([]);
+                    }
                 } finally {
                     setLoading(false);
                 }
@@ -334,25 +435,54 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
 
     // 입력 모드에서 월 이동 함수
     const handleInputMonthChange = (direction) => {
+        // 현재 입력 중인 데이터를 캐시에 저장 (ref를 사용하여 최신 값 보장)
+        const currentCacheKey = `${currentYear}-${inputMonth}`;
+        setMonthlyInputCache(prev => ({
+            ...prev,
+            [currentCacheKey]: {
+                ...formDataRef.current,
+                activityId: currentActivityIdRef.current
+            }
+        }));
+
+        // 월 변경
         if (direction === 'prev') {
             setInputMonth(prev => {
                 if (prev === 1) return 12;
                 return prev - 1;
             });
         } else {
+            // 다음 달로 이동 시 현재 달보다 미래인지 확인
             setInputMonth(prev => {
-                if (prev === 12) return 1;
-                return prev + 1;
+                const nextMonth = prev === 12 ? 1 : prev + 1;
+                const nextYear = prev === 12 ? currentYear + 1 : currentYear;
+                
+                // 미래 달로 이동하려고 하면 막음
+                if (nextYear > currentYear || (nextYear === currentYear && nextMonth > currentMonth)) {
+                    return prev; // 변경하지 않음
+                }
+                return nextMonth;
             });
         }
     };
 
+    // 다음 달로 이동 가능한지 확인 (현재 달보다 미래가 아닌지)
+    const canMoveToNextMonth = () => {
+        const nextMonth = inputMonth === 12 ? 1 : inputMonth + 1;
+        const nextYear = inputMonth === 12 ? currentYear + 1 : currentYear;
+        return !(nextYear > currentYear || (nextYear === currentYear && nextMonth > currentMonth));
+    };
+
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: value
-        }));
+        setFormData(prev => {
+            const newData = {
+                ...prev,
+                [name]: value
+            };
+            formDataRef.current = newData; // ref 업데이트
+            return newData;
+        });
     };
 
     // 프로그레스바 드래그 핸들러 (0~100% 범위)
@@ -364,10 +494,14 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
         // 100%를 초과하지 않도록 제한
         const clampedPercentage = Math.min(percentage, 100);
         const newActualValue = (targetValue * clampedPercentage) / 100;
-        setFormData(prev => ({
-            ...prev,
-            actualValue: newActualValue.toFixed(taskMetric === 'percent' ? 2 : 0)
-        }));
+        setFormData(prev => {
+            const newData = {
+                ...prev,
+                actualValue: newActualValue.toFixed(taskMetric === 'percent' ? 2 : 0)
+            };
+            formDataRef.current = newData; // ref 업데이트
+            return newData;
+        });
     };
 
 
@@ -567,8 +701,21 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
             // 저장 후 activityId가 있으면 파일 목록 다시 로드
             if (response && response.activityId) {
                 setCurrentActivityId(response.activityId);
+                currentActivityIdRef.current = response.activityId; // ref 업데이트
+                // 저장 후 시간 정보 업데이트 (updatedAt 우선, 없으면 createdAt)
+                setActivityUpdatedAt(response.updatedAt || response.createdAt || new Date().toISOString());
                 await loadFiles(response.activityId);
             }
+
+            // 저장된 데이터로 캐시 업데이트
+            const cacheKey = `${currentYear}-${inputMonth}`;
+            setMonthlyInputCache(prev => ({
+                ...prev,
+                [cacheKey]: {
+                    ...formData,
+                    activityId: response?.activityId || currentActivityId
+                }
+            }));
 
             // 월별 실적값 다시 로드 (그래프 업데이트)
             const evaluationType = task?.performance?.evaluation || task?.performanceOriginal?.evaluation || task?.evaluationType || '';
@@ -1051,7 +1198,8 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                                 type="button"
                                                 className="month-nav-btn-inline"
                                                 onClick={() => handleInputMonthChange('next')}
-                                                title="다음 월"
+                                                disabled={!canMoveToNextMonth()}
+                                                title={canMoveToNextMonth() ? "다음 월" : "미래 달은 입력할 수 없습니다"}
                                             >
                                                 <ChevronRight size={18} />
                                             </button>
@@ -1059,6 +1207,17 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                     </div>
                                 )}
                             </div>
+                            {/* 활동내역 입력 시간 표시 */}
+                            {activityUpdatedAt && (
+                                <div style={{ 
+                                    fontSize: '12px', 
+                                    color: '#6b7280', 
+                                    marginTop: '4px',
+                                    marginLeft: '26px'
+                                }}>
+                                    입력 시간: {formatDateTime(activityUpdatedAt)}
+                                </div>
+                            )}
                         </div>
                         <div className="activity-main-container">
                             <div className="form-group activity-main-group">
@@ -1104,15 +1263,6 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                     >
                                         <Wand2 size={16} />
                                         <span>AI 문맥·표현 개선</span>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="ai-btn reference-btn"
-                                        onClick={() => setShowPreviousActivitiesModal(true)}
-                                        title="다른 월 활동내역 참조"
-                                    >
-                                        <Calendar size={16} />
-                                        <span>이전 활동내역 참조</span>
                                     </button>
                                 </div>
                             )}
@@ -1326,7 +1476,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
 
                                 {/* 실적값 - 목표/달성률과 동일한 박스 스타일 */}
                                 <div className="performance-actual-compact">
-                                    <span className="performance-actual-label-compact">실적</span>
+                                    <span className="performance-actual-label-compact">{isReadOnly ? `${viewingMonth}월 실적` : `${inputMonth}월 실적`}</span>
                                     {isReadOnly ? (
                                         <span className="performance-actual-value-compact">{actualValue ? parseFloat(actualValue).toLocaleString() : '0'}{metricUnit}</span>
                                     ) : (
@@ -1354,7 +1504,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
 
                                 {/* 달성률 박스 */}
                                 <div className="performance-achievement-compact">
-                                    <span className="performance-achievement-label-compact">달성률</span>
+                                    <span className="performance-achievement-label-compact">{isReadOnly ? `${viewingMonth}월 달성률` : `${inputMonth}월 달성률`}</span>
                                     <span
                                         className="performance-achievement-value-compact"
                                         style={{ color: progressColor }}
@@ -1398,89 +1548,6 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                 </form>
             </div>
 
-            {/* 이전 활동내역 참조 모달 */}
-            {showPreviousActivitiesModal && (
-                <div className="previous-activities-modal-overlay">
-                    <div className="previous-activities-modal">
-                        <div className="previous-activities-modal-header">
-                            <h3>이전 활동내역 참조</h3>
-                            <button className="close-btn" onClick={() => setShowPreviousActivitiesModal(false)}>
-                                <X size={20} />
-                            </button>
-                        </div>
-                        <div className="previous-activities-modal-content">
-                            <div className="form-group">
-                                <label>월 선택</label>
-                                <div className="month-navigation">
-                                    <button
-                                        type="button"
-                                        className="month-nav-btn"
-                                        onClick={() => {
-                                            // 현재 월을 건너뛰면서 이전 월 찾기
-                                            let prevMonth = selectedMonth > 1 ? selectedMonth - 1 : 12;
-                                            while (prevMonth === currentMonth) {
-                                                prevMonth = prevMonth > 1 ? prevMonth - 1 : 12;
-                                            }
-                                            setSelectedMonth(prevMonth);
-                                        }}
-                                        disabled={(() => {
-                                            // 선택 가능한 이전 월이 있는지 확인
-                                            let prevMonth = selectedMonth > 1 ? selectedMonth - 1 : 12;
-                                            let attempts = 0;
-                                            while (prevMonth === currentMonth && attempts < 12) {
-                                                prevMonth = prevMonth > 1 ? prevMonth - 1 : 12;
-                                                attempts++;
-                                            }
-                                            return prevMonth === currentMonth;
-                                        })()}
-                                    >
-                                        <ChevronLeft size={18} />
-                                    </button>
-                                    <div className="month-display">
-                                        <span className="month-label">{currentYear}년 {selectedMonth}월</span>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        className="month-nav-btn"
-                                        onClick={() => {
-                                            // 현재 월을 건너뛰면서 다음 월 찾기
-                                            let nextMonth = selectedMonth < 12 ? selectedMonth + 1 : 1;
-                                            while (nextMonth === currentMonth) {
-                                                nextMonth = nextMonth < 12 ? nextMonth + 1 : 1;
-                                            }
-                                            setSelectedMonth(nextMonth);
-                                        }}
-                                        disabled={(() => {
-                                            // 선택 가능한 다음 월이 있는지 확인
-                                            let nextMonth = selectedMonth < 12 ? selectedMonth + 1 : 1;
-                                            let attempts = 0;
-                                            while (nextMonth === currentMonth && attempts < 12) {
-                                                nextMonth = nextMonth < 12 ? nextMonth + 1 : 1;
-                                                attempts++;
-                                            }
-                                            return nextMonth === currentMonth;
-                                        })()}
-                                    >
-                                        <ChevronRight size={18} />
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="form-group">
-                                <label>{currentYear}년 {selectedMonth}월 활동내역 (읽기 전용)</label>
-                                <textarea
-                                    value={selectedMonthActivity}
-                                    placeholder="해당 월의 활동내역이 없습니다"
-                                    rows="12"
-                                    className="reference-textarea"
-                                    disabled
-                                    readOnly
-                                />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

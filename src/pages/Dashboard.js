@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Target, Briefcase, AlertCircle, CheckCircle, Clock, XCircle, Filter, ArrowUpDown, X, Table2, GanttChart } from 'lucide-react';
+import { Target, Briefcase, BarChart3, AlertCircle, CheckCircle, Clock, XCircle, Filter, ArrowUpDown, X, Table2, GanttChart } from 'lucide-react';
 import useUserStore from '../store/userStore';
 import TaskInputModal from '../components/TaskInputModal';
 import { getTasksByType } from '../api/taskApi';
@@ -25,10 +25,11 @@ function Dashboard() {
         }
     }, [user, isAdmin, navigate]);
 
-    const [activeTab, setActiveTab] = useState('oi'); // 'oi' or 'key'
+    const [activeTab, setActiveTab] = useState('oi'); // 'oi', 'key', or 'kpi'
     const [viewMode, setViewMode] = useState('table'); // 'table' or 'milestone'
     const [oiTasks, setOiTasks] = useState([]);
     const [keyTasks, setKeyTasks] = useState([]);
+    const [kpiTasks, setKpiTasks] = useState([]);
     const [loading, setLoading] = useState(false);
     const [inputTask, setInputTask] = useState(null);
     const [isInputModalOpen, setIsInputModalOpen] = useState(false);
@@ -54,9 +55,10 @@ function Dashboard() {
     const loadTasks = async () => {
         try {
             setLoading(true);
-            const [oiData, keyData] = await Promise.all([
+            const [oiData, keyData, kpiData] = await Promise.all([
                 getTasksByType('OI'),
-                getTasksByType('중점추진')
+                getTasksByType('중점추진'),
+                getTasksByType('KPI')
             ]);
 
             // 최소 딜레이 보장 (스켈레톤 UI가 보이도록)
@@ -86,9 +88,11 @@ function Dashboard() {
 
             const formattedOiTasks = oiData.map(formatTask);
             const formattedKeyTasks = keyData.map(formatTask);
+            const formattedKpiTasks = kpiData.map(formatTask);
 
             setOiTasks(formattedOiTasks);
             setKeyTasks(formattedKeyTasks);
+            setKpiTasks(formattedKpiTasks);
         } catch (error) {
             console.error('과제 목록 조회 실패:', error);
             alert('과제 목록을 불러오는데 실패했습니다.');
@@ -172,8 +176,8 @@ function Dashboard() {
         return statusConfig[normalizeStatus(status)] || statusConfig.inProgress;
     };
 
-    const currentTasks = activeTab === 'oi' ? oiTasks : keyTasks;
-    const taskType = activeTab === 'oi' ? 'OI' : '중점추진';
+    const currentTasks = activeTab === 'oi' ? oiTasks : activeTab === 'key' ? keyTasks : kpiTasks;
+    const taskType = activeTab === 'oi' ? 'OI' : activeTab === 'key' ? '중점추진' : 'KPI';
 
     // 헤더 필터 토글
     const toggleFilterDropdown = (column, event) => {
@@ -362,12 +366,33 @@ function Dashboard() {
             return sortConfig.direction === 'asc' ? comparison : -comparison;
         }
 
-        // 정렬이 없으면 기본 상태별 정렬
+        // 정렬이 없으면 기본 정렬: 미입력 > 상태 > 평가기준 > 담당본부
+        // 1. 미입력 과제가 최상단
+        if (a.isInputted !== b.isInputted) {
+            return a.isInputted ? 1 : -1; // 미입력(false)이 먼저
+        }
+
+        // 2. 상태별 정렬
         const statusA = normalizeStatus(a.status);
         const statusB = normalizeStatus(b.status);
         const orderA = statusOrder[statusA] || 99;
         const orderB = statusOrder[statusB] || 99;
-        return orderA - orderB;
+        if (orderA !== orderB) {
+            return orderA - orderB;
+        }
+
+        // 3. 평가기준 정렬 (정성 < 정량)
+        const evalA = getSortValue(a, 'evaluation');
+        const evalB = getSortValue(b, 'evaluation');
+        const evalComparison = evalA.localeCompare(evalB, 'ko');
+        if (evalComparison !== 0) {
+            return evalComparison;
+        }
+
+        // 4. 담당본부 정렬
+        const deptA = getSortValue(a, 'dept');
+        const deptB = getSortValue(b, 'dept');
+        return deptA.localeCompare(deptB, 'ko');
     });
 
     // 활동내역 입력 모달 열기 (관리자용)
@@ -497,6 +522,14 @@ function Dashboard() {
                     <Briefcase size={16} />
                     <span>중점추진과제</span>
                     <span className="tab-count">{keyTasks.length}</span>
+                </button>
+                <button
+                    className={`tab-btn ${activeTab === 'kpi' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('kpi')}
+                >
+                    <BarChart3 size={16} />
+                    <span>KPI 과제</span>
+                    <span className="tab-count">{kpiTasks.length}</span>
                 </button>
                 <div className="tab-spacer"></div>
             </div>

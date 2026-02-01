@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Target, Briefcase, FileText, Loader2, Download, AlertCircle, CheckSquare, Square, X, CheckCircle, Code, Edit, Eye } from 'lucide-react';
+import { Target, Briefcase, BarChart3, FileText, Loader2, Download, AlertCircle, CheckSquare, Square, X, CheckCircle, Code, Edit, Eye } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import Lottie from 'lottie-react';
 import aiLottieData from '../assets/lotties/ailottie.json';
@@ -14,10 +14,11 @@ function AIReport() {
     const { user } = useUserStore();
     const isAdmin = user?.role === '관리자';
 
-    const [activeTab, setActiveTab] = useState('oi'); // 'oi' or 'key'
+    const [activeTab, setActiveTab] = useState('oi'); // 'oi', 'key', or 'kpi'
     const [tasks, setTasks] = useState([]);
     const [oiTaskCount, setOiTaskCount] = useState(0);
     const [keyTaskCount, setKeyTaskCount] = useState(0);
+    const [kpiTaskCount, setKpiTaskCount] = useState(0);
     const [selectedTaskIds, setSelectedTaskIds] = useState(new Set());
     const [reportType, setReportType] = useState(null); // null, 'monthly', or 'comprehensive'
     const [reportFormat, setReportFormat] = useState('text'); // 'html', 'text'
@@ -33,7 +34,7 @@ function AIReport() {
     const [modifyPrompt, setModifyPrompt] = useState('');
     const [isModifying, setIsModifying] = useState(false);
 
-    const taskType = activeTab === 'oi' ? 'OI' : '중점추진';
+    const taskType = activeTab === 'oi' ? 'OI' : activeTab === 'key' ? '중점추진' : 'KPI';
 
     // 과제 진행 상태 정규화
     const normalizeStatus = (status) => {
@@ -79,6 +80,10 @@ function AIReport() {
                 // 중점추진 과제 수 조회
                 const keyData = await getTasksByType('중점추진', skid);
                 setKeyTaskCount(keyData.length);
+
+                // KPI 과제 수 조회
+                const kpiData = await getTasksByType('KPI', skid);
+                setKpiTaskCount(kpiData.length);
             } catch (error) {
                 console.error('과제 수 조회 실패:', error);
             }
@@ -426,6 +431,18 @@ function AIReport() {
                     <Briefcase size={16} />
                     <span>중점추진과제</span>
                     <span className="tab-count">{keyTaskCount}</span>
+                </button>
+                <button
+                    className={`tab-btn ${activeTab === 'kpi' ? 'active' : ''}`}
+                    onClick={() => {
+                        setActiveTab('kpi');
+                        setReport('');
+                        setError(null);
+                    }}
+                >
+                    <BarChart3 size={16} />
+                    <span>KPI 과제</span>
+                    <span className="tab-count">{kpiTaskCount}</span>
                 </button>
                 <div className="tab-spacer"></div>
             </div>
