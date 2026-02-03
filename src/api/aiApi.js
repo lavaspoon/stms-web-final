@@ -360,16 +360,20 @@ export const generateComprehensiveReport = async (taskType, tasks, format = 'mar
  * 커스텀 보고서 생성 (질문 기반)
  * @param {String} taskType - 과제 유형 ('OI', '중점추진', 'KPI' 또는 null)
  * @param {Array} tasks - 과제 목록 (null 가능)
- * @param {String} question - 질문 또는 기존 보고서 + 수정 프롬프트
+ * @param {String} reportType - 보고서 유형 ('monthly', 'comprehensive' 또는 null)
+ * @param {String} existingReport - 기존 보고서 내용 (수정 모드일 때)
+ * @param {String} modifyPrompt - 수정 요청 프롬프트 (수정 모드일 때)
  * @returns {Promise<String>} 생성된 커스텀 보고서
  */
-export const generateCustomReport = async (taskType, tasks, question) => {
+export const generateCustomReport = async (taskType, tasks, reportType, existingReport, modifyPrompt) => {
     try {
         // 서버에서 프롬프트 받기
         const promptResponse = await axios.post(`${API_BASE_URL}/generate-custom-report`, {
             taskType: taskType || null,
             tasks: tasks || null,
-            customQuestion: question
+            reportType: reportType || null,
+            existingReport: existingReport || null,
+            customQuestion: modifyPrompt || null
         });
         const prompt = promptResponse.data.prompt;
 

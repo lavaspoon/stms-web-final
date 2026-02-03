@@ -837,8 +837,48 @@
 /* AI 기능 버튼 */
 .ai-actions {
     display: flex;
-    gap: 8px;
+    flex-direction: column;
+    gap: 10px;
     margin-top: 10px;
+}
+
+.ai-custom-prompt-section {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    width: 100%;
+}
+
+.ai-custom-prompt-input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #374151;
+    background: white;
+    transition: all 0.2s ease;
+}
+
+.ai-custom-prompt-input:focus {
+    outline: none;
+    border-color: #007AFF;
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+}
+
+.ai-custom-prompt-input:disabled {
+    background: #f9fafb;
+    color: #d1d5db;
+    cursor: not-allowed;
+}
+
+.ai-custom-btn {
+    flex-shrink: 0;
+}
+
+.ai-quick-actions {
+    display: flex;
+    gap: 8px;
     flex-wrap: wrap;
 }
 
@@ -1711,8 +1751,23 @@
     word-break: break-all;
 }
 
-.performance-actual-value-compact-input {
+.performance-actual-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 4px;
     width: 100%;
+}
+
+.performance-actual-unit {
+    font-size: 18px;
+    font-weight: 600;
+    color: #6b7280;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.performance-actual-value-compact-input {
+    flex: 1;
     padding: 0;
     border: none;
     border-radius: 0;
@@ -1722,6 +1777,7 @@
     background: transparent;
     text-align: left;
     font-variant-numeric: tabular-nums;
+    min-width: 0;
     font-family: inherit;
 }
 
@@ -1829,6 +1885,60 @@
     word-break: break-all;
 }
 
+/* 누적 실적 / 목표 통합 표시 */
+.performance-target-actual-combined {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 200px;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 2px solid #0ea5e9;
+    height: 78px;
+    justify-content: center;
+    box-sizing: border-box;
+    box-shadow: 0 2px 4px rgba(14, 165, 233, 0.1);
+}
+
+.performance-combined-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #0c4a6e;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.performance-combined-values {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.performance-combined-actual {
+    font-size: 24px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: #0ea5e9;
+    transition: color 0.2s ease;
+}
+
+.performance-combined-separator {
+    font-size: 18px;
+    font-weight: 600;
+    color: #64748b;
+    margin: 0 2px;
+}
+
+.performance-combined-target {
+    font-size: 20px;
+    font-weight: 700;
+    color: #475569;
+    font-variant-numeric: tabular-nums;
+}
+
 /* 달성률 박스 */
 .performance-achievement-compact {
     display: flex;
@@ -1867,13 +1977,13 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-width: 140px;
+    width: 296px;
     flex-shrink: 0;
     padding: 6px 8px;
     background: #f9fafb;
     border-radius: 6px;
     border: 1px solid #e5e7eb;
-    height: 78px;
+    height: 103px;
     box-sizing: border-box;
 }
 
@@ -1897,8 +2007,9 @@
 
 .monthly-chart-svg-container {
     position: relative;
-    width: 100%;
-    height: 100%;
+    width: 280px;
+    height: 85px;
+    flex-shrink: 0;
 }
 
 .monthly-chart-wrapper svg {

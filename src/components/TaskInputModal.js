@@ -1,17 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, FileText, TrendingUp, Calendar, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Sparkles, CheckCircle, Wand2, Clock, AlertCircle, XCircle, Upload, Download, Trash2, Paperclip } from 'lucide-react';
-import Slider from 'rc-slider';
-import 'rc-slider/assets/index.css';
 import { inputTaskActivity, getTaskActivity, getAllPreviousActivities, uploadActivityFile, getActivityFiles, downloadActivityFile, deleteActivityFile, getMonthlyActualValues } from '../api/taskApi';
-import { checkSpelling, recommendActivity, improveContext } from '../api/aiApi';
+import { checkSpelling, improveContext, generateCustomReport } from '../api/aiApi';
 import { formatDate } from '../utils/dateUtils';
 import useUserStore from '../store/userStore';
 import './TaskInputModal.css';
+import axios from "axios";
 
 // 날짜와 시간을 포맷팅하는 함수
 const formatDateTime = (dateString) => {
     if (!dateString) return '';
-    
+
     try {
         const date = new Date(dateString);
         if (isNaN(date.getTime())) {
@@ -23,7 +22,7 @@ const formatDateTime = (dateString) => {
         const day = String(date.getDate()).padStart(2, '0');
         const hours = String(date.getHours()).padStart(2, '0');
         const minutes = String(date.getMinutes()).padStart(2, '0');
-        
+
         return `${year}-${month}-${day} ${hours}:${minutes}`;
     } catch (error) {
         return '';
@@ -63,12 +62,13 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     const [aiProcessing, setAiProcessing] = useState(false);
     const [aiSuggestion, setAiSuggestion] = useState(null);
     const [aiSuggestionType, setAiSuggestionType] = useState(null);
+    const [customPrompt, setCustomPrompt] = useState('');
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth() + 1;
 
     // 뷰어 모드용 현재 보고 있는 월 상태
     const [viewingMonth, setViewingMonth] = useState(currentMonth);
-    
+
     // 입력 모드용 선택한 월 상태 (담당자가 입력할 월)
     const [inputMonth, setInputMonth] = useState(currentMonth);
 
@@ -81,6 +81,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     // 파일 관련 상태
     const [files, setFiles] = useState([]);
     const [uploadingFiles, setUploadingFiles] = useState([]);
+    const [selectedFiles, setSelectedFiles] = useState([]); // 선택된 파일 목록
     const [currentActivityId, setCurrentActivityId] = useState(null);
     const fileInputRef = useRef(null);
 
@@ -135,6 +136,8 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
             setMonthlyActualValues([]);
             setMonthlyInputCache({}); // 캐시도 초기화
             setActivityUpdatedAt(null);
+            setSelectedFiles([]); // 선택된 파일 목록 초기화
+            setUploadingFiles([]); // 업로드 중인 파일 목록 초기화
         }
     }, [isOpen, task]);
 
@@ -181,10 +184,32 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                     setFiles([]);
                 }
             } else {
+                // 데이터 없음 - % 기준인 경우 이전 달 실적을 기본값으로 설정
+                let defaultActualValue = '';
+                if (taskMetric === 'percent') {
+                    // 이전 달 실적 조회
+                    const targetMonth = isReadOnly ? viewingMonth : inputMonth;
+                    const prevMonth = targetMonth === 1 ? 12 : targetMonth - 1;
+                    const prevYear = targetMonth === 1 ? currentYear - 1 : currentYear;
+                    try {
+                        const prevData = await getTaskActivity(task.id, prevYear, prevMonth);
+                        if (prevData && prevData.actualValue != null) {
+                            defaultActualValue = typeof prevData.actualValue === 'number'
+                                ? prevData.actualValue.toString()
+                                : String(prevData.actualValue);
+                        }
+                    } catch (error) {
+                        console.error('이전 달 실적 조회 실패:', error);
+                    }
+                } else {
+                    // 건수, 금액 기준은 0으로 기본값 설정
+                    defaultActualValue = '0';
+                }
+
                 const emptyFormData = {
                     activityContent: '',
                     status: task.status || 'inProgress',
-                    actualValue: ''
+                    actualValue: defaultActualValue
                 };
                 setFormData(emptyFormData);
                 formDataRef.current = emptyFormData; // ref 업데이트
@@ -305,14 +330,14 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
             const loadInputMonthData = async () => {
                 try {
                     setLoading(true);
-                    
+
                     // 먼저 캐시에서 해당 월의 입력 데이터 확인
                     const cacheKey = `${currentYear}-${inputMonth}`;
                     const cachedData = monthlyInputCache[cacheKey];
-                    
+
                     // 서버에서 데이터 로드
                     const data = await getTaskActivity(task.id, currentYear, inputMonth);
-                    
+
                     // 캐시된 데이터가 있고, 서버 데이터와 activityId가 같거나 서버에 데이터가 없는 경우 캐시 사용
                     // (서버에 저장된 최신 데이터가 있으면 서버 데이터 우선)
                     if (cachedData && (!data || !data.activityId || data.activityId === cachedData.activityId)) {
@@ -328,7 +353,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                         currentActivityIdRef.current = cachedData.activityId || null; // ref 업데이트
                         // 캐시에는 시간 정보가 없으므로 null로 설정
                         setActivityUpdatedAt(null);
-                        
+
                         // 파일 목록 로드 (activityId가 있으면)
                         if (cachedData.activityId) {
                             await loadFiles(cachedData.activityId);
@@ -367,11 +392,31 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                             setFiles([]);
                         }
                     } else {
-                        // 데이터 없음
+                        // 데이터 없음 - % 기준인 경우 이전 달 실적을 기본값으로 설정
+                        let defaultActualValue = '';
+                        if (taskMetric === 'percent') {
+                            // 이전 달 실적 조회
+                            const prevMonth = inputMonth === 1 ? 12 : inputMonth - 1;
+                            const prevYear = inputMonth === 1 ? currentYear - 1 : currentYear;
+                            try {
+                                const prevData = await getTaskActivity(task.id, prevYear, prevMonth);
+                                if (prevData && prevData.actualValue != null) {
+                                    defaultActualValue = typeof prevData.actualValue === 'number'
+                                        ? prevData.actualValue.toString()
+                                        : String(prevData.actualValue);
+                                }
+                            } catch (error) {
+                                console.error('이전 달 실적 조회 실패:', error);
+                            }
+                        } else {
+                            // 건수, 금액 기준은 0으로 기본값 설정
+                            defaultActualValue = '0';
+                        }
+
                         const emptyFormData = {
                             activityContent: '',
                             status: task.status || 'inProgress',
-                            actualValue: ''
+                            actualValue: defaultActualValue
                         };
                         setFormData(emptyFormData);
                         formDataRef.current = emptyFormData; // ref 업데이트
@@ -456,7 +501,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
             setInputMonth(prev => {
                 const nextMonth = prev === 12 ? 1 : prev + 1;
                 const nextYear = prev === 12 ? currentYear + 1 : currentYear;
-                
+
                 // 미래 달로 이동하려고 하면 막음
                 if (nextYear > currentYear || (nextYear === currentYear && nextMonth > currentMonth)) {
                     return prev; // 변경하지 않음
@@ -485,24 +530,6 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
         });
     };
 
-    // 프로그레스바 드래그 핸들러 (0~100% 범위)
-    const handleProgressChange = (value) => {
-        // 읽기 전용 모드에서는 변경 불가
-        if (isReadOnly) return;
-
-        const percentage = typeof value === 'number' ? value : parseFloat(value);
-        // 100%를 초과하지 않도록 제한
-        const clampedPercentage = Math.min(percentage, 100);
-        const newActualValue = (targetValue * clampedPercentage) / 100;
-        setFormData(prev => {
-            const newData = {
-                ...prev,
-                actualValue: newActualValue.toFixed(taskMetric === 'percent' ? 2 : 0)
-            };
-            formDataRef.current = newData; // ref 업데이트
-            return newData;
-        });
-    };
 
 
     const handleStatusChange = (status) => {
@@ -534,20 +561,28 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
         }
     };
 
-    const handleRecommendActivity = async () => {
-        const recentActivities = previousActivities.slice(0, 3)
-            .map(a => `${a.activityYear}년 ${a.activityMonth}월: ${a.activityContent}`)
-            .join('\n');
+    const handleCustomPrompt = async () => {
+        if (!customPrompt.trim()) {
+            alert('프롬프트를 입력해주세요.');
+            return;
+        }
+
+        if (!formData.activityContent.trim()) {
+            alert('활동내역을 먼저 입력해주세요.');
+            return;
+        }
 
         try {
             setAiProcessing(true);
             setAiSuggestion(null);
-            const recommendedText = await recommendActivity(task.name, recentActivities);
-            setAiSuggestion(recommendedText);
-            setAiSuggestionType('recommend');
+            // 사용자 프롬프트와 현재 활동내역을 결합하여 AI에 전달
+            const promptWithContent = `${customPrompt}\n\n현재 활동내역:\n${formData.activityContent}`;
+            const result = await generateCustomReport(null, null, promptWithContent);
+            setAiSuggestion(result);
+            setAiSuggestionType('custom');
         } catch (error) {
-            console.error('활동내역 추천 실패:', error);
-            alert('활동내역 추천 중 오류가 발생했습니다.');
+            console.error('커스텀 프롬프트 처리 실패:', error);
+            alert('프롬프트 처리 중 오류가 발생했습니다.');
         } finally {
             setAiProcessing(false);
         }
@@ -592,37 +627,21 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     const handleRegenerateSuggestion = () => {
         if (aiSuggestionType === 'spelling') {
             handleSpellingCheck();
-        } else if (aiSuggestionType === 'recommend') {
-            handleRecommendActivity();
+        } else if (aiSuggestionType === 'custom') {
+            handleCustomPrompt();
         } else if (aiSuggestionType === 'improve') {
             handleImproveContext();
         }
     };
 
-    // 파일 업로드 핸들러
-    const handleFileUpload = async (e) => {
-        const selectedFiles = Array.from(e.target.files);
-        if (selectedFiles.length === 0) return;
+    // 파일 선택 핸들러
+    const handleFileSelect = (e) => {
+        const newFiles = Array.from(e.target.files);
+        if (newFiles.length === 0) return;
 
-        // 활동내역이 저장되어 있지 않으면 먼저 저장
-        if (!currentActivityId) {
-            alert('먼저 활동내역을 저장해주세요.');
-            e.target.value = ''; // 파일 선택 초기화
-            return;
-        }
-
-        for (const file of selectedFiles) {
-            try {
-                setUploadingFiles(prev => [...prev, file.name]);
-                await uploadActivityFile(currentActivityId, file, user.skid);
-                await loadFiles(currentActivityId);
-            } catch (error) {
-                console.error('파일 업로드 실패:', error);
-                alert(`파일 "${file.name}" 업로드 중 오류가 발생했습니다.`);
-            } finally {
-                setUploadingFiles(prev => prev.filter(name => name !== file.name));
-            }
-        }
+        // 선택된 파일 목록에 추가
+        setSelectedFiles(prev => [...prev, ...newFiles]);
+        setUploadingFiles(prev => [...prev, ...newFiles.map(f => f.name)]);
         e.target.value = ''; // 파일 선택 초기화
     };
 
@@ -689,22 +708,41 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
         try {
             setSubmitting(true);
 
-            // 활동내역 저장 (정량일 때만 actualValue 전송, 선택한 월 정보 포함)
-            const response = await inputTaskActivity(task.id, user.skid, {
-                activityContent: formData.activityContent,
-                actualValue: isQuantitative && formData.actualValue ? parseFloat(formData.actualValue) : null,
-                status: formData.status,
-                year: currentYear,
-                month: inputMonth
+            // FormData 생성 (파일 포함)
+            const formDataToSend = new FormData();
+            formDataToSend.append('activityContent', formData.activityContent);
+            if (isQuantitative && formData.actualValue) {
+                formDataToSend.append('actualValue', formData.actualValue);
+            }
+            if (formData.status) {
+                formDataToSend.append('status', formData.status);
+            }
+            formDataToSend.append('year', currentYear.toString());
+            formDataToSend.append('month', inputMonth.toString());
+
+            // 선택된 파일 추가
+            selectedFiles.forEach((file) => {
+                formDataToSend.append('files', file);
             });
 
+            // 활동내역 저장 (파일 포함)
+            const response = await axios.post(
+                `http://localhost:8080/api/tasks/${task.id}/activity?userId=${user.skid}`,
+                formDataToSend,
+                {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
+                    },
+                }
+            );
+
             // 저장 후 activityId가 있으면 파일 목록 다시 로드
-            if (response && response.activityId) {
-                setCurrentActivityId(response.activityId);
-                currentActivityIdRef.current = response.activityId; // ref 업데이트
+            if (response.data && response.data.activityId) {
+                setCurrentActivityId(response.data.activityId);
+                currentActivityIdRef.current = response.data.activityId; // ref 업데이트
                 // 저장 후 시간 정보 업데이트 (updatedAt 우선, 없으면 createdAt)
-                setActivityUpdatedAt(response.updatedAt || response.createdAt || new Date().toISOString());
-                await loadFiles(response.activityId);
+                setActivityUpdatedAt(response.data.updatedAt || response.data.createdAt || new Date().toISOString());
+                await loadFiles(response.data.activityId);
             }
 
             // 저장된 데이터로 캐시 업데이트
@@ -713,15 +751,18 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                 ...prev,
                 [cacheKey]: {
                     ...formData,
-                    activityId: response?.activityId || currentActivityId
+                    activityId: response.data?.activityId || currentActivityId
                 }
             }));
 
             // 월별 실적값 다시 로드 (그래프 업데이트)
-            const evaluationType = task?.performance?.evaluation || task?.performanceOriginal?.evaluation || task?.evaluationType || '';
             if (evaluationType === 'quantitative' || evaluationType === '정량') {
                 await loadMonthlyActualValues();
             }
+
+            // 선택된 파일 목록 초기화
+            setSelectedFiles([]);
+            setUploadingFiles([]);
 
             alert('활동내역이 성공적으로 저장되었습니다.');
             onClose();
@@ -789,13 +830,35 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     // 목표값은 task에서 가져오고, 실적값은 월별로 저장된 값(formData.actualValue)을 우선 사용
     const targetValue = task?.targetValue != null && task.targetValue !== 0 ? parseFloat(task.targetValue) : 0;
     // 월별 실적값이 있으면 사용, 없으면 task의 실적값 사용 (호환성)
-    const actualValue = formData.actualValue ? parseFloat(formData.actualValue) : (task?.actualValue != null && task.actualValue !== 0 ? parseFloat(task.actualValue) : 0);
-    const achievement = task?.achievement != null ? parseFloat(task.achievement) : 0;
+    const currentMonthActualValue = formData.actualValue ? parseFloat(formData.actualValue) : 0;
 
-    // 달성률 계산 (목표값이 있을 때만, 실시간 업데이트)
-    const calculatedAchievement = targetValue > 0 && actualValue > 0
-        ? (actualValue / targetValue) * 100
-        : 0;
+    // 평가 기준에 따라 실적값과 달성률 계산 (실시간 반영)
+    let actualValue = 0; // 표시할 실적값
+    let calculatedAchievement = 0; // 계산된 달성률
+
+    if (taskMetric === 'percent') {
+        // % 기준: 입력한 실적 %가 바로 누적 실적
+        actualValue = currentMonthActualValue || 0;
+        // 목표 대비 입력한 실적 %를 기준으로 달성률 계산
+        calculatedAchievement = targetValue > 0 && actualValue > 0
+            ? (actualValue / targetValue) * 100
+            : 0;
+    } else {
+        // 건수, 금액 기준: 현재 입력값 + 다른 월 실적 합계
+        // 현재 입력 중인 월을 제외한 다른 월들의 실적 합계
+        const currentInputMonth = isReadOnly ? viewingMonth : inputMonth;
+        const otherMonthsSum = monthlyActualValues
+            .filter(item => item.month !== currentInputMonth)
+            .reduce((sum, item) => sum + (item.actualValue || 0), 0);
+        // 현재 입력값 + 다른 월 실적 합계 = 누적 실적 (실시간 반영)
+        actualValue = currentMonthActualValue + otherMonthsSum;
+        // 누적 실적 대비 목표 달성률 계산
+        calculatedAchievement = targetValue > 0 && actualValue > 0
+            ? (actualValue / targetValue) * 100
+            : 0;
+    }
+
+    const achievement = task?.achievement != null ? parseFloat(task.achievement) : 0;
 
     // 달성률에 따라 색상 계산 (0-100%에 따라 파란색에서 초록색으로 점진적 변화)
     const getProgressColor = (achievement) => {
@@ -901,41 +964,108 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     };
 
     // 월별 실적 그래프 컴포넌트
-    const MonthlyLineChart = ({ data, color, targetValue: chartTargetValue, metricUnit: chartMetricUnit }) => {
-        if (!data || data.length === 0) return null;
+    const MonthlyLineChart = ({ data, color, targetValue: chartTargetValue, metricUnit: chartMetricUnit, isPercent, currentInputMonth, currentInputValue }) => {
+        if (!data || data.length === 0) {
+            // 데이터가 없으면 현재 입력 중인 값만 표시
+            if (currentInputValue && currentInputValue > 0) {
+                const singleData = [{ month: currentInputMonth, actualValue: currentInputValue, year: currentYear }];
+                return renderChart(singleData, color, chartTargetValue, chartMetricUnit, isPercent, currentInputMonth, currentInputValue);
+            }
+            return null;
+        }
 
-        const width = 140;
-        const height = 60;
-        const padding = { top: 18, right: 5, bottom: 5, left: 5 };
+        // 처음 입력한 달 찾기 (가장 이른 년월)
+        const sortedByDate = [...data].sort((a, b) => {
+            if (a.year !== b.year) return a.year - b.year;
+            return a.month - b.month;
+        });
+        const firstMonth = sortedByDate.length > 0 ? sortedByDate[0] : null;
+
+        if (!firstMonth) return null;
+
+        // 처음 입력한 달부터 12개월 데이터 생성
+        const startMonth = firstMonth.month;
+        const startYear = firstMonth.year;
+        const processedData = [];
+
+        // 현재 입력 중인 값도 포함
+        const dataWithCurrent = [...data];
+        if (currentInputValue != null && currentInputValue !== '' && !isReadOnly) {
+            const currentValue = parseFloat(currentInputValue) || 0;
+            const existingIndex = dataWithCurrent.findIndex(d => d.month === currentInputMonth && d.year === currentYear);
+            if (existingIndex >= 0) {
+                dataWithCurrent[existingIndex] = { ...dataWithCurrent[existingIndex], actualValue: currentValue };
+            } else {
+                dataWithCurrent.push({ month: currentInputMonth, year: currentYear, actualValue: currentValue });
+            }
+        }
+
+        // 처음 입력한 달부터 12개월 생성 (모든 달 표시)
+        for (let i = 0; i < 12; i++) {
+            const targetMonth = startMonth + i;
+            let month = targetMonth;
+            let year = startYear;
+
+            // 12월을 넘어가면 다음 해 1월로
+            while (month > 12) {
+                month -= 12;
+                year += 1;
+            }
+
+            const monthData = dataWithCurrent.find(d => d.month === month && d.year === year);
+            if (monthData && monthData.actualValue != null) {
+                processedData.push({ ...monthData, actualValue: monthData.actualValue });
+            } else {
+                // 활동내역이 없으면 0으로 표시
+                processedData.push({ month, year, actualValue: 0 });
+            }
+        }
+
+        return renderChart(processedData, color, chartTargetValue, chartMetricUnit, isPercent, currentInputMonth, currentInputValue);
+    };
+
+    // 차트 렌더링 함수
+    const renderChart = (processedData, color, chartTargetValue, chartMetricUnit, isPercent, currentInputMonth, currentInputValue) => {
+        const width = 280;
+        const height = 85;
+        const padding = { top: 18, right: 5, bottom: 30, left: 5 };
         const chartWidth = width - padding.left - padding.right;
         const chartHeight = height - padding.top - padding.bottom;
 
         // 목표값과 실적값 중 최대값으로 정규화
-        const maxActualValue = Math.max(...data.map(d => d.actualValue || 0), 0);
-        const maxValue = Math.max(maxActualValue, chartTargetValue || 0, 1);
+        const maxActualValue = Math.max(...processedData.map(d => d.actualValue || 0), 0);
+        const maxValue = Math.max(maxActualValue, 1);
 
-        const normalizedData = data.map(d => ({
+        const normalizedData = processedData.map(d => ({
             ...d,
             normalized: (d.actualValue || 0) / maxValue
         }));
 
-        // 목표선 Y 좌표 계산
-        const targetNormalized = chartTargetValue && maxValue > 0 ? chartTargetValue / maxValue : 0;
-        const targetY = padding.top + chartHeight - (targetNormalized * chartHeight);
-
-        // 점 좌표 계산
+        // 점 좌표 계산 (모든 달 표시)
         const points = normalizedData.map((d, index) => {
             const x = padding.left + (index / (normalizedData.length - 1 || 1)) * chartWidth;
             const y = padding.top + chartHeight - (d.normalized * chartHeight);
             // 목표치 달성 여부 확인
             const isAchieved = chartTargetValue > 0 && d.actualValue >= chartTargetValue;
-            return { x, y, value: d.actualValue, month: d.month, isAchieved };
+            // 미래 달 여부 확인
+            const year = d.year || currentYear;
+            const isFuture = year > currentYear || (year === currentYear && d.month > currentMonth);
+            return { x, y, value: d.actualValue, month: d.month, year: d.year || currentYear, isAchieved, isFuture };
         });
 
-        // 경로 생성 (꺾은선)
-        const pathData = points.map((point, index) => {
-            return `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`;
-        }).join(' ');
+        // 경로 생성 (꺾은선) - 현재 달까지만 선 연결
+        const pathData = points
+            .filter((point, index) => {
+                // 첫 번째 점은 항상 포함
+                if (index === 0) return true;
+                // 이전 점이 미래가 아니고 현재 점도 미래가 아닐 때만 선 연결
+                const prevPoint = points[index - 1];
+                return !prevPoint.isFuture && !point.isFuture;
+            })
+            .map((point, index) => {
+                return `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`;
+            })
+            .join(' ');
 
         // 월 이름 배열
         const monthNames = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
@@ -953,38 +1083,26 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                             </linearGradient>
                         </defs>
 
-                        {/* 목표선 */}
-                        {chartTargetValue > 0 && (
-                            <>
-                                <line
-                                    x1={padding.left}
-                                    y1={targetY}
-                                    x2={width - padding.right}
-                                    y2={targetY}
-                                    stroke="#9ca3af"
-                                    strokeWidth="1.5"
-                                    strokeDasharray="3 3"
-                                    opacity="0.6"
-                                />
-                                {/* 목표값 라벨 */}
-                                <text
-                                    x={width - padding.right - 2}
-                                    y={targetY - 3}
-                                    fontSize="9"
-                                    fill="#6b7280"
-                                    textAnchor="end"
-                                    fontWeight="600"
-                                >
-                                    목표 {chartTargetValue.toLocaleString()}
-                                </text>
-                            </>
-                        )}
-
-                        {/* 영역 채우기 */}
-                        <path
-                            d={`${pathData} L ${points[points.length - 1].x} ${height - padding.bottom} L ${padding.left} ${height - padding.bottom} Z`}
-                            fill={`url(#lineGradient-${task?.id || 'default'})`}
-                        />
+                        {/* 영역 채우기 - 현재 달까지만 */}
+                        {(() => {
+                            // 현재 달 이하의 마지막 점 찾기
+                            let lastCurrentPoint = null;
+                            for (let i = points.length - 1; i >= 0; i--) {
+                                if (!points[i].isFuture) {
+                                    lastCurrentPoint = points[i];
+                                    break;
+                                }
+                            }
+                            if (lastCurrentPoint) {
+                                return (
+                                    <path
+                                        d={`${pathData} L ${lastCurrentPoint.x} ${height - padding.bottom} L ${padding.left} ${height - padding.bottom} Z`}
+                                        fill={`url(#lineGradient-${task?.id || 'default'})`}
+                                    />
+                                );
+                            }
+                            return null;
+                        })()}
 
                         {/* 꺾은선 */}
                         <path
@@ -998,7 +1116,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
 
                         {/* 점 및 호버 영역 */}
                         {points.map((point, index) => {
-                            const monthName = monthNames[point.month - 1] || `${point.month}월`;
+                            const monthName = `${point.year}년 ${point.month}월`;
                             const isHovered = hoveredPoint?.index === index;
 
                             return (
@@ -1050,6 +1168,32 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                             />
                                         </g>
                                     )}
+
+                                    {/* 월 레이블 */}
+                                    <text
+                                        x={point.x}
+                                        y={height - padding.bottom + 12}
+                                        fontSize="9"
+                                        fill="#6b7280"
+                                        textAnchor="middle"
+                                        fontWeight="500"
+                                    >
+                                        {point.month}월
+                                    </text>
+
+                                    {/* 달성 표시 */}
+                                    {point.isAchieved && (
+                                        <text
+                                            x={point.x}
+                                            y={height - padding.bottom + 24}
+                                            fontSize="8"
+                                            fill="#10b981"
+                                            textAnchor="middle"
+                                            fontWeight="700"
+                                        >
+                                            달성
+                                        </text>
+                                    )}
                                 </g>
                             );
                         })}
@@ -1060,8 +1204,8 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                         <div
                             className="monthly-chart-tooltip"
                             style={{
-                                left: `${(hoveredPoint.x / 140) * 100}%`,
-                                top: `${(hoveredPoint.y / 60) * 100 - 60}%`,
+                                left: `${(hoveredPoint.x / 280) * 100}%`,
+                                top: `${(hoveredPoint.y / 85) * 100 - 60}%`,
                                 transform: 'translateX(-50%)'
                             }}
                         >
@@ -1209,9 +1353,9 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                             </div>
                             {/* 활동내역 입력 시간 표시 */}
                             {activityUpdatedAt && (
-                                <div style={{ 
-                                    fontSize: '12px', 
-                                    color: '#6b7280', 
+                                <div style={{
+                                    fontSize: '12px',
+                                    color: '#6b7280',
                                     marginTop: '4px',
                                     marginLeft: '26px'
                                 }}>
@@ -1237,33 +1381,51 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                             {/* AI 기능 버튼 - 읽기 전용일 때 숨김 */}
                             {!isReadOnly && (
                                 <div className="ai-actions">
-                                    <button
-                                        type="button"
-                                        className="ai-btn"
-                                        onClick={handleRecommendActivity}
-                                        disabled={aiProcessing || previousActivities.length === 0}
-                                    >
-                                        <Sparkles size={16} />
-                                        <span>지난달 기반 AI 추천</span>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="ai-btn"
-                                        onClick={handleSpellingCheck}
-                                        disabled={aiProcessing || !formData.activityContent.trim()}
-                                    >
-                                        <CheckCircle size={16} />
-                                        <span>AI 맞춤법·띄어쓰기 교정</span>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="ai-btn"
-                                        onClick={handleImproveContext}
-                                        disabled={aiProcessing || !formData.activityContent.trim()}
-                                    >
-                                        <Wand2 size={16} />
-                                        <span>AI 문맥·표현 개선</span>
-                                    </button>
+                                    <div className="ai-custom-prompt-section">
+                                        <input
+                                            type="text"
+                                            className="ai-custom-prompt-input"
+                                            placeholder="프롬프트를 입력하세요 (예: 더 간결하게 작성해줘, 전문적인 표현으로 바꿔줘)"
+                                            value={customPrompt}
+                                            onChange={(e) => setCustomPrompt(e.target.value)}
+                                            disabled={aiProcessing}
+                                            onKeyPress={(e) => {
+                                                if (e.key === 'Enter' && !e.shiftKey) {
+                                                    e.preventDefault();
+                                                    handleCustomPrompt();
+                                                }
+                                            }}
+                                        />
+                                        <button
+                                            type="button"
+                                            className="ai-btn ai-custom-btn"
+                                            onClick={handleCustomPrompt}
+                                            disabled={aiProcessing || !customPrompt.trim() || !formData.activityContent.trim()}
+                                        >
+                                            <Sparkles size={16} />
+                                            <span>AI 실행</span>
+                                        </button>
+                                    </div>
+                                    <div className="ai-quick-actions">
+                                        <button
+                                            type="button"
+                                            className="ai-btn"
+                                            onClick={handleSpellingCheck}
+                                            disabled={aiProcessing || !formData.activityContent.trim()}
+                                        >
+                                            <CheckCircle size={16} />
+                                            <span>AI 맞춤법·띄어쓰기 교정</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="ai-btn"
+                                            onClick={handleImproveContext}
+                                            disabled={aiProcessing || !formData.activityContent.trim()}
+                                        >
+                                            <Wand2 size={16} />
+                                            <span>AI 문맥·표현 개선</span>
+                                        </button>
+                                    </div>
                                 </div>
                             )}
 
@@ -1281,7 +1443,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                         <Sparkles size={16} />
                                         <span>
                                             {aiSuggestionType === 'spelling' && 'AI 맞춤법 검사 결과'}
-                                            {aiSuggestionType === 'recommend' && 'AI 활동내역 추천'}
+                                            {aiSuggestionType === 'custom' && 'AI 커스텀 결과'}
                                             {aiSuggestionType === 'improve' && 'AI 문맥 교정 결과'}
                                         </span>
                                     </div>
@@ -1333,35 +1495,46 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                     <input
                                         type="file"
                                         ref={fileInputRef}
-                                        onChange={handleFileUpload}
+                                        onChange={handleFileSelect}
                                         multiple
                                         style={{ display: 'none' }}
-                                        disabled={!currentActivityId}
+                                        disabled={submitting}
                                     />
                                     <button
                                         type="button"
                                         className="file-upload-btn"
                                         onClick={() => fileInputRef.current?.click()}
-                                        disabled={!currentActivityId || submitting}
+                                        disabled={submitting}
                                     >
                                         <Upload size={14} />
                                         <span>파일 선택</span>
                                     </button>
-                                    {!currentActivityId && (
+                                    {selectedFiles.length > 0 && (
                                         <span className="file-upload-hint">
-                                            활동내역을 먼저 저장해주세요.
+                                            {selectedFiles.length}개 파일이 선택되었습니다. 저장 시 함께 업로드됩니다.
                                         </span>
                                     )}
                                 </div>
                             )}
 
-                            {uploadingFiles.length > 0 && (
-                                <div className="file-uploading-list">
-                                    {uploadingFiles.map((fileName, idx) => (
-                                        <div key={idx} className="file-item uploading">
+                            {selectedFiles.length > 0 && (
+                                <div className="file-selected-list">
+                                    {selectedFiles.map((file, idx) => (
+                                        <div key={idx} className="file-item selected">
                                             <Paperclip size={14} />
-                                            <span>{fileName}</span>
-                                            <span className="uploading-text">업로드 중...</span>
+                                            <span>{file.name}</span>
+                                            <span className="file-size">{formatFileSize(file.size)}</span>
+                                            <button
+                                                type="button"
+                                                className="file-action-btn delete"
+                                                onClick={() => {
+                                                    setSelectedFiles(prev => prev.filter((_, i) => i !== idx));
+                                                    setUploadingFiles(prev => prev.filter((name) => name !== file.name));
+                                                }}
+                                                title="제거"
+                                            >
+                                                <X size={14} />
+                                            </button>
                                         </div>
                                     ))}
                                 </div>
@@ -1438,73 +1611,74 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                             </div>
 
                             <div className="performance-compact-row">
-                                {/* 프로그레스바 - 작게 */}
-                                <div className="performance-slider-wrapper">
-                                    <div className="performance-slider-compact">
+                                {/* 실적값 입력 - 평가 기준에 따라 다르게 표시 */}
+                                {taskMetric === 'percent' ? (
+                                    // % 기준: 누적 실적 입력창
+                                    <div className="performance-actual-compact">
+                                        <span className="performance-actual-label-compact">누적 실적</span>
                                         {isReadOnly ? (
-                                            <div className="progress-readonly-track-small">
-                                                <div
-                                                    className="progress-readonly-fill-small"
-                                                    style={{
-                                                        width: `${Math.min(calculatedAchievement, 100)}%`,
-                                                        backgroundColor: progressColor
-                                                    }}
-                                                />
-                                            </div>
+                                            <span className="performance-actual-value-compact">{actualValue ? parseFloat(actualValue).toLocaleString() : '0'}{metricUnit}</span>
                                         ) : (
-                                            <Slider
-                                                min={0}
-                                                max={100}
-                                                step={taskMetric === 'percent' ? 0.1 : 0.5}
-                                                value={targetValue > 0 ? Math.min((actualValue / targetValue) * 100, 100) : 0}
-                                                onChange={handleProgressChange}
-                                                disabled={isReadOnly}
-                                                trackStyle={{ backgroundColor: progressColor, height: '3px' }}
-                                                handleStyle={{
-                                                    borderColor: progressColor,
-                                                    backgroundColor: progressColor,
-                                                    width: '12px',
-                                                    height: '12px',
-                                                    marginTop: '-4.5px',
-                                                    borderWidth: '2px'
-                                                }}
-                                                railStyle={{ height: '3px' }}
-                                            />
+                                            <div className="performance-actual-input-wrapper">
+                                                <input
+                                                    type="number"
+                                                    name="actualValue"
+                                                    value={formData.actualValue || ''}
+                                                    onChange={handleChange}
+                                                    placeholder="0"
+                                                    step="0.01"
+                                                    min="0"
+                                                    disabled={isReadOnly}
+                                                    readOnly={isReadOnly}
+                                                    className="performance-actual-value-compact-input"
+                                                />
+                                                <span className="performance-actual-unit">{metricUnit}</span>
+                                            </div>
                                         )}
                                     </div>
-                                </div>
+                                ) : (
+                                    // 건수, 금액 기준: #월 실적 입력창
+                                    <div className="performance-actual-compact">
+                                        <span className="performance-actual-label-compact">{isReadOnly ? `${viewingMonth}월 실적` : `${inputMonth}월 실적`}</span>
+                                        {isReadOnly ? (
+                                            <span className="performance-actual-value-compact">{currentMonthActualValue ? parseFloat(currentMonthActualValue).toLocaleString() : '0'}{metricUnit}</span>
+                                        ) : (
+                                            <div className="performance-actual-input-wrapper">
+                                                <input
+                                                    type="number"
+                                                    name="actualValue"
+                                                    value={formData.actualValue || ''}
+                                                    onChange={handleChange}
+                                                    placeholder="0"
+                                                    step="1"
+                                                    min="0"
+                                                    disabled={isReadOnly}
+                                                    readOnly={isReadOnly}
+                                                    className="performance-actual-value-compact-input"
+                                                />
+                                                <span className="performance-actual-unit">{metricUnit}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
 
-                                {/* 실적값 - 목표/달성률과 동일한 박스 스타일 */}
-                                <div className="performance-actual-compact">
-                                    <span className="performance-actual-label-compact">{isReadOnly ? `${viewingMonth}월 실적` : `${inputMonth}월 실적`}</span>
-                                    {isReadOnly ? (
-                                        <span className="performance-actual-value-compact">{actualValue ? parseFloat(actualValue).toLocaleString() : '0'}{metricUnit}</span>
-                                    ) : (
-                                        <input
-                                            type="number"
-                                            name="actualValue"
-                                            value={formData.actualValue || ''}
-                                            onChange={handleChange}
-                                            placeholder="0"
-                                            step={taskMetric === 'percent' ? '0.01' : '1'}
-                                            min="0"
-                                            max={targetValue || undefined}
-                                            disabled={isReadOnly}
-                                            readOnly={isReadOnly}
-                                            className="performance-actual-value-compact-input"
-                                        />
-                                    )}
-                                </div>
-
-                                {/* 목표값 */}
-                                <div className="performance-target-compact">
-                                    <span className="performance-target-label-compact">목표</span>
-                                    <span className="performance-target-value-compact">{targetValue ? parseFloat(targetValue).toLocaleString() : '0'}{metricUnit}</span>
+                                {/* 누적 실적 / 목표 통합 표시 */}
+                                <div className="performance-target-actual-combined">
+                                    <div className="performance-combined-label">누적 실적 / 목표</div>
+                                    <div className="performance-combined-values">
+                                        <span className="performance-combined-actual" style={{ color: progressColor }}>
+                                            {actualValue ? parseFloat(actualValue).toLocaleString() : '0'}{metricUnit}
+                                        </span>
+                                        <span className="performance-combined-separator">/</span>
+                                        <span className="performance-combined-target">
+                                            {targetValue ? parseFloat(targetValue).toLocaleString() : '0'}{metricUnit}
+                                        </span>
+                                    </div>
                                 </div>
 
                                 {/* 달성률 박스 */}
                                 <div className="performance-achievement-compact">
-                                    <span className="performance-achievement-label-compact">{isReadOnly ? `${viewingMonth}월 달성률` : `${inputMonth}월 달성률`}</span>
+                                    <span className="performance-achievement-label-compact">누적 달성률</span>
                                     <span
                                         className="performance-achievement-value-compact"
                                         style={{ color: progressColor }}
@@ -1514,13 +1688,16 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                 </div>
 
                                 {/* 월별 실적 그래프 */}
-                                {monthlyActualValues.length > 0 && (
+                                {(monthlyActualValues.length > 0 || (formData.actualValue && parseFloat(formData.actualValue) > 0)) && (
                                     <div className="monthly-chart-compact">
                                         <MonthlyLineChart
                                             data={monthlyActualValues}
                                             color={progressColor}
                                             targetValue={targetValue}
                                             metricUnit={metricUnit}
+                                            isPercent={taskMetric === 'percent'}
+                                            currentInputMonth={isReadOnly ? viewingMonth : inputMonth}
+                                            currentInputValue={formData.actualValue}
                                         />
                                     </div>
                                 )}

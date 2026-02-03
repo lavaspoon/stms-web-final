@@ -29,13 +29,38 @@ function Layout({ children }) {
                 const keyTasks = await getTasksByType('중점추진', null);
                 const kpiTasks = await getTasksByType('KPI', null);
 
+                // 상태 정규화 함수
+                const normalizeStatus = (status) => {
+                    if (!status) return 'inProgress';
+                    const statusMap = {
+                        '진행중': 'inProgress',
+                        '완료': 'completed',
+                        '지연': 'delayed',
+                        '중단': 'stopped',
+                        'inProgress': 'inProgress',
+                        'completed': 'completed',
+                        'delayed': 'delayed',
+                        'stopped': 'stopped'
+                    };
+                    return statusMap[status] || 'inProgress';
+                };
+
                 let oiNotInputted, keyNotInputted, kpiNotInputted;
 
                 if (isAdmin) {
-                    // 관리자: 전체 과제 중 미입력
-                    oiNotInputted = oiTasks.filter(task => task.isInputted !== 'Y').length;
-                    keyNotInputted = keyTasks.filter(task => task.isInputted !== 'Y').length;
-                    kpiNotInputted = kpiTasks.filter(task => task.isInputted !== 'Y').length;
+                    // 관리자: 진행중인 과제 중 미입력
+                    oiNotInputted = oiTasks.filter(task => {
+                        const normalizedStatus = normalizeStatus(task.status);
+                        return normalizedStatus === 'inProgress' && task.isInputted !== 'Y';
+                    }).length;
+                    keyNotInputted = keyTasks.filter(task => {
+                        const normalizedStatus = normalizeStatus(task.status);
+                        return normalizedStatus === 'inProgress' && task.isInputted !== 'Y';
+                    }).length;
+                    kpiNotInputted = kpiTasks.filter(task => {
+                        const normalizedStatus = normalizeStatus(task.status);
+                        return normalizedStatus === 'inProgress' && task.isInputted !== 'Y';
+                    }).length;
                 } else {
                     // 담당자: 본부 기준으로 필터링
                     const skid = user?.skid || user?.userId;
@@ -83,9 +108,18 @@ function Layout({ children }) {
                             return task.topDeptName === userTopDeptName;
                         });
 
-                        oiNotInputted = filteredOiTasks.filter(task => task.isInputted !== 'Y').length;
-                        keyNotInputted = filteredKeyTasks.filter(task => task.isInputted !== 'Y').length;
-                        kpiNotInputted = filteredKpiTasks.filter(task => task.isInputted !== 'Y').length;
+                        oiNotInputted = filteredOiTasks.filter(task => {
+                            const normalizedStatus = normalizeStatus(task.status);
+                            return normalizedStatus === 'inProgress' && task.isInputted !== 'Y';
+                        }).length;
+                        keyNotInputted = filteredKeyTasks.filter(task => {
+                            const normalizedStatus = normalizeStatus(task.status);
+                            return normalizedStatus === 'inProgress' && task.isInputted !== 'Y';
+                        }).length;
+                        kpiNotInputted = filteredKpiTasks.filter(task => {
+                            const normalizedStatus = normalizeStatus(task.status);
+                            return normalizedStatus === 'inProgress' && task.isInputted !== 'Y';
+                        }).length;
                     } else {
                         oiNotInputted = 0;
                         keyNotInputted = 0;

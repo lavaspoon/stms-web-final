@@ -672,7 +672,7 @@ function OITasks() {
                 return sortConfig.direction === 'asc' ? comparison : -comparison;
             }
 
-            // 정렬이 없으면 기본 정렬: 미입력 > 상태 > 평가기준 > 담당본부
+            // 정렬이 없으면 기본 정렬: 미입력 > 상태 > 1depth 카테고리 > 2depth 카테고리 > 과제명
             // 1. 미입력 과제가 최상단
             if (a.isInputted !== b.isInputted) {
                 return a.isInputted ? 1 : -1; // 미입력(false)이 먼저
@@ -693,18 +693,26 @@ function OITasks() {
                 return orderA - orderB;
             }
 
-            // 3. 평가기준 정렬 (정성 < 정량)
-            const evalA = getSortValue(a, 'evaluation');
-            const evalB = getSortValue(b, 'evaluation');
-            const evalComparison = evalA.localeCompare(evalB, 'ko');
-            if (evalComparison !== 0) {
-                return evalComparison;
+            // 3. 1depth 카테고리 정렬
+            const category1A = a.category1 || '';
+            const category1B = b.category1 || '';
+            const category1Comparison = category1A.localeCompare(category1B, 'ko');
+            if (category1Comparison !== 0) {
+                return category1Comparison;
             }
 
-            // 4. 담당본부 정렬
-            const deptA = getSortValue(a, 'dept');
-            const deptB = getSortValue(b, 'dept');
-            return deptA.localeCompare(deptB, 'ko');
+            // 4. 2depth 카테고리 정렬
+            const category2A = a.category2 || '';
+            const category2B = b.category2 || '';
+            const category2Comparison = category2A.localeCompare(category2B, 'ko');
+            if (category2Comparison !== 0) {
+                return category2Comparison;
+            }
+
+            // 5. 과제명 정렬
+            const nameA = a.name || '';
+            const nameB = b.name || '';
+            return nameA.localeCompare(nameB, 'ko');
         });
 
     console.log('Filtered tasks count:', filteredTasks.length);
@@ -722,30 +730,6 @@ function OITasks() {
         const isNotInputted = !t.isInputted;
         return isInProgress && isNotInputted;
     }).length;
-
-    // 디버깅용 로그
-    console.log('Not inputted count calculation:', {
-        totalTasks: userTasks.length,
-        inProgressTasks: userTasks.filter(t => normalizeStatus(t.status) === 'inProgress').length,
-        notInputtedTasks: userTasks.filter(t => !t.isInputted).length,
-        inProgressAndNotInputted: userTasks.filter(t => {
-            const normalizedStatus = normalizeStatus(t.status);
-            return normalizedStatus === 'inProgress' && !t.isInputted;
-        }).length,
-        notInputtedCount
-    });
-
-    // 디버깅용 로그
-    console.log('Not inputted count calculation:', {
-        totalTasks: userTasks.length,
-        inProgressTasks: userTasks.filter(t => normalizeStatus(t.status) === 'inProgress').length,
-        notInputtedTasks: userTasks.filter(t => !t.isInputted).length,
-        inProgressAndNotInputted: userTasks.filter(t => {
-            const normalizedStatus = normalizeStatus(t.status);
-            return normalizedStatus === 'inProgress' && !t.isInputted;
-        }).length,
-        notInputtedCount
-    });
 
     return (
         <div className="oi-tasks">
@@ -995,7 +979,7 @@ function OITasks() {
                                         className="sortable-header"
                                         onClick={() => handleSort('actual')}
                                     >
-                                        실적
+                                        누적 실적
                                     </span>
                                 </th>
                                 <th>
@@ -1003,7 +987,7 @@ function OITasks() {
                                         className="sortable-header"
                                         onClick={() => handleSort('achievement')}
                                     >
-                                        달성률
+                                        누적 달성률
                                     </span>
                                 </th>
                                 <th>

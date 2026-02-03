@@ -355,9 +355,13 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
             return;
         }
 
-        if (!formData.department) {
-            alert('부서를 선택해주세요.');
-            return;
+        // 부서가 선택되지 않았지만 담당자가 있으면 첫 번째 담당자의 부서를 자동 설정
+        let departmentToUse = formData.department;
+        if (!departmentToUse && formData.managers.length > 0) {
+            const firstManager = formData.managers[0];
+            if (firstManager.deptId) {
+                departmentToUse = firstManager.deptId;
+            }
         }
 
         if (!formData.taskName || !formData.category1 || !formData.category2) {
@@ -393,7 +397,8 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 metric: formData.evaluationType === 'quantitative' ? formData.metric : null, // 정성일 때는 null
                 targetValue: formData.evaluationType === 'quantitative' ? formData.targetValue : null, // 정량일 때만 목표값
                 status: formData.status,
-                visibleYn: formData.visibleYn || 'Y' // 공개여부
+                visibleYn: formData.visibleYn || 'Y', // 공개여부
+                deptId: departmentToUse // 자동 설정된 부서 ID 사용
             };
 
             if (editData) {

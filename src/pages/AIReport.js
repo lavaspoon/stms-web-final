@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Target, Briefcase, BarChart3, FileText, Loader2, Download, AlertCircle, CheckSquare, Square, X, CheckCircle, Code, Edit, Eye } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import Lottie from 'lottie-react';
 import aiLottieData from '../assets/lotties/ailottie.json';
 import useUserStore from '../store/userStore';
@@ -33,6 +34,8 @@ function AIReport() {
     // 추가 프롬프트로 수정
     const [modifyPrompt, setModifyPrompt] = useState('');
     const [isModifying, setIsModifying] = useState(false);
+    // 보고서 생성 시 사용한 정보 저장 (수정 프롬프트에 사용)
+    const [reportGenerationInfo, setReportGenerationInfo] = useState(null);
 
     const taskType = activeTab === 'oi' ? 'OI' : activeTab === 'key' ? '중점추진' : 'KPI';
 
@@ -335,6 +338,14 @@ function AIReport() {
             }
             setReportFormatType(format);
             setReport(generatedReport);
+
+            // 보고서 생성 정보 저장 (수정 프롬프트에 사용)
+            setReportGenerationInfo({
+                reportType: reportType,
+                taskType: taskType,
+                tasks: filteredTasks,
+                format: format
+            });
         } catch (error) {
             console.error('보고서 생성 실패:', error);
             setError('보고서 생성에 실패했습니다. 다시 시도해주세요.');
@@ -356,12 +367,24 @@ function AIReport() {
             return;
         }
 
+        if (!reportGenerationInfo) {
+            alert('보고서 생성 정보가 없습니다. 보고서를 다시 생성해주세요.');
+            return;
+        }
+
         try {
             setIsModifying(true);
             setError(null);
 
-            // 기존 보고서 텍스트와 프롬프트만 전달
-            const modifiedReport = await generateCustomReport(null, null, `${report}\n\n${modifyPrompt}`);
+            // 구조화된 프롬프트 생성
+            // 기존 보고서 생성 시 사용했던 프롬프트 + 수정 요청사항
+            const modifiedReport = await generateCustomReport(
+                reportGenerationInfo.taskType,
+                reportGenerationInfo.tasks,
+                reportGenerationInfo.reportType,
+                report,
+                modifyPrompt
+            );
             setReport(modifiedReport);
             setModifyPrompt('');
         } catch (error) {
@@ -679,7 +702,7 @@ function AIReport() {
                                                 placeholder="마크다운 텍스트를 편집하세요..."
                                             />
                                         ) : (
-                                            <ReactMarkdown>{report}</ReactMarkdown>
+                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{report}</ReactMarkdown>
                                         )
                                     ) : (
                                         <pre>{report}</pre>
