@@ -63,6 +63,8 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     const [aiSuggestion, setAiSuggestion] = useState(null);
     const [aiSuggestionType, setAiSuggestionType] = useState(null);
     const [customPrompt, setCustomPrompt] = useState('');
+    const [showCustomPrompt, setShowCustomPrompt] = useState(false);
+    const [originalText, setOriginalText] = useState(''); // diff 비교를 위한 원본 텍스트
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth() + 1;
 
@@ -138,6 +140,11 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
             setActivityUpdatedAt(null);
             setSelectedFiles([]); // 선택된 파일 목록 초기화
             setUploadingFiles([]); // 업로드 중인 파일 목록 초기화
+            setShowCustomPrompt(false); // 프롬프트 입력창 닫기
+            setAiSuggestion(null); // AI 제안 초기화
+            setAiSuggestionType(null);
+            setOriginalText(''); // 원본 텍스트 초기화
+            setCustomPrompt(''); // 프롬프트 초기화
         }
     }, [isOpen, task]);
 
@@ -540,6 +547,98 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     };
 
 
+    // 단어 단위 diff 비교 함수
+    const getWordLevelDiff = (original, modified) => {
+        if (!original && !modified) return [];
+        if (!original) return [{ type: 'added', parts: [{ type: 'added', text: modified }] }];
+        if (!modified) return [{ type: 'removed', parts: [{ type: 'removed', text: original }] }];
+        if (original === modified) {
+            return [{ type: 'unchanged', parts: [{ type: 'unchanged', text: original }] }];
+        }
+
+        // 텍스트를 단어와 공백으로 분리 (공백도 보존)
+        const tokenize = (text) => {
+            const tokens = [];
+            const regex = /(\S+|\s+)/g;
+            let match;
+            while ((match = regex.exec(text)) !== null) {
+                tokens.push(match[0]);
+            }
+            return tokens;
+        };
+
+        const origTokens = tokenize(original);
+        const modTokens = tokenize(modified);
+
+        // 간단한 LCS 기반 diff 알고리즘
+        const diff = [];
+        let origIdx = 0;
+        let modIdx = 0;
+
+        while (origIdx < origTokens.length || modIdx < modTokens.length) {
+            const origToken = origTokens[origIdx];
+            const modToken = modTokens[modIdx];
+
+            if (origIdx >= origTokens.length) {
+                // 원본이 끝났으면 나머지는 모두 추가
+                diff.push({ type: 'added', text: modToken });
+                modIdx++;
+            } else if (modIdx >= modTokens.length) {
+                // 수정본이 끝났으면 나머지는 모두 삭제
+                diff.push({ type: 'removed', text: origToken });
+                origIdx++;
+            } else if (origToken === modToken) {
+                // 동일한 토큰은 변경 없음
+                diff.push({ type: 'unchanged', text: origToken });
+                origIdx++;
+                modIdx++;
+            } else {
+                // 다른 경우: 다음 일치하는 토큰을 찾기
+                let foundInOrig = false;
+                let foundInMod = false;
+                let origSearchIdx = origIdx + 1;
+                let modSearchIdx = modIdx + 1;
+
+                // 수정본에서 현재 원본 토큰을 찾기
+                while (modSearchIdx < modTokens.length && !foundInOrig) {
+                    if (modTokens[modSearchIdx] === origToken) {
+                        foundInOrig = true;
+                        break;
+                    }
+                    modSearchIdx++;
+                }
+
+                // 원본에서 현재 수정본 토큰을 찾기
+                while (origSearchIdx < origTokens.length && !foundInMod) {
+                    if (origTokens[origSearchIdx] === modToken) {
+                        foundInMod = true;
+                        break;
+                    }
+                    origSearchIdx++;
+                }
+
+                // 더 가까운 일치를 선택
+                if (foundInOrig && (!foundInMod || (modSearchIdx - modIdx) <= (origSearchIdx - origIdx))) {
+                    // 원본 토큰이 나중에 나타남 - 현재 위치의 수정본 토큰은 추가
+                    diff.push({ type: 'added', text: modToken });
+                    modIdx++;
+                } else if (foundInMod) {
+                    // 수정본 토큰이 나중에 나타남 - 현재 위치의 원본 토큰은 삭제
+                    diff.push({ type: 'removed', text: origToken });
+                    origIdx++;
+                } else {
+                    // 둘 다 일치하지 않으면 둘 다 변경으로 처리
+                    diff.push({ type: 'removed', text: origToken });
+                    diff.push({ type: 'added', text: modToken });
+                    origIdx++;
+                    modIdx++;
+                }
+            }
+        }
+
+        return diff;
+    };
+
     // AI 기능 핸들러
     const handleSpellingCheck = async () => {
         if (!formData.activityContent.trim()) {
@@ -550,6 +649,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
         try {
             setAiProcessing(true);
             setAiSuggestion(null);
+            setOriginalText(formData.activityContent); // 원본 저장
             const correctedText = await checkSpelling(formData.activityContent);
             setAiSuggestion(correctedText);
             setAiSuggestionType('spelling');
@@ -575,6 +675,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
         try {
             setAiProcessing(true);
             setAiSuggestion(null);
+            setOriginalText(formData.activityContent); // 원본 저장
             // 사용자 프롬프트와 현재 활동내역을 결합하여 AI에 전달
             const promptWithContent = `${customPrompt}\n\n현재 활동내역:\n${formData.activityContent}`;
             const result = await generateCustomReport(null, null, promptWithContent);
@@ -597,6 +698,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
         try {
             setAiProcessing(true);
             setAiSuggestion(null);
+            setOriginalText(formData.activityContent); // 원본 저장
             const improvedText = await improveContext(formData.activityContent);
             setAiSuggestion(improvedText);
             setAiSuggestionType('improve');
@@ -614,6 +716,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
             setFormData(prev => ({ ...prev, activityContent: aiSuggestion }));
             setAiSuggestion(null);
             setAiSuggestionType(null);
+            setOriginalText('');
         }
     };
 
@@ -621,6 +724,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     const handleRejectSuggestion = () => {
         setAiSuggestion(null);
         setAiSuggestionType(null);
+        setOriginalText('');
     };
 
     // AI 재생성
@@ -1381,31 +1485,6 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                             {/* AI 기능 버튼 - 읽기 전용일 때 숨김 */}
                             {!isReadOnly && (
                                 <div className="ai-actions">
-                                    <div className="ai-custom-prompt-section">
-                                        <input
-                                            type="text"
-                                            className="ai-custom-prompt-input"
-                                            placeholder="프롬프트를 입력하세요 (예: 더 간결하게 작성해줘, 전문적인 표현으로 바꿔줘)"
-                                            value={customPrompt}
-                                            onChange={(e) => setCustomPrompt(e.target.value)}
-                                            disabled={aiProcessing}
-                                            onKeyPress={(e) => {
-                                                if (e.key === 'Enter' && !e.shiftKey) {
-                                                    e.preventDefault();
-                                                    handleCustomPrompt();
-                                                }
-                                            }}
-                                        />
-                                        <button
-                                            type="button"
-                                            className="ai-btn ai-custom-btn"
-                                            onClick={handleCustomPrompt}
-                                            disabled={aiProcessing || !customPrompt.trim() || !formData.activityContent.trim()}
-                                        >
-                                            <Sparkles size={16} />
-                                            <span>AI 실행</span>
-                                        </button>
-                                    </div>
                                     <div className="ai-quick-actions">
                                         <button
                                             type="button"
@@ -1425,7 +1504,44 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                             <Wand2 size={16} />
                                             <span>AI 문맥·표현 개선</span>
                                         </button>
+                                        <button
+                                            type="button"
+                                            className="ai-btn ai-custom-toggle-btn"
+                                            onClick={() => setShowCustomPrompt(!showCustomPrompt)}
+                                            disabled={aiProcessing}
+                                        >
+                                            <Sparkles size={16} />
+                                            <span>프롬프트 직접 입력</span>
+                                            {showCustomPrompt ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                        </button>
                                     </div>
+                                    {showCustomPrompt && (
+                                        <div className="ai-custom-prompt-section">
+                                            <input
+                                                type="text"
+                                                className="ai-custom-prompt-input"
+                                                placeholder="프롬프트를 입력하세요 (예: 더 간결하게 작성해줘, 전문적인 표현으로 바꿔줘)"
+                                                value={customPrompt}
+                                                onChange={(e) => setCustomPrompt(e.target.value)}
+                                                disabled={aiProcessing}
+                                                onKeyPress={(e) => {
+                                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                                        e.preventDefault();
+                                                        handleCustomPrompt();
+                                                    }
+                                                }}
+                                            />
+                                            <button
+                                                type="button"
+                                                className="ai-btn ai-custom-btn"
+                                                onClick={handleCustomPrompt}
+                                                disabled={aiProcessing || !customPrompt.trim() || !formData.activityContent.trim()}
+                                            >
+                                                <Sparkles size={16} />
+                                                <span>AI 실행</span>
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
@@ -1448,9 +1564,69 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                         </span>
                                     </div>
                                     <div className="ai-suggestion-content">
-                                        <div className="suggestion-text suggested">
-                                            {aiSuggestion}
-                                        </div>
+                                        {/* Diff 표시 - 맞춤법/문맥 교정일 때만 */}
+                                        {(aiSuggestionType === 'spelling' || aiSuggestionType === 'improve') && originalText ? (
+                                            <div className="ai-diff-container">
+                                                <div className="ai-diff-original">
+                                                    <div className="ai-diff-label">원본</div>
+                                                    <div className="ai-diff-text removed">
+                                                        {(() => {
+                                                            const diff = getWordLevelDiff(originalText, aiSuggestion);
+                                                            return diff.map((item, idx) => {
+                                                                if (item.type === 'removed') {
+                                                                    return (
+                                                                        <span key={idx} className="diff-word removed">
+                                                                            {item.text}
+                                                                        </span>
+                                                                    );
+                                                                } else if (item.type === 'unchanged') {
+                                                                    return (
+                                                                        <span key={idx} className="diff-word unchanged">
+                                                                            {item.text}
+                                                                        </span>
+                                                                    );
+                                                                } else if (item.type === 'added') {
+                                                                    // 원본에서는 추가된 단어는 표시하지 않음
+                                                                    return null;
+                                                                }
+                                                                return null;
+                                                            });
+                                                        })()}
+                                                    </div>
+                                                </div>
+                                                <div className="ai-diff-modified">
+                                                    <div className="ai-diff-label">수정본</div>
+                                                    <div className="ai-diff-text added">
+                                                        {(() => {
+                                                            const diff = getWordLevelDiff(originalText, aiSuggestion);
+                                                            return diff.map((item, idx) => {
+                                                                if (item.type === 'added') {
+                                                                    return (
+                                                                        <span key={idx} className="diff-word added">
+                                                                            {item.text}
+                                                                        </span>
+                                                                    );
+                                                                } else if (item.type === 'unchanged') {
+                                                                    return (
+                                                                        <span key={idx} className="diff-word unchanged">
+                                                                            {item.text}
+                                                                        </span>
+                                                                    );
+                                                                } else if (item.type === 'removed') {
+                                                                    // 수정본에서는 삭제된 단어는 표시하지 않음
+                                                                    return null;
+                                                                }
+                                                                return null;
+                                                            });
+                                                        })()}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="suggestion-text suggested">
+                                                {aiSuggestion}
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="ai-suggestion-actions">
                                         <button

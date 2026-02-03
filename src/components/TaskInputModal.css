@@ -838,8 +838,12 @@
 .ai-actions {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    margin-top: 10px;
+    gap: 12px;
+    margin-top: 12px;
+    padding: 12px;
+    background: #f9fafb;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
 }
 
 .ai-custom-prompt-section {
@@ -847,13 +851,16 @@
     gap: 8px;
     align-items: center;
     width: 100%;
+    padding-top: 8px;
+    border-top: 1px solid #e5e7eb;
+    animation: slideDown 0.2s ease-out;
 }
 
 .ai-custom-prompt-input {
     flex: 1;
-    padding: 8px 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
+    padding: 10px 14px;
+    border: 1.5px solid #d1d5db;
+    border-radius: 8px;
     font-size: 13px;
     color: #374151;
     background: white;
@@ -864,6 +871,7 @@
     outline: none;
     border-color: #007AFF;
     box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+    background: #fafbff;
 }
 
 .ai-custom-prompt-input:disabled {
@@ -882,29 +890,36 @@
     flex-wrap: wrap;
 }
 
+.ai-custom-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
 .ai-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    padding: 6px 14px;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
+    padding: 8px 16px;
+    border: 1.5px solid #d1d5db;
+    border-radius: 8px;
     background: white;
     color: #374151;
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     letter-spacing: -0.016em;
     white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 /* AI 기능 버튼 (3가지) - 푸른색 계열 */
 .ai-btn:not(.reference-btn) {
     border-color: #007AFF;
     color: #007AFF;
-    background: rgba(0, 122, 255, 0.05);
+    background: rgba(0, 122, 255, 0.08);
 }
 
 .ai-btn.reference-btn {
@@ -912,13 +927,16 @@
 }
 
 .ai-btn:not(.reference-btn):hover:not(:disabled) {
-    background: rgba(0, 122, 255, 0.1);
+    background: rgba(0, 122, 255, 0.15);
     border-color: #0051d5;
     color: #0051d5;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 122, 255, 0.2);
 }
 
 .ai-btn:not(.reference-btn):active:not(:disabled) {
-    background: rgba(0, 122, 255, 0.15);
+    background: rgba(0, 122, 255, 0.2);
+    transform: translateY(0);
 }
 
 .ai-btn.reference-btn:hover:not(:disabled) {
@@ -995,18 +1013,19 @@
 
 /* AI 제안 패널 */
 .ai-suggestion-panel {
-    margin-top: 10px;
-    border: 2px solid #667eea;
-    border-radius: 6px;
-    background: #f8f9ff;
+    margin-top: 12px;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 10px;
+    background: white;
     overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .ai-suggestion-header {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 8px 12px;
+    gap: 8px;
+    padding: 12px 16px;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     font-size: 13px;
@@ -1018,24 +1037,167 @@
 }
 
 .ai-suggestion-content {
-    padding: 10px;
+    padding: 16px;
+    background: #fafafa;
 }
 
 .suggestion-text {
-    padding: 10px;
-    border-radius: 6px;
+    padding: 12px;
+    border-radius: 8px;
     font-size: 13px;
-    line-height: 1.6;
+    line-height: 1.7;
     white-space: pre-wrap;
     word-break: break-word;
 }
 
 .suggestion-text.suggested {
-    background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
-    border: 2px solid #667eea;
+    background: white;
+    border: 1px solid #e5e7eb;
     color: #111827;
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
     min-height: 100px;
+}
+
+/* Diff 스타일 */
+.ai-diff-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', 'Courier New', monospace;
+}
+
+.ai-diff-original,
+.ai-diff-modified {
+    display: flex;
+    flex-direction: column;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+    background: white;
+}
+
+.ai-diff-label {
+    padding: 8px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.ai-diff-original .ai-diff-label {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+.ai-diff-modified .ai-diff-label {
+    background: #f0fdf4;
+    color: #16a34a;
+}
+
+.ai-diff-text {
+    padding: 12px;
+    font-size: 13px;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+/* 스크롤바 스타일 */
+.ai-diff-text::-webkit-scrollbar {
+    width: 6px;
+}
+
+.ai-diff-text::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.ai-diff-text::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.ai-diff-text::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+.ai-diff-text.removed {
+    background: #fef2f2;
+    color: #991b1b;
+}
+
+.ai-diff-text.added {
+    background: #f0fdf4;
+    color: #166534;
+}
+
+.diff-line {
+    padding: 2px 0;
+    min-height: 1.5em;
+}
+
+.diff-line:empty::before {
+    content: '\u00A0';
+}
+
+/* 단어 단위 diff 스타일 */
+.diff-word {
+    display: inline;
+    padding: 2px 1px;
+    border-radius: 3px;
+    transition: background-color 0.15s ease;
+    word-break: break-word;
+}
+
+.diff-word.unchanged {
+    background: transparent;
+    color: inherit;
+}
+
+.diff-word.removed {
+    background: #fee2e2;
+    color: #991b1b;
+    text-decoration: line-through;
+    text-decoration-color: #dc2626;
+    text-decoration-thickness: 2px;
+}
+
+.diff-word.added {
+    background: #dcfce7;
+    color: #166534;
+    font-weight: 500;
+}
+
+/* 반응형: 모바일에서 diff 세로 배치 */
+@media (max-width: 768px) {
+    .ai-diff-container {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    
+    .ai-actions {
+        padding: 10px;
+    }
+    
+    .ai-quick-actions {
+        flex-direction: column;
+    }
+    
+    .ai-btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .ai-custom-prompt-section {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .ai-custom-prompt-input {
+        width: 100%;
+    }
 }
 
 .ai-suggestion-actions {
