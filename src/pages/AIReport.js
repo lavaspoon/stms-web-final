@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Target, Briefcase, BarChart3, FileText, Loader2, Download, AlertCircle, CheckSquare, Square, X, CheckCircle, Code, Edit, Eye } from 'lucide-react';
+import { Target, Briefcase, BarChart3, FileText, Loader2, Download, AlertCircle, CheckSquare, Square, X, CheckCircle, Code, Edit, Copy, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Lottie from 'lottie-react';
@@ -30,7 +30,7 @@ function AIReport() {
     const [reportFormatType, setReportFormatType] = useState('markdown'); // 실제 생성된 보고서의 형식
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState(null);
-    const [isEditingReport, setIsEditingReport] = useState(false);
+    const [isCopied, setIsCopied] = useState(false);
     // 추가 프롬프트로 수정
     const [modifyPrompt, setModifyPrompt] = useState('');
     const [isModifying, setIsModifying] = useState(false);
@@ -424,6 +424,42 @@ function AIReport() {
         URL.revokeObjectURL(url);
     };
 
+    // 마크다운 보고서 복사
+    const handleCopyReport = async () => {
+        if (!report || !report.trim()) {
+            return;
+        }
+
+        try {
+            // 마크다운 형식으로 복사
+            await navigator.clipboard.writeText(report);
+            setIsCopied(true);
+            setTimeout(() => {
+                setIsCopied(false);
+            }, 2000);
+        } catch (err) {
+            console.error('복사 실패:', err);
+            // Fallback: 텍스트 영역을 사용한 복사
+            const textArea = document.createElement('textarea');
+            textArea.value = report;
+            textArea.style.position = 'fixed';
+            textArea.style.opacity = '0';
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                setIsCopied(true);
+                setTimeout(() => {
+                    setIsCopied(false);
+                }, 2000);
+            } catch (fallbackErr) {
+                console.error('Fallback 복사 실패:', fallbackErr);
+                alert('복사에 실패했습니다. 다시 시도해주세요.');
+            }
+            document.body.removeChild(textArea);
+        }
+    };
+
     const allSelected = tasks.length > 0 && selectedTaskIds.size === tasks.length;
     const someSelected = selectedTaskIds.size > 0 && selectedTaskIds.size < tasks.length;
 
@@ -666,19 +702,24 @@ function AIReport() {
                                     </div>
                                 )}
 
-                                <div className={`ai-report-text ${reportFormatType === 'html' ? 'html-content' : reportFormatType === 'markdown' ? 'markdown-content' : ''}`}>
+                                <div className={`ai-report-text ${reportFormatType === 'html'
+                                    ? 'html-content'
+                                    : reportFormatType === 'markdown'
+                                        ? 'markdown-content'
+                                        : 'plain-content'
+                                    }`}>
                                     {/* 리포트 내부 우측 상단 액션 버튼 (마크다운일 때만) */}
                                     {reportFormatType === 'markdown' && (
                                         <div className="report-inline-actions">
                                             <button
-                                                className="report-action-icon-btn"
-                                                onClick={() => setIsEditingReport(!isEditingReport)}
-                                                title={isEditingReport ? '미리보기' : '편집'}
+                                                className={`report-action-icon-btn ${isCopied ? 'copied' : ''}`}
+                                                onClick={handleCopyReport}
+                                                title={isCopied ? '복사됨' : '마크다운 복사'}
                                             >
-                                                {isEditingReport ? (
-                                                    <Eye size={18} />
+                                                {isCopied ? (
+                                                    <Check size={18} />
                                                 ) : (
-                                                    <Edit size={18} />
+                                                    <Copy size={18} />
                                                 )}
                                             </button>
                                             <button
@@ -694,18 +735,9 @@ function AIReport() {
                                     {reportFormatType === 'html' ? (
                                         <div dangerouslySetInnerHTML={{ __html: report }} />
                                     ) : reportFormatType === 'markdown' ? (
-                                        isEditingReport ? (
-                                            <textarea
-                                                className="markdown-editor"
-                                                value={report}
-                                                onChange={(e) => setReport(e.target.value)}
-                                                placeholder="마크다운 텍스트를 편집하세요..."
-                                            />
-                                        ) : (
-                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{report}</ReactMarkdown>
-                                        )
+                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{report}</ReactMarkdown>
                                     ) : (
-                                        <pre>{report}</pre>
+                                        <pre className="plain-report-text">{report}</pre>
                                     )}
                                 </div>
                             </div>
