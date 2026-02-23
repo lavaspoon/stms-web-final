@@ -939,14 +939,20 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     // 평가 기준에 따라 실적값과 달성률 계산 (실시간 반영)
     let actualValue = 0; // 표시할 실적값
     let calculatedAchievement = 0; // 계산된 달성률
+    const isReverse = task?.reverseYn === 'Y'; // 역계산 여부
 
     if (taskMetric === 'percent') {
         // % 기준: 입력한 실적 %가 바로 누적 실적
         actualValue = currentMonthActualValue || 0;
         // 목표 대비 입력한 실적 %를 기준으로 달성률 계산
-        calculatedAchievement = targetValue > 0 && actualValue > 0
-            ? (actualValue / targetValue) * 100
-            : 0;
+        if (targetValue > 0 && actualValue >= 0) {
+            if (isReverse) {
+                // 역계산: (1 - 실적값 / 목표값) * 100
+                calculatedAchievement = Math.max(0, (1 - actualValue / targetValue) * 100);
+            } else {
+                calculatedAchievement = (actualValue / targetValue) * 100;
+            }
+        }
     } else {
         // 건수, 금액 기준: 현재 입력값 + 다른 월 실적 합계
         // 현재 입력 중인 월을 제외한 다른 월들의 실적 합계
@@ -957,9 +963,14 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
         // 현재 입력값 + 다른 월 실적 합계 = 누적 실적 (실시간 반영)
         actualValue = currentMonthActualValue + otherMonthsSum;
         // 누적 실적 대비 목표 달성률 계산
-        calculatedAchievement = targetValue > 0 && actualValue > 0
-            ? (actualValue / targetValue) * 100
-            : 0;
+        if (targetValue > 0 && actualValue >= 0) {
+            if (isReverse) {
+                // 역계산: (1 - 실적값 / 목표값) * 100
+                calculatedAchievement = Math.max(0, (1 - actualValue / targetValue) * 100);
+            } else {
+                calculatedAchievement = (actualValue / targetValue) * 100;
+            }
+        }
     }
 
     const achievement = task?.achievement != null ? parseFloat(task.achievement) : 0;
@@ -1354,6 +1365,9 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                         <div className="modal-header-top">
                             <h2 className="task-name-header">{task.name || task.taskName}</h2>
                         </div>
+                        {task.description && task.description.trim() && (
+                            <p className="task-description-header">{task.description}</p>
+                        )}
                         <div className="modal-header-badges">
                             {getStatusBadge(task.status)}
                             <span className={`task-input-evaluation-badge ${isQuantitative ? 'quantitative' : 'qualitative'}`}>
@@ -1840,7 +1854,12 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
 
                                 {/* 누적 실적 / 목표 통합 표시 */}
                                 <div className="performance-target-actual-combined">
-                                    <div className="performance-combined-label">누적 실적 / 목표</div>
+                                    <div className="performance-combined-label">
+                                        누적 실적 / 목표
+                                        {task.targetDescription && task.targetDescription.trim() && (
+                                            <span className="target-description-inline">({task.targetDescription})</span>
+                                        )}
+                                    </div>
                                     <div className="performance-combined-values">
                                         <span className="performance-combined-actual" style={{ color: progressColor }}>
                                             {actualValue ? parseFloat(actualValue).toLocaleString() : '0'}{metricUnit}

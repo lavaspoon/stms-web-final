@@ -199,8 +199,23 @@ function TaskDetailModal({ isOpen, onClose, taskId }) {
     const totalTarget = yearlyGoals.reduce((sum, goal) => sum + goal.targetValue, 0);
     const totalActual = yearlyGoals.reduce((sum, goal) => sum + goal.actualValue, 0);
 
-    // 달성률 계산 (모든 경우 %로 계산)
-    const totalAchievement = totalTarget > 0 ? Math.round((totalActual / totalTarget) * 100) : 0;
+    // 달성률 계산 (역계산 여부 반영)
+    const isReverse = task?.reverseYn === 'Y';
+    const totalAchievement = totalTarget > 0
+        ? isReverse
+            ? Math.max(0, Math.round((1 - totalActual / totalTarget) * 100))
+            : Math.round((totalActual / totalTarget) * 100)
+        : 0;
+
+    // 역계산 달성률 계산 함수 (월별 테이블용)
+    const calcAchievementRate = (targetVal, actualVal) => {
+        if (!targetVal || targetVal === 0) return 0;
+        if (isReverse) {
+            // 역계산: (1 - 실적값 / 목표값) * 100
+            return Math.max(0, Math.round((1 - actualVal / targetVal) * 100));
+        }
+        return Math.round((actualVal / targetVal) * 100);
+    };
 
     // 담당자 부서 추출
     const getManagerDepts = (managers) => {
@@ -255,6 +270,11 @@ function TaskDetailModal({ isOpen, onClose, taskId }) {
                                     {getStatusText(task.status)}
                                 </span>
                                 <span className="achievement-badge">{task.achievement || 0}%</span>
+                                {task.reverseYn === 'Y' && (
+                                    <span className="reverse-badge-detail" title="역계산 과제: 실적이 목표보다 낮을수록 달성률이 높아집니다">
+                                        ↓역계산
+                                    </span>
+                                )}
                             </div>
                             <h2 className="task-path-header">
                                 {task.category1} &gt; {task.category2} &gt; <strong>{task.taskName}</strong>
@@ -295,6 +315,9 @@ function TaskDetailModal({ isOpen, onClose, taskId }) {
                                     <div className="detail-value">
                                         <TrendingUp size={16} className="detail-icon" />
                                         {translatePerformanceType(task.performanceType)} · {translateEvaluationType(task.evaluationType)} · {translateMetric(task.metric)}
+                                        {task.reverseYn === 'Y' && (
+                                            <span className="reverse-badge-inline" title="역계산: 실적이 목표보다 낮을수록 달성률이 높아집니다">역계산</span>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -445,7 +468,7 @@ function TaskDetailModal({ isOpen, onClose, taskId }) {
                                                     <td className="row-header">달성률(%)</td>
                                                     {yearlyGoals.map((goal) => (
                                                         <td key={`achievement-${goal.month}`} className={goal.month === currentMonth ? 'current-month' : ''}>
-                                                            {goal.achievementRate}%
+                                                            {calcAchievementRate(goal.targetValue, goal.actualValue)}%
                                                         </td>
                                                     ))}
                                                     <td className="total-cell">

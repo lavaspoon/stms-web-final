@@ -59,6 +59,23 @@
     flex-wrap: wrap;
 }
 
+/* 과제 개요 - 제목 바로 아래 부가 설명 */
+.task-input-modal .task-description-header {
+    font-size: 12.5px;
+    font-weight: 400;
+    color: #6b7280;
+    margin: 0 0 2px 0;
+    padding: 5px 10px 5px 12px;
+    letter-spacing: -0.016em;
+    line-height: 1.55;
+    word-break: break-word;
+    background: rgba(107, 114, 128, 0.06);
+    border-left: 3px solid #d1d5db;
+    border-radius: 0 6px 6px 0;
+    max-width: 100%;
+    position: relative;
+}
+
 .task-input-modal .modal-header-badges {
     display: flex;
     align-items: center;
@@ -1176,25 +1193,25 @@
         grid-template-columns: 1fr;
         gap: 16px;
     }
-    
+
     .ai-actions {
         padding: 10px;
     }
-    
+
     .ai-quick-actions {
         flex-direction: column;
     }
-    
+
     .ai-btn {
         width: 100%;
         justify-content: center;
     }
-    
+
     .ai-custom-prompt-section {
         flex-direction: column;
         align-items: stretch;
     }
-    
+
     .ai-custom-prompt-input {
         width: 100%;
     }
@@ -1871,6 +1888,7 @@
     margin: 0;
 }
 
+
 .performance-compact-row {
     display: flex;
     align-items: center;
@@ -2070,6 +2088,23 @@
     color: #0c4a6e;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+/* 목표설명 - 누적 실적/목표 우측 괄호 부가설명 */
+.target-description-inline {
+    font-size: 10px;
+    font-weight: 400;
+    color: #5b8fb9;
+    letter-spacing: 0;
+    text-transform: none;
+    opacity: 0.85;
+    font-style: italic;
+    white-space: normal;
+    word-break: break-word;
 }
 
 .performance-combined-values {

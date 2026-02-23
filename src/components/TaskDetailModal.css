@@ -281,6 +281,36 @@
     letter-spacing: -0.016em;
 }
 
+/* 역계산 배지 (상세 헤더용) */
+.reverse-badge-detail {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    background: #fffbeb;
+    color: #92400e;
+    border: 1.5px solid #fde68a;
+    letter-spacing: -0.016em;
+    cursor: default;
+}
+
+/* 역계산 배지 (인라인, 성과지표 옆) */
+.reverse-badge-inline {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 6px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    background: #fffbeb;
+    color: #92400e;
+    border: 1px solid #fde68a;
+    cursor: default;
+}
+
 .detail-description {
     padding: 14px;
     background: white;
