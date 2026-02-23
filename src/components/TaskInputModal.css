@@ -230,6 +230,17 @@
     line-height: 1.4;
 }
 
+.task-input-modal .task-description-header {
+    font-size: 13px;
+    font-weight: 400;
+    color: #6b7280;
+    margin: 4px 0 0 0;
+    letter-spacing: -0.016em;
+    line-height: 1.5;
+    max-width: 100%;
+    word-break: break-word;
+}
+
 /* 상태 뱃지 스타일 */
 .task-input-status-badge {
     display: inline-flex;
@@ -1869,6 +1880,17 @@
     font-weight: 600;
     color: #374151;
     margin: 0;
+}
+
+.performance-compact-header .target-description-hint {
+    font-size: 11px;
+    font-weight: 400;
+    color: #9ca3af;
+    margin-left: 8px;
+    letter-spacing: -0.01em;
+    line-height: 1.4;
+    max-width: 400px;
+    word-break: break-word;
 }
 
 .performance-compact-row {

@@ -347,6 +347,41 @@
     text-align: center;
 }
 
+.target-value-description-row {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    align-items: start;
+    max-width: 50%;
+    justify-self: start;
+}
+
+.target-description-input {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 6px;
+    font-size: 13px;
+    color: #1d1d1f;
+    background: white;
+    box-sizing: border-box;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    font-family: inherit;
+    letter-spacing: -0.016em;
+}
+
+.target-description-input:focus {
+    outline: none;
+    border-color: #007aff;
+    background: white;
+    box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
+}
+
+.target-description-input::placeholder {
+    color: #9ca3af;
+}
+
 .manager-search-box {
     position: relative;
     display: flex;

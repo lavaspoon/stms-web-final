@@ -1353,6 +1353,9 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                     <div className="modal-header-content">
                         <div className="modal-header-top">
                             <h2 className="task-name-header">{task.name || task.taskName}</h2>
+                            {task.description && task.description.trim() && (
+                                <p className="task-description-header">{task.description}</p>
+                            )}
                         </div>
                         <div className="modal-header-badges">
                             {getStatusBadge(task.status)}
@@ -1784,6 +1787,9 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                             <div className="performance-compact-header">
                                 <TrendingUp size={14} />
                                 <h3>목표 대비 실적</h3>
+                                {task.targetDescription && task.targetDescription.trim() && (
+                                    <span className="target-description-hint">{task.targetDescription}</span>
+                                )}
                             </div>
 
                             <div className="performance-compact-row">

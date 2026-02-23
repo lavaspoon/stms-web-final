@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Target, Briefcase, BarChart3, AlertCircle, CheckCircle, Clock, XCircle, Filter, ArrowUpDown, X, Table2, GanttChart } from 'lucide-react';
+import { Target, Briefcase, BarChart3, AlertCircle, CheckCircle, Clock, XCircle, Filter, ArrowUpDown, X, Table2, GanttChart, ImageIcon, ChevronDown, ChevronUp } from 'lucide-react';
 import useUserStore from '../store/userStore';
 import TaskInputModal from '../components/TaskInputModal';
 import { getTasksByType } from '../api/taskApi';
+import { getLatestKpiImage, getKpiImageUrl } from '../api/kpiImageApi';
 import { formatDate } from '../utils/dateUtils';
 import { TableSkeleton, StatBoxSkeleton } from '../components/Skeleton';
 import './Dashboard.css';
@@ -27,6 +29,10 @@ function Dashboard() {
 
     const [activeTab, setActiveTab] = useState('oi'); // 'oi', 'key', or 'kpi'
     const [viewMode, setViewMode] = useState('table'); // 'table' or 'milestone'
+    const [kpiLatestImage, setKpiLatestImage] = useState(null);
+    const [kpiImageError, setKpiImageError] = useState(false);
+    const [kpiTaskSectionOpen, setKpiTaskSectionOpen] = useState(false); // 기본 접힌 상태
+    const [kpiImageFullscreen, setKpiImageFullscreen] = useState(false);
     const [oiTasks, setOiTasks] = useState([]);
     const [keyTasks, setKeyTasks] = useState([]);
     const [kpiTasks, setKpiTasks] = useState([]);
@@ -51,6 +57,17 @@ function Dashboard() {
         direction: null // 'asc' or 'desc'
     });
 
+    // 전체화면 ESC 닫기
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape' && kpiImageFullscreen) {
+                setKpiImageFullscreen(false);
+            }
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [kpiImageFullscreen]);
+
     // 과제 목록 조회
     const loadTasks = async () => {
         try {
@@ -70,6 +87,7 @@ function Dashboard() {
                 name: task.taskName,
                 category1: task.category1 || '-',
                 category2: task.category2 || '-',
+                category3: task.category3 || '-',
                 status: task.status || 'inProgress',
                 manager: task.managers && task.managers.length > 0 ? task.managers[0].mbName : '-',
                 managers: task.managers || [], // 전체 담당자 배열
@@ -83,6 +101,7 @@ function Dashboard() {
                 evaluationType: task.evaluationType || 'quantitative', // 정량(quantitative), 정성(qualitative)
                 targetValue: task.targetValue || 0,
                 actualValue: task.actualValue || 0,
+                targetDescription: task.targetDescription || '',
                 performanceType: task.performanceType || 'nonFinancial' // 재무(financial), 비재무(nonFinancial)
             });
 
@@ -101,9 +120,22 @@ function Dashboard() {
         }
     };
 
+    // KPI 최신 이미지 로드
+    const loadKpiLatestImage = async () => {
+        try {
+            const image = await getLatestKpiImage();
+            setKpiLatestImage(image || null);
+            setKpiImageError(false);
+        } catch (error) {
+            // 이미지가 없는 경우(204) 또는 오류
+            setKpiLatestImage(null);
+        }
+    };
+
     useEffect(() => {
         if (isAdmin) {
             loadTasks();
+            loadKpiLatestImage();
         }
     }, [isAdmin]);
 
@@ -314,6 +346,8 @@ function Dashboard() {
                 return statusOrder[normalizeStatus(task.status)] || 99;
             case 'name':
                 return task.name || '';
+            case 'category1':
+                return task.category1 || '-';
             case 'evaluation':
                 const evaluationType = task.evaluationType || 'quantitative';
                 return evaluationType === 'qualitative' || evaluationType === '정성' ? '정성' : '정량';
@@ -536,104 +570,191 @@ function Dashboard() {
 
             {/* 탭 컨텐츠 영역 */}
             <div className="tab-content">
-                {/* 전체 평균 달성률 및 본부별 현황 */}
-                {!loading && (
-                    <div className="dashboard-stats-row">
-                        {/* 전체 평균 달성률 카드 */}
-                        {quantitativeTasks.length > 0 && (
-                            <div className="dashboard-average-achievement">
-                                <div className="average-achievement-card">
-                                    <div className="average-achievement-content">
-                                        <div className="average-achievement-label">전체 평균 달성률</div>
-                                        <div className="average-achievement-value">{averageAchievement}%</div>
-                                        <div className="average-achievement-subtext">정량 평가 기준</div>
+                {/* KPI 탭: 성과지표 이미지 뷰어 / 나머지 탭: 통계 정보 */}
+                {activeTab === 'kpi' ? (
+                    /* KPI 성과지표 이미지 뷰어 */
+                    <>
+                        <div className="kpi-dashboard-image-viewer">
+                            <div className="kpi-viewer-header">
+                                <div className="kpi-viewer-title">
+                                    <ImageIcon size={16} />
+                                    <span>KPI 성과지표</span>
+                                </div>
+                            </div>
+                            <div className="kpi-viewer-body">
+                                {loading ? (
+                                    <div className="kpi-viewer-placeholder">
+                                        <div className="kpi-viewer-loading-spinner" />
+                                        <p>로딩 중...</p>
+                                    </div>
+                                ) : kpiLatestImage && !kpiImageError ? (
+                                    <div className="kpi-viewer-image-wrap" onClick={() => setKpiImageFullscreen(true)}>
+                                        <img
+                                            src={getKpiImageUrl(kpiLatestImage.imageId)}
+                                            alt="KPI 성과지표"
+                                            className="kpi-viewer-image"
+                                            onError={() => setKpiImageError(true)}
+                                        />
+                                        <div className="kpi-viewer-zoom-hint">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><line x1="11" y1="8" x2="11" y2="14" /><line x1="8" y1="11" x2="14" y2="11" /></svg>
+                                            <span>클릭하여 크게 보기</span>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="kpi-viewer-placeholder">
+                                        <ImageIcon size={48} />
+                                        <p>등록된 KPI 성과지표 이미지가 없습니다.</p>
+                                        <p className="kpi-viewer-placeholder-sub">KPI 과제 페이지에서 이미지를 업로드해주세요.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 전체화면 라이트박스 - Portal로 body에 직접 렌더링 (stacking context 우회) */}
+                        {kpiImageFullscreen && kpiLatestImage && createPortal(
+                            <div
+                                className="kpi-lightbox-overlay"
+                                onClick={() => setKpiImageFullscreen(false)}
+                            >
+                                <button
+                                    className="kpi-lightbox-close"
+                                    onClick={(e) => { e.stopPropagation(); setKpiImageFullscreen(false); }}
+                                    aria-label="닫기"
+                                >
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                                </button>
+                                <div className="kpi-lightbox-content" onClick={(e) => e.stopPropagation()}>
+                                    <img
+                                        src={getKpiImageUrl(kpiLatestImage.imageId)}
+                                        alt="KPI 성과지표"
+                                        className="kpi-lightbox-image"
+                                    />
+                                </div>
+                                <p className="kpi-lightbox-hint">ESC 또는 배경 클릭으로 닫기</p>
+                            </div>,
+                            document.body
+                        )}
+                    </>
+                ) : (
+                    <>
+                        {/* 전체 평균 달성률 및 본부별 현황 */}
+                        {!loading && (
+                            <div className="dashboard-stats-row">
+                                {/* 전체 평균 달성률 카드 */}
+                                {quantitativeTasks.length > 0 && (
+                                    <div className="dashboard-average-achievement">
+                                        <div className="average-achievement-card">
+                                            <div className="average-achievement-content">
+                                                <div className="average-achievement-label">전체 평균 달성률</div>
+                                                <div className="average-achievement-value">{averageAchievement}%</div>
+                                                <div className="average-achievement-subtext">정량 평가 기준</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* 본부별 현황표 */}
+                                {sortedDeptStats.length > 0 && (
+                                    <div className="dashboard-dept-stats">
+                                        <div className="dept-stats-table-wrapper">
+                                            <table className="dept-stats-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>본부</th>
+                                                        <th>전체</th>
+                                                        <th>진행</th>
+                                                        <th>완료</th>
+                                                        <th>지연</th>
+                                                        <th>중단</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {sortedDeptStats.map((dept) => (
+                                                        <tr key={dept.deptName}>
+                                                            <td className="dept-name-cell">{dept.deptName}</td>
+                                                            <td className="dept-stat-cell total">{dept.total}</td>
+                                                            <td className="dept-stat-cell in-progress">{dept.inProgress}</td>
+                                                            <td className="dept-stat-cell completed">{dept.completed}</td>
+                                                            <td className="dept-stat-cell delayed">{dept.delayed}</td>
+                                                            <td className="dept-stat-cell stopped">{dept.stopped}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* 상태별 통계 박스 */}
+                        {loading ? (
+                            <div className="dashboard-status-stats">
+                                <StatBoxSkeleton count={4} />
+                            </div>
+                        ) : (
+                            <div className="dashboard-status-stats">
+                                <div className="status-stat-box in-progress">
+                                    <div className="status-stat-icon">
+                                        <Clock size={24} />
+                                    </div>
+                                    <div className="status-stat-content">
+                                        <div className="status-stat-label">진행중</div>
+                                        <div className="status-stat-value">{statusCounts.inProgress}</div>
+                                    </div>
+                                </div>
+                                <div className="status-stat-box completed">
+                                    <div className="status-stat-icon">
+                                        <CheckCircle size={24} />
+                                    </div>
+                                    <div className="status-stat-content">
+                                        <div className="status-stat-label">완료</div>
+                                        <div className="status-stat-value">{statusCounts.completed}</div>
+                                    </div>
+                                </div>
+                                <div className="status-stat-box delayed">
+                                    <div className="status-stat-icon">
+                                        <AlertCircle size={24} />
+                                    </div>
+                                    <div className="status-stat-content">
+                                        <div className="status-stat-label">지연</div>
+                                        <div className="status-stat-value">{statusCounts.delayed}</div>
+                                    </div>
+                                </div>
+                                <div className="status-stat-box stopped">
+                                    <div className="status-stat-icon">
+                                        <XCircle size={24} />
+                                    </div>
+                                    <div className="status-stat-content">
+                                        <div className="status-stat-label">중단</div>
+                                        <div className="status-stat-value">{statusCounts.stopped}</div>
                                     </div>
                                 </div>
                             </div>
                         )}
+                    </>
+                )}
 
-                        {/* 본부별 현황표 */}
-                        {sortedDeptStats.length > 0 && (
-                            <div className="dashboard-dept-stats">
-                                <div className="dept-stats-table-wrapper">
-                                    <table className="dept-stats-table">
-                                        <thead>
-                                            <tr>
-                                                <th>본부</th>
-                                                <th>전체</th>
-                                                <th>진행</th>
-                                                <th>완료</th>
-                                                <th>지연</th>
-                                                <th>중단</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {sortedDeptStats.map((dept) => (
-                                                <tr key={dept.deptName}>
-                                                    <td className="dept-name-cell">{dept.deptName}</td>
-                                                    <td className="dept-stat-cell total">{dept.total}</td>
-                                                    <td className="dept-stat-cell in-progress">{dept.inProgress}</td>
-                                                    <td className="dept-stat-cell completed">{dept.completed}</td>
-                                                    <td className="dept-stat-cell delayed">{dept.delayed}</td>
-                                                    <td className="dept-stat-cell stopped">{dept.stopped}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        )}
+                {/* KPI 탭: 과제 목록 섹션 접기/펼치기 토글 */}
+                {activeTab === 'kpi' && !loading && (
+                    <div
+                        className="kpi-task-section-toggle"
+                        onClick={() => setKpiTaskSectionOpen(prev => !prev)}
+                    >
+                        <div className="kpi-task-section-toggle-left">
+                            <span className="kpi-task-section-toggle-label">KPI 과제 목록</span>
+                            {sortedTasks.length > 0 && (
+                                <span className="kpi-task-section-toggle-count">{sortedTasks.length}건</span>
+                            )}
+                        </div>
+                        <span className="kpi-task-section-toggle-icon">
+                            {kpiTaskSectionOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        </span>
                     </div>
                 )}
 
-                {/* 상태별 통계 박스 */}
-                {loading ? (
-                    <div className="dashboard-status-stats">
-                        <StatBoxSkeleton count={4} />
-                    </div>
-                ) : (
-                    <div className="dashboard-status-stats">
-                        <div className="status-stat-box in-progress">
-                            <div className="status-stat-icon">
-                                <Clock size={24} />
-                            </div>
-                            <div className="status-stat-content">
-                                <div className="status-stat-label">진행중</div>
-                                <div className="status-stat-value">{statusCounts.inProgress}</div>
-                            </div>
-                        </div>
-                        <div className="status-stat-box completed">
-                            <div className="status-stat-icon">
-                                <CheckCircle size={24} />
-                            </div>
-                            <div className="status-stat-content">
-                                <div className="status-stat-label">완료</div>
-                                <div className="status-stat-value">{statusCounts.completed}</div>
-                            </div>
-                        </div>
-                        <div className="status-stat-box delayed">
-                            <div className="status-stat-icon">
-                                <AlertCircle size={24} />
-                            </div>
-                            <div className="status-stat-content">
-                                <div className="status-stat-label">지연</div>
-                                <div className="status-stat-value">{statusCounts.delayed}</div>
-                            </div>
-                        </div>
-                        <div className="status-stat-box stopped">
-                            <div className="status-stat-icon">
-                                <XCircle size={24} />
-                            </div>
-                            <div className="status-stat-content">
-                                <div className="status-stat-label">중단</div>
-                                <div className="status-stat-value">{statusCounts.stopped}</div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* 뷰 선택 버튼 */}
-                {!loading && sortedTasks.length > 0 && (
+                {/* 뷰 선택 버튼 - KPI 탭이면 접기 상태 적용 */}
+                {(!loading && sortedTasks.length > 0) && (activeTab !== 'kpi' || kpiTaskSectionOpen) && (
                     <div className="dashboard-view-selector">
                         <button
                             className={`view-selector-btn ${viewMode === 'table' ? 'active' : ''}`}
@@ -672,8 +793,8 @@ function Dashboard() {
                     </div>
                 )}
 
-                {/* 컴팩트 카드 그리드 */}
-                <div className="tasks-section-in-tab">
+                {/* 컴팩트 카드 그리드 - KPI 탭이면 접기 상태 적용 */}
+                <div className={`tasks-section-in-tab${activeTab === 'kpi' && !kpiTaskSectionOpen ? ' kpi-tasks-hidden' : ''}`}>
                     {loading ? (
                         <TableSkeleton rows={8} columns={7} />
                     ) : sortedTasks.length === 0 ? (
@@ -951,12 +1072,12 @@ function Dashboard() {
                                         return (
                                             <tr
                                                 key={task.id}
-                                                className="dashboard-table-row"
+                                                className={`dashboard-table-row row-status-${normalizeStatus(task.status)}`}
                                                 onClick={() => handleRowClick(task)}
                                             >
                                                 <td className="dashboard-table-status">
                                                     <span className={`dashboard-table-status-badge ${normalizeStatus(task.status)}`}>
-                                                        <StatusIcon size={14} />
+                                                        <StatusIcon size={13} />
                                                         {statusInfo.text}
                                                     </span>
                                                 </td>
@@ -970,6 +1091,12 @@ function Dashboard() {
                                                                         <>
                                                                             <span className="category-separator"> &gt; </span>
                                                                             <span className="category-text">{task.category2}</span>
+                                                                            {task.category3 && task.category3 !== '-' && (
+                                                                                <>
+                                                                                    <span className="category-separator"> &gt; </span>
+                                                                                    <span className="category-text">{task.category3}</span>
+                                                                                </>
+                                                                            )}
                                                                         </>
                                                                     )}
                                                                 </>
@@ -1004,9 +1131,7 @@ function Dashboard() {
                                                     )}
                                                 </td>
                                                 <td className="dashboard-table-achievement">
-                                                    {isQualitative ? (
-                                                        <span className="dashboard-badge dashboard-badge-default">-</span>
-                                                    ) : (
+                                                    {!isQualitative && (
                                                         <span className="dashboard-badge dashboard-badge-achievement">
                                                             {task.achievement || 0}%
                                                         </span>
@@ -1080,7 +1205,84 @@ function Dashboard() {
                     ) : (
                         <div className="dashboard-milestone-view">
                             <div className="milestone-header">
-                                <div className="milestone-task-header">과제명</div>
+                                <div className="milestone-status-header">
+                                    <div className="table-header-filter">
+                                        <span
+                                            className="sortable-header"
+                                            onClick={() => handleSort('status')}
+                                        >
+                                            상태
+                                        </span>
+                                        <button
+                                            ref={el => filterButtonRefs.current['status-milestone'] = el}
+                                            className={`filter-icon-btn ${headerFilters.status.length > 0 ? 'active' : ''}`}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleFilterDropdown('status-milestone', e);
+                                            }}
+                                        >
+                                            <Filter size={14} />
+                                            {headerFilters.status.length > 0 && (
+                                                <span className="filter-count">{headerFilters.status.length}</span>
+                                            )}
+                                        </button>
+                                        {activeFilterDropdown === 'status-milestone' && (
+                                            <div
+                                                className="filter-dropdown"
+                                                ref={filterDropdownRef}
+                                                style={{
+                                                    top: `${dropdownPosition.top}px`,
+                                                    left: `${dropdownPosition.left}px`,
+                                                    transform: 'translateX(-50%)'
+                                                }}
+                                            >
+                                                <div className="filter-dropdown-header">
+                                                    <span>상태 필터</span>
+                                                    {headerFilters.status.length > 0 && (
+                                                        <button
+                                                            className="filter-clear-btn"
+                                                            onClick={() => clearFilter('status')}
+                                                        >
+                                                            <X size={12} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <div className="filter-options">
+                                                    {['inProgress', 'completed', 'delayed', 'stopped'].map(status => {
+                                                        const statusMap = {
+                                                            inProgress: '진행중',
+                                                            completed: '완료',
+                                                            delayed: '지연',
+                                                            stopped: '중단'
+                                                        };
+                                                        return (
+                                                            <label key={status} className="filter-option">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={headerFilters.status.includes(status)}
+                                                                    onChange={() => toggleFilterOption('status', status)}
+                                                                />
+                                                                <span>{statusMap[status]}</span>
+                                                            </label>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <div
+                                    className="milestone-task-header sortable-header"
+                                    onClick={() => handleSort('category1')}
+                                    style={{ cursor: 'pointer' }}
+                                >
+                                    과제명
+                                    {sortConfig.column === 'category1' && sortConfig.direction && (
+                                        <span className="sort-indicator">
+                                            {sortConfig.direction === 'asc' ? ' ↑' : ' ↓'}
+                                        </span>
+                                    )}
+                                </div>
                                 <div className="milestone-timeline-header">
                                     <div className="milestone-months">
                                         {Array.from({ length: 12 }, (_, i) => {
@@ -1169,30 +1371,41 @@ function Dashboard() {
                                         progressPercentage = Math.round((elapsedMonths / totalMonths) * 100);
                                     }
 
+                                    const statusInfo = getStatusInfo(task.status);
+                                    const StatusIcon = statusInfo.icon;
+
                                     return (
                                         <div key={task.id} className="milestone-row" onClick={() => handleRowClick(task)}>
+                                            <div className="milestone-status-cell">
+                                                <span className={`dashboard-table-status-badge ${normalizeStatus(task.status)}`}>
+                                                    <StatusIcon size={14} />
+                                                    {statusInfo.text}
+                                                </span>
+                                            </div>
                                             <div className="milestone-task-info">
-                                                <div className="milestone-task-name">{task.name}</div>
-                                                <div className="milestone-task-meta">
-                                                    {topDeptNames.length > 0 && (
-                                                        <div className="milestone-dept-section">
-                                                            <span className={`milestone-evaluation-badge ${isQualitative ? 'qualitative' : 'quantitative'}`}>
-                                                                {isQualitative ? '정성' : '정량'}
-                                                            </span>
-                                                            <div className="milestone-dept-badges">
-                                                                {topDeptNames.map((deptName, idx) => (
-                                                                    <span key={idx} className="milestone-dept-badge">
-                                                                        {deptName}
-                                                                    </span>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                    {topDeptNames.length === 0 && (
-                                                        <span className={`milestone-evaluation-badge ${isQualitative ? 'qualitative' : 'quantitative'}`}>
-                                                            {isQualitative ? '정성' : '정량'}
-                                                        </span>
-                                                    )}
+                                                <div className="milestone-task-name">
+                                                    <div className="milestone-category-path">
+                                                        {task.category1 && task.category1 !== '-' ? (
+                                                            <>
+                                                                <span className="category-text">{task.category1}</span>
+                                                                {task.category2 && task.category2 !== '-' && (
+                                                                    <>
+                                                                        <span className="category-separator"> &gt; </span>
+                                                                        <span className="category-text">{task.category2}</span>
+                                                                        {task.category3 && task.category3 !== '-' && (
+                                                                            <>
+                                                                                <span className="category-separator"> &gt; </span>
+                                                                                <span className="category-text">{task.category3}</span>
+                                                                            </>
+                                                                        )}
+                                                                    </>
+                                                                )}
+                                                            </>
+                                                        ) : (
+                                                            <span className="category-text">-</span>
+                                                        )}
+                                                    </div>
+                                                    <div className="milestone-task-name-text">{task.name}</div>
                                                 </div>
                                             </div>
                                             <div className="milestone-timeline">
@@ -1208,16 +1421,21 @@ function Dashboard() {
                                                                 ['--achievement']: `${Math.min(progressPercentage, 100)}%`
                                                             }}
                                                         >
-                                                            {!isQualitative && (
-                                                                <div className="milestone-achievement-label">
-                                                                    {task.achievement || 0}%
-                                                                </div>
-                                                            )}
                                                             <div className={`milestone-progress-bar ${normalizedStatus}`}>
                                                                 <div className="milestone-progress-fill"></div>
                                                             </div>
+                                                            {!isQualitative && (
+                                                                <span className="milestone-achievement-label">
+                                                                    {task.achievement || 0}%
+                                                                </span>
+                                                            )}
                                                             {!isQualitative ? (
                                                                 <div className="milestone-progress-tooltip">
+                                                                    {task.targetDescription && task.targetDescription.trim() && (
+                                                                        <div className="tooltip-row tooltip-row-description">
+                                                                            <span className="tooltip-description">{task.targetDescription}</span>
+                                                                        </div>
+                                                                    )}
                                                                     <div className="tooltip-row">
                                                                         <span className="tooltip-label">목표</span>
                                                                         <span className="tooltip-value">{formatValue(task.targetValue, task.metric)}</span>
@@ -1233,6 +1451,11 @@ function Dashboard() {
                                                                 </div>
                                                             ) : (
                                                                 <div className="milestone-progress-tooltip">
+                                                                    {task.targetDescription && task.targetDescription.trim() && (
+                                                                        <div className="tooltip-row tooltip-row-description">
+                                                                            <span className="tooltip-description">{task.targetDescription}</span>
+                                                                        </div>
+                                                                    )}
                                                                     <div className="tooltip-row">
                                                                         <span className="tooltip-value">정성 평가 입니다.</span>
                                                                     </div>

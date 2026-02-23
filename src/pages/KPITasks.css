@@ -920,3 +920,281 @@
         max-width: none;
     }
 }
+
+/* ===== KPI 성과지표 이미지 관리 섹션 ===== */
+.kpi-image-section {
+    margin: 0 0 20px 0;
+    background: white;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.kpi-image-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s ease;
+    background: #fafafa;
+    border-bottom: 1px solid transparent;
+}
+
+.kpi-image-section-header:hover {
+    background: #f0f4ff;
+}
+
+.kpi-image-section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1d1d1f;
+    letter-spacing: -0.01em;
+}
+
+.kpi-image-section-title svg {
+    color: #007aff;
+    flex-shrink: 0;
+}
+
+.kpi-image-count-badge {
+    background: rgba(0, 122, 255, 0.12);
+    color: #007aff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 10px;
+    min-width: 20px;
+    text-align: center;
+}
+
+.kpi-image-section-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.kpi-image-upload-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    background: #007aff;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    letter-spacing: -0.01em;
+}
+
+.kpi-image-upload-btn:hover:not(:disabled) {
+    background: #0051D5;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+}
+
+.kpi-image-upload-btn:disabled {
+    background: #86868b;
+    cursor: not-allowed;
+}
+
+.kpi-uploading-spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: kpi-spin 0.8s linear infinite;
+    flex-shrink: 0;
+}
+
+@keyframes kpi-spin {
+    to { transform: rotate(360deg); }
+}
+
+.kpi-image-toggle-icon {
+    color: #86868b;
+    display: flex;
+    align-items: center;
+    transition: color 0.2s ease;
+}
+
+.kpi-image-section-header:hover .kpi-image-toggle-icon {
+    color: #007aff;
+}
+
+/* 이미지 목록 패널 */
+.kpi-image-list {
+    padding: 16px 20px;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+    animation: kpi-panel-slide-down 0.2s ease;
+}
+
+@keyframes kpi-panel-slide-down {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.kpi-image-list-loading {
+    text-align: center;
+    color: #86868b;
+    font-size: 13px;
+    padding: 20px 0;
+}
+
+.kpi-image-list-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 20px;
+    color: #86868b;
+    text-align: center;
+    gap: 8px;
+}
+
+.kpi-image-list-empty svg {
+    opacity: 0.3;
+    margin-bottom: 4px;
+}
+
+.kpi-image-list-empty p {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: #6b7280;
+}
+
+.kpi-image-list-empty-sub {
+    font-size: 12px !important;
+    font-weight: 400 !important;
+    color: #9ca3af !important;
+}
+
+/* 이미지 그리드 */
+.kpi-image-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.kpi-image-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 14px;
+    background: #f8f9fa;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 10px;
+    transition: all 0.15s ease;
+    position: relative;
+}
+
+.kpi-image-card:hover {
+    background: #f0f4ff;
+    border-color: rgba(0, 122, 255, 0.15);
+}
+
+.kpi-image-card-latest {
+    background: rgba(0, 122, 255, 0.04);
+    border-color: rgba(0, 122, 255, 0.2);
+}
+
+.kpi-image-card-thumb {
+    position: relative;
+    width: 64px;
+    height: 48px;
+    flex-shrink: 0;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #e9ecef;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.kpi-image-thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.kpi-image-latest-badge {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    background: #007aff;
+    color: white;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 4px;
+    line-height: 1.4;
+}
+
+.kpi-image-card-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.kpi-image-card-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: #1d1d1f;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    letter-spacing: -0.01em;
+}
+
+.kpi-image-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: #9ca3af;
+}
+
+.kpi-image-card-dot {
+    opacity: 0.5;
+}
+
+.kpi-image-card-desc {
+    font-size: 11px;
+    color: #6b7280;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.kpi-image-delete-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: #9ca3af;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.kpi-image-delete-btn:hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}

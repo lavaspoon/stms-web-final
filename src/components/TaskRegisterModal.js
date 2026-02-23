@@ -10,6 +10,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
         category2: '',
         taskName: '',
         description: '',
+        targetDescription: '',
         startDate: '',
         endDate: '',
         department: '',
@@ -148,6 +149,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 category2: editData.category2 || '',
                 taskName: editData.name || editData.taskName || '',
                 description: editData.description || '',
+                targetDescription: editData.targetDescription || '',
                 startDate: formatDate(editData.startDate),
                 endDate: formatDate(editData.endDate),
                 department: initialDeptId, // 첫 번째 담당자의 부서 ID 설정
@@ -171,6 +173,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 category2: '',
                 taskName: '',
                 description: '',
+                targetDescription: '',
                 startDate: '',
                 endDate: '',
                 department: '',
@@ -191,6 +194,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 category2: '',
                 taskName: '',
                 description: '',
+                targetDescription: '',
                 startDate: '',
                 endDate: '',
                 department: '',
@@ -389,6 +393,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 category2: formData.category2,
                 taskName: formData.taskName,
                 description: formData.description || null,
+                targetDescription: formData.targetDescription || null,
                 startDate: formData.startDate,
                 endDate: formData.endDate,
                 managerIds: formData.managers.map(m => m.userId),
@@ -424,6 +429,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 category2: '',
                 taskName: '',
                 description: '',
+                targetDescription: '',
                 startDate: '',
                 endDate: '',
                 department: '',
@@ -658,21 +664,34 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                                             </label>
                                         </div>
                                     </div>
-                                    <div className="form-group-compact">
-                                        <label>목표값 <span className="required">*</span></label>
-                                        <div className="target-input-wrapper">
+                                    <div className="target-value-description-row">
+                                        <div className="form-group-compact">
+                                            <label>목표값 <span className="required">*</span></label>
+                                            <div className="target-input-wrapper">
+                                                <input
+                                                    type="text"
+                                                    name="targetValue"
+                                                    value={formData.targetValue}
+                                                    onChange={handleChange}
+                                                    placeholder={formData.metric === 'count' ? '목표 건수를 입력하세요' : formData.metric === 'amount' ? '목표 금액을 입력하세요' : '목표 %를 입력하세요'}
+                                                    required={formData.evaluationType === 'quantitative'}
+                                                    className="target-input"
+                                                />
+                                                <span className="target-unit">
+                                                    {formData.metric === 'count' ? '건' : formData.metric === 'amount' ? '원' : '%'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="form-group-compact">
+                                            <label>목표 설명 (선택)</label>
                                             <input
                                                 type="text"
-                                                name="targetValue"
-                                                value={formData.targetValue}
+                                                name="targetDescription"
+                                                value={formData.targetDescription}
                                                 onChange={handleChange}
-                                                placeholder={formData.metric === 'count' ? '목표 건수를 입력하세요' : formData.metric === 'amount' ? '목표 금액을 입력하세요' : '목표 %를 입력하세요'}
-                                                required={formData.evaluationType === 'quantitative'}
-                                                className="target-input"
+                                                placeholder="목표 설명"
+                                                className="target-description-input"
                                             />
-                                            <span className="target-unit">
-                                                {formData.metric === 'count' ? '건' : formData.metric === 'amount' ? '원' : '%'}
-                                            </span>
                                         </div>
                                     </div>
                                 </>
