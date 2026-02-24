@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Search, Filter, AlertCircle, CheckCircle, Clock, XCircle, Check, X, ArrowUpDown, Upload, ImageIcon, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Search, Filter, AlertCircle, CheckCircle, Clock, XCircle, Check, X, ArrowUpDown } from 'lucide-react';
 import useUserStore from '../store/userStore';
 import TaskRegisterModal from '../components/TaskRegisterModal';
 import TaskInputModal from '../components/TaskInputModal';
 import TaskDetailModal from '../components/TaskDetailModal';
 import { getTasksByType } from '../api/taskApi';
-import { uploadKpiImage, getAllKpiImages, deleteKpiImage, getKpiImageUrl } from '../api/kpiImageApi';
 import { TableSkeleton } from '../components/Skeleton';
 import './KPITasks.css';
 import './Dashboard.css';
@@ -67,13 +66,6 @@ function KPITasks() {
         column: null,
         direction: null // 'asc' or 'desc'
     });
-
-    // KPI 이미지 관련 상태
-    const [kpiImages, setKpiImages] = useState([]);
-    const [kpiImageLoading, setKpiImageLoading] = useState(false);
-    const [kpiImageUploading, setKpiImageUploading] = useState(false);
-    const [kpiImagePanelOpen, setKpiImagePanelOpen] = useState(false);
-    const kpiFileInputRef = useRef(null);
 
     // 성과지표 영어 -> 한글 변환 함수
     const translatePerformanceType = (type) => {
@@ -209,9 +201,7 @@ function KPITasks() {
                 achievement: task.achievement || 0, // 백엔드에서 계산된 달성률 사용
                 targetValue: task.targetValue || 0, // 목표값
                 actualValue: task.actualValue || 0, // 실적값
-                targetDescription: task.targetDescription || '', // 목표 설명
-                visibleYn: task.visibleYn || 'Y', // 공개여부
-                reverseYn: task.reverseYn || 'N' // 역계산 여부
+                visibleYn: task.visibleYn || 'Y' // 공개여부
             }));
 
             // 공개여부 필터링: 공개여부가 N인 경우 관리자와 담당자만 볼 수 있음
@@ -260,81 +250,10 @@ function KPITasks() {
         }
     };
 
-    // KPI 이미지 목록 로드
-    const loadKpiImages = async () => {
-        try {
-            setKpiImageLoading(true);
-            const images = await getAllKpiImages();
-            setKpiImages(images);
-        } catch (error) {
-            console.error('KPI 이미지 목록 조회 실패:', error);
-        } finally {
-            setKpiImageLoading(false);
-        }
-    };
-
-    // KPI 이미지 업로드 핸들러
-    const handleKpiImageUpload = async (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'];
-        if (!allowedTypes.includes(file.type)) {
-            alert('이미지 파일만 업로드 가능합니다. (JPG, PNG, GIF, WEBP, BMP)');
-            return;
-        }
-
-        try {
-            setKpiImageUploading(true);
-            const userId = user?.userId || user?.skid || 'unknown';
-            await uploadKpiImage(file, userId);
-            await loadKpiImages();
-            alert('KPI 성과지표 이미지가 업로드되었습니다.');
-        } catch (error) {
-            console.error('KPI 이미지 업로드 실패:', error);
-            alert('이미지 업로드에 실패했습니다.');
-        } finally {
-            setKpiImageUploading(false);
-            if (kpiFileInputRef.current) kpiFileInputRef.current.value = '';
-        }
-    };
-
-    // KPI 이미지 삭제 핸들러
-    const handleKpiImageDelete = async (imageId) => {
-        if (!window.confirm('이 이미지를 삭제하시겠습니까?')) return;
-        try {
-            await deleteKpiImage(imageId);
-            await loadKpiImages();
-        } catch (error) {
-            console.error('KPI 이미지 삭제 실패:', error);
-            alert('이미지 삭제에 실패했습니다.');
-        }
-    };
-
-    // 파일 크기 포맷
-    const formatFileSize = (bytes) => {
-        if (!bytes) return '';
-        if (bytes < 1024) return `${bytes} B`;
-        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-    };
-
-    // 날짜 포맷
-    const formatImageDate = (dateString) => {
-        if (!dateString) return '';
-        try {
-            const d = new Date(dateString);
-            return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-        } catch {
-            return dateString;
-        }
-    };
-
     // 컴포넌트 마운트 시 과제 목록 로드
     useEffect(() => {
         if (user) {
             loadTasks();
-            loadKpiImages();
         }
     }, [user]);
 
@@ -524,9 +443,7 @@ function KPITasks() {
             managers: task.managers,
             status: task.status,
             targetValue: task.targetValue, // 목표값 추가
-            targetDescription: task.targetDescription || '', // 목표 설명 추가
             visibleYn: task.visibleYn || 'Y', // 공개여부
-            reverseYn: task.reverseYn || 'N', // 역계산 여부
             // 수정 모드에서는 원본 영어 값 사용
             performance: task.performanceOriginal || task.performance
         });
@@ -749,102 +666,6 @@ function KPITasks() {
                     )}
                 </div>
             </div>
-
-            {/* KPI 성과지표 이미지 관리 섹션 (관리자만) */}
-            {isAdmin && (
-                <div className="kpi-image-section">
-                    <div
-                        className="kpi-image-section-header"
-                        onClick={() => setKpiImagePanelOpen(prev => !prev)}
-                    >
-                        <div className="kpi-image-section-title">
-                            <ImageIcon size={16} />
-                            <span>KPI 성과지표 이미지 관리</span>
-                            <span className="kpi-image-count-badge">{kpiImages.length}</span>
-                        </div>
-                        <div className="kpi-image-section-actions">
-                            <button
-                                className="kpi-image-upload-btn"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    kpiFileInputRef.current?.click();
-                                }}
-                                disabled={kpiImageUploading}
-                                title="이미지 업로드"
-                            >
-                                {kpiImageUploading ? (
-                                    <span className="kpi-uploading-spinner" />
-                                ) : (
-                                    <Upload size={14} />
-                                )}
-                                {kpiImageUploading ? '업로드 중...' : '이미지 업로드'}
-                            </button>
-                            <span className="kpi-image-toggle-icon">
-                                {kpiImagePanelOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                            </span>
-                        </div>
-                        <input
-                            ref={kpiFileInputRef}
-                            type="file"
-                            accept="image/*"
-                            style={{ display: 'none' }}
-                            onChange={handleKpiImageUpload}
-                        />
-                    </div>
-
-                    {kpiImagePanelOpen && (
-                        <div className="kpi-image-list">
-                            {kpiImageLoading ? (
-                                <div className="kpi-image-list-loading">이미지 목록 불러오는 중...</div>
-                            ) : kpiImages.length === 0 ? (
-                                <div className="kpi-image-list-empty">
-                                    <ImageIcon size={32} />
-                                    <p>업로드된 이미지가 없습니다.</p>
-                                    <p className="kpi-image-list-empty-sub">상단의 이미지 업로드 버튼을 눌러 KPI 성과지표 이미지를 등록하세요.</p>
-                                </div>
-                            ) : (
-                                <div className="kpi-image-grid">
-                                    {kpiImages.map((img, idx) => (
-                                        <div key={img.imageId} className={`kpi-image-card ${idx === 0 ? 'kpi-image-card-latest' : ''}`}>
-                                            <div className="kpi-image-card-thumb">
-                                                <img
-                                                    src={getKpiImageUrl(img.imageId)}
-                                                    alt={img.originalFileName}
-                                                    className="kpi-image-thumb"
-                                                    onError={(e) => { e.target.style.display = 'none'; }}
-                                                />
-                                                {idx === 0 && (
-                                                    <span className="kpi-image-latest-badge">최신</span>
-                                                )}
-                                            </div>
-                                            <div className="kpi-image-card-info">
-                                                <div className="kpi-image-card-name" title={img.originalFileName}>
-                                                    {img.originalFileName}
-                                                </div>
-                                                <div className="kpi-image-card-meta">
-                                                    <span>{formatFileSize(img.fileSize)}</span>
-                                                    <span className="kpi-image-card-dot">·</span>
-                                                    <span>{formatImageDate(img.createdAt)}</span>
-                                                </div>
-                                                {img.description && (
-                                                    <div className="kpi-image-card-desc">{img.description}</div>
-                                                )}
-                                            </div>
-                                            <button
-                                                className="kpi-image-delete-btn"
-                                                onClick={() => handleKpiImageDelete(img.imageId)}
-                                                title="삭제"
-                                            >
-                                                <Trash2 size={14} />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-            )}
 
             {notInputtedCount > 0 && (
                 <div className="kpi-alert-banner">
@@ -1174,7 +995,7 @@ function KPITasks() {
 
                                     // 목표/실적 포맷팅 (정량일 때만)
                                     const formatValue = (value, metric) => {
-                                        if (value === null || value === undefined) return '0';
+                                        if (value === null || value === undefined || value === 0) return '0';
                                         const numValue = typeof value === 'number' ? value : parseFloat(value);
                                         if (metric === 'amount') {
                                             return numValue.toLocaleString('ko-KR') + '원';
@@ -1242,36 +1063,30 @@ function KPITasks() {
                                                 </span>
                                             </td>
                                             <td className="dashboard-table-target">
-                                                {!isQualitative && (
-                                                    <div className="dashboard-target-badge-wrapper">
-                                                        <span className="dashboard-badge dashboard-badge-target">
-                                                            {formatValue(task.targetValue, task.metric || task.performanceOriginal?.metric)}
-                                                        </span>
-                                                        {task.targetDescription && task.targetDescription.trim() && (
-                                                            <span className="dashboard-target-description" title={task.targetDescription}>
-                                                                {task.targetDescription}
-                                                            </span>
-                                                        )}
-                                                    </div>
+                                                {isQualitative ? (
+                                                    <span className="dashboard-badge dashboard-badge-default">-</span>
+                                                ) : (
+                                                    <span className="dashboard-badge dashboard-badge-target">
+                                                        {formatValue(task.targetValue, task.metric || task.performanceOriginal?.metric)}
+                                                    </span>
                                                 )}
                                             </td>
                                             <td className="dashboard-table-actual">
-                                                {!isQualitative && (
+                                                {isQualitative ? (
+                                                    <span className="dashboard-badge dashboard-badge-default">-</span>
+                                                ) : (
                                                     <span className="dashboard-badge dashboard-badge-actual">
                                                         {formatValue(task.actualValue, task.metric || task.performanceOriginal?.metric)}
                                                     </span>
                                                 )}
                                             </td>
                                             <td className="dashboard-table-achievement">
-                                                {!isQualitative && (
-                                                    <div className="achievement-cell">
-                                                        <span
-                                                            className="dashboard-badge dashboard-badge-achievement"
-                                                            title={task.reverseYn === 'Y' ? '역계산 과제: 실적이 목표보다 낮을수록 달성률이 높아집니다' : undefined}
-                                                        >
-                                                            {task.achievement || 0}%
-                                                        </span>
-                                                    </div>
+                                                {isQualitative ? (
+                                                    <span className="dashboard-badge dashboard-badge-default">-</span>
+                                                ) : (
+                                                    <span className="dashboard-badge dashboard-badge-achievement">
+                                                        {task.achievement || 0}%
+                                                    </span>
                                                 )}
                                             </td>
                                             <td className="dashboard-table-dept">

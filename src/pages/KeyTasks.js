@@ -201,11 +201,9 @@ function KeyTasks() {
                 achievement: task.achievement || 0, // 백엔드에서 계산된 달성률 사용
                 targetValue: task.targetValue || 0, // 목표값
                 actualValue: task.actualValue || 0, // 실적값
-                targetDescription: task.targetDescription || '', // 목표 설명
                 evaluationType: task.evaluationType, // 평가 유형 (정량/정성)
                 metric: task.metric, // 지표 (건수/금액/%)
-                visibleYn: task.visibleYn || 'Y', // 공개여부
-                reverseYn: task.reverseYn || 'N' // 역계산 여부
+                visibleYn: task.visibleYn || 'Y' // 공개여부
             }));
 
             // 공개여부 필터링: 공개여부가 N인 경우 관리자와 담당자만 볼 수 있음
@@ -447,9 +445,7 @@ function KeyTasks() {
             managers: task.managers,
             status: task.status,
             targetValue: task.targetValue, // 목표값 추가
-            targetDescription: task.targetDescription || '', // 목표 설명 추가
             visibleYn: task.visibleYn || 'Y', // 공개여부
-            reverseYn: task.reverseYn || 'N', // 역계산 여부
             // 수정 모드에서는 원본 영어 값 사용
             performance: task.performanceOriginal || task.performance
         });
@@ -1084,7 +1080,7 @@ function KeyTasks() {
 
                                     // 목표/실적 포맷팅 (정량일 때만)
                                     const formatValue = (value, metric) => {
-                                        if (value === null || value === undefined) return '0';
+                                        if (value === null || value === undefined || value === 0) return '0';
                                         const numValue = typeof value === 'number' ? value : parseFloat(value);
                                         if (metric === 'amount') {
                                             return numValue.toLocaleString('ko-KR') + '원';
@@ -1152,36 +1148,30 @@ function KeyTasks() {
                                                 </span>
                                             </td>
                                             <td className="dashboard-table-target">
-                                                {!isQualitative && (
-                                                    <div className="dashboard-target-badge-wrapper">
-                                                        <span className="dashboard-badge dashboard-badge-target">
-                                                            {formatValue(task.targetValue, task.metric || task.performanceOriginal?.metric)}
-                                                        </span>
-                                                        {task.targetDescription && task.targetDescription.trim() && (
-                                                            <span className="dashboard-target-description" title={task.targetDescription}>
-                                                                {task.targetDescription}
-                                                            </span>
-                                                        )}
-                                                    </div>
+                                                {isQualitative ? (
+                                                    <span className="dashboard-badge dashboard-badge-default">-</span>
+                                                ) : (
+                                                    <span className="dashboard-badge dashboard-badge-target">
+                                                        {formatValue(task.targetValue, task.metric || task.performanceOriginal?.metric)}
+                                                    </span>
                                                 )}
                                             </td>
                                             <td className="dashboard-table-actual">
-                                                {!isQualitative && (
+                                                {isQualitative ? (
+                                                    <span className="dashboard-badge dashboard-badge-default">-</span>
+                                                ) : (
                                                     <span className="dashboard-badge dashboard-badge-actual">
                                                         {formatValue(task.actualValue, task.metric || task.performanceOriginal?.metric)}
                                                     </span>
                                                 )}
                                             </td>
                                             <td className="dashboard-table-achievement">
-                                                {!isQualitative && (
-                                                    <div className="achievement-cell">
-                                                        <span
-                                                            className="dashboard-badge dashboard-badge-achievement"
-                                                            title={task.reverseYn === 'Y' ? '역계산 과제: 실적이 목표보다 낮을수록 달성률이 높아집니다' : undefined}
-                                                        >
-                                                            {task.achievement || 0}%
-                                                        </span>
-                                                    </div>
+                                                {isQualitative ? (
+                                                    <span className="dashboard-badge dashboard-badge-default">-</span>
+                                                ) : (
+                                                    <span className="dashboard-badge dashboard-badge-achievement">
+                                                        {task.achievement || 0}%
+                                                    </span>
                                                 )}
                                             </td>
                                             <td className="dashboard-table-dept">

@@ -10,7 +10,6 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
         category2: '',
         taskName: '',
         description: '',
-        targetDescription: '',
         startDate: '',
         endDate: '',
         department: '',
@@ -21,7 +20,6 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
         targetValue: '', // 목표값 (정량일 때만)
         status: 'inProgress',
         visibleYn: 'Y', // 공개여부 (기본값 Y)
-        reverseYn: 'N', // 역계산 여부 (기본값 N)
     });
 
     const [departments, setDepartments] = useState([]);
@@ -150,7 +148,6 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 category2: editData.category2 || '',
                 taskName: editData.name || editData.taskName || '',
                 description: editData.description || '',
-                targetDescription: editData.targetDescription || '',
                 startDate: formatDate(editData.startDate),
                 endDate: formatDate(editData.endDate),
                 department: initialDeptId, // 첫 번째 담당자의 부서 ID 설정
@@ -161,7 +158,6 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 targetValue: formatTargetValue(editData.targetValue || editData.target),
                 status: editData.status || 'inProgress',
                 visibleYn: editData.visibleYn || 'Y', // 공개여부
-                reverseYn: editData.reverseYn || 'N', // 역계산 여부
             }));
 
             // 부서 ID가 있으면 해당 부서의 담당자 목록 로드
@@ -175,7 +171,6 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 category2: '',
                 taskName: '',
                 description: '',
-                targetDescription: '',
                 startDate: '',
                 endDate: '',
                 department: '',
@@ -186,7 +181,6 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 targetValue: '',
                 status: 'inProgress',
                 visibleYn: 'Y',
-                reverseYn: 'N',
             });
             setAvailableManagers([]);
             setManagerSearchTerm('');
@@ -197,7 +191,6 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 category2: '',
                 taskName: '',
                 description: '',
-                targetDescription: '',
                 startDate: '',
                 endDate: '',
                 department: '',
@@ -208,7 +201,6 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 targetValue: '',
                 status: 'inProgress',
                 visibleYn: 'Y',
-                reverseYn: 'N',
             });
             setAvailableManagers([]);
             setManagerSearchTerm('');
@@ -397,7 +389,6 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 category2: formData.category2,
                 taskName: formData.taskName,
                 description: formData.description || null,
-                targetDescription: formData.targetDescription || null,
                 startDate: formData.startDate,
                 endDate: formData.endDate,
                 managerIds: formData.managers.map(m => m.userId),
@@ -407,7 +398,6 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 targetValue: formData.evaluationType === 'quantitative' ? formData.targetValue : null, // 정량일 때만 목표값
                 status: formData.status,
                 visibleYn: formData.visibleYn || 'Y', // 공개여부
-                reverseYn: formData.evaluationType === 'quantitative' ? (formData.reverseYn || 'N') : 'N', // 역계산 여부 (정량일 때만 적용)
                 deptId: departmentToUse // 자동 설정된 부서 ID 사용
             };
 
@@ -434,7 +424,6 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 category2: '',
                 taskName: '',
                 description: '',
-                targetDescription: '',
                 startDate: '',
                 endDate: '',
                 department: '',
@@ -445,7 +434,6 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 targetValue: '',
                 status: 'inProgress',
                 visibleYn: 'Y',
-                reverseYn: 'N',
             });
 
             onClose();
@@ -670,54 +658,21 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                                             </label>
                                         </div>
                                     </div>
-                                    <div className="target-value-description-row">
-                                        <div className="form-group-compact">
-                                            <label>목표값 <span className="required">*</span></label>
-                                            <div className="target-input-row">
-                                                <label className="reverse-checkbox-label">
-                                                    <input
-                                                        type="checkbox"
-                                                        name="reverseYn"
-                                                        checked={formData.reverseYn === 'Y'}
-                                                        onChange={(e) => setFormData(prev => ({
-                                                            ...prev,
-                                                            reverseYn: e.target.checked ? 'Y' : 'N'
-                                                        }))}
-                                                        className="reverse-checkbox"
-                                                    />
-                                                    <span className="reverse-checkbox-text">역계산</span>
-                                                </label>
-                                                <div className="target-input-wrapper">
-                                                    <input
-                                                        type="text"
-                                                        name="targetValue"
-                                                        value={formData.targetValue}
-                                                        onChange={handleChange}
-                                                        placeholder={formData.metric === 'count' ? '목표 건수를 입력하세요' : formData.metric === 'amount' ? '목표 금액을 입력하세요' : '목표 %를 입력하세요'}
-                                                        required={formData.evaluationType === 'quantitative'}
-                                                        className="target-input"
-                                                    />
-                                                    <span className="target-unit">
-                                                        {formData.metric === 'count' ? '건' : formData.metric === 'amount' ? '원' : '%'}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            {formData.reverseYn === 'Y' && (
-                                                <div className="reverse-hint">
-                                                    ↓ 실적이 목표보다 낮을수록 달성률이 높아집니다
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="form-group-compact">
-                                            <label>목표 설명 (선택)</label>
+                                    <div className="form-group-compact">
+                                        <label>목표값 <span className="required">*</span></label>
+                                        <div className="target-input-wrapper">
                                             <input
                                                 type="text"
-                                                name="targetDescription"
-                                                value={formData.targetDescription}
+                                                name="targetValue"
+                                                value={formData.targetValue}
                                                 onChange={handleChange}
-                                                placeholder="목표 설명"
-                                                className="target-description-input"
+                                                placeholder={formData.metric === 'count' ? '목표 건수를 입력하세요' : formData.metric === 'amount' ? '목표 금액을 입력하세요' : '목표 %를 입력하세요'}
+                                                required={formData.evaluationType === 'quantitative'}
+                                                className="target-input"
                                             />
+                                            <span className="target-unit">
+                                                {formData.metric === 'count' ? '건' : formData.metric === 'amount' ? '원' : '%'}
+                                            </span>
                                         </div>
                                     </div>
                                 </>
