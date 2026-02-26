@@ -261,7 +261,7 @@ function KeyTasks() {
         }
     }, [user]);
 
-    // 필터 드롭다운 외부 클릭 감지
+    // 필터 드롭다운 외부 클릭 / 스크롤 감지
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (filterDropdownRef.current && !filterDropdownRef.current.contains(event.target)) {
@@ -272,15 +272,21 @@ function KeyTasks() {
             }
         };
 
+        const handleScroll = () => setActiveFilterDropdown(null);
+
         if (activeFilterDropdown) {
             // 약간의 지연을 두어 현재 클릭 이벤트가 먼저 처리되도록
             const timeoutId = setTimeout(() => {
                 document.addEventListener('mousedown', handleClickOutside);
             }, 0);
 
+            // 캡처 단계에서 모든 스크롤 이벤트 감지 (중첩 스크롤 컨테이너 포함)
+            window.addEventListener('scroll', handleScroll, true);
+
             return () => {
                 clearTimeout(timeoutId);
                 document.removeEventListener('mousedown', handleClickOutside);
+                window.removeEventListener('scroll', handleScroll, true);
             };
         }
     }, [activeFilterDropdown]);

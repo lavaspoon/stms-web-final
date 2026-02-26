@@ -33,11 +33,6 @@ function Dashboard() {
     const [kpiImageError, setKpiImageError] = useState(false);
     const [kpiTaskSectionOpen, setKpiTaskSectionOpen] = useState(false); // 기본 접힌 상태
     const [kpiImageFullscreen, setKpiImageFullscreen] = useState(false);
-    const [zoomLevel, setZoomLevel] = useState(1);
-    const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
-    const [isDragging, setIsDragging] = useState(false);
-    const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-    const lightboxImageRef = useRef(null);
     const [oiTasks, setOiTasks] = useState([]);
     const [keyTasks, setKeyTasks] = useState([]);
     const [kpiTasks, setKpiTasks] = useState([]);
@@ -62,69 +57,16 @@ function Dashboard() {
         direction: null // 'asc' or 'desc'
     });
 
-    // 전체화면 ESC 닫기
+    // 전체화면 팝업 ESC 닫기
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (e.key === 'Escape' && kpiImageFullscreen) {
-                closeLightbox();
+                setKpiImageFullscreen(false);
             }
         };
         document.addEventListener('keydown', handleKeyDown);
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [kpiImageFullscreen]);
-
-    // 라이트박스 닫기 (줌 초기화 포함)
-    const closeLightbox = () => {
-        setKpiImageFullscreen(false);
-        setZoomLevel(1);
-        setPanOffset({ x: 0, y: 0 });
-    };
-
-    // 줌 레벨 변경
-    const handleZoomIn = (e) => {
-        e && e.stopPropagation();
-        setZoomLevel(prev => Math.min(prev + 0.25, 5));
-    };
-    const handleZoomOut = (e) => {
-        e && e.stopPropagation();
-        setZoomLevel(prev => {
-            const next = Math.max(prev - 0.25, 0.5);
-            if (next <= 1) setPanOffset({ x: 0, y: 0 });
-            return next;
-        });
-    };
-    const handleZoomReset = (e) => {
-        e && e.stopPropagation();
-        setZoomLevel(1);
-        setPanOffset({ x: 0, y: 0 });
-    };
-
-    // 마우스 휠 줌
-    const handleLightboxWheel = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const delta = e.deltaY < 0 ? 0.15 : -0.15;
-        setZoomLevel(prev => {
-            const next = Math.min(Math.max(prev + delta, 0.5), 5);
-            if (next <= 1) setPanOffset({ x: 0, y: 0 });
-            return next;
-        });
-    };
-
-    // 드래그 패닝
-    const handleLightboxMouseDown = (e) => {
-        if (zoomLevel <= 1) return;
-        e.preventDefault();
-        setIsDragging(true);
-        setDragStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
-    };
-    const handleLightboxMouseMove = (e) => {
-        if (!isDragging) return;
-        setPanOffset({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
-    };
-    const handleLightboxMouseUp = () => {
-        setIsDragging(false);
-    };
 
     // 과제 목록 조회
     const loadTasks = async () => {
@@ -197,7 +139,7 @@ function Dashboard() {
         }
     }, [isAdmin]);
 
-    // 필터 드롭다운 외부 클릭 감지
+    // 필터 드롭다운 외부 클릭 / 스크롤 감지
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (filterDropdownRef.current && !filterDropdownRef.current.contains(event.target)) {
@@ -208,15 +150,21 @@ function Dashboard() {
             }
         };
 
+        const handleScroll = () => setActiveFilterDropdown(null);
+
         if (activeFilterDropdown) {
             // 약간의 지연을 두어 현재 클릭 이벤트가 먼저 처리되도록
             const timeoutId = setTimeout(() => {
                 document.addEventListener('mousedown', handleClickOutside);
             }, 0);
 
+            // 캡처 단계에서 모든 스크롤 이벤트 감지 (중첩 스크롤 컨테이너 포함)
+            window.addEventListener('scroll', handleScroll, true);
+
             return () => {
                 clearTimeout(timeoutId);
                 document.removeEventListener('mousedown', handleClickOutside);
+                window.removeEventListener('scroll', handleScroll, true);
             };
         }
     }, [activeFilterDropdown]);
@@ -638,6 +586,16 @@ function Dashboard() {
                                     <ImageIcon size={16} />
                                     <span>KPI 성과지표</span>
                                 </div>
+                                {!loading && kpiLatestImage && !kpiImageError && (
+                                    <button
+                                        className="kpi-viewer-fullscreen-btn"
+                                        onClick={() => setKpiImageFullscreen(true)}
+                                        aria-label="모아보기"
+                                    >
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+                                        <span>원본 보기</span>
+                                    </button>
+                                )}
                             </div>
                             <div className="kpi-viewer-body">
                                 {loading ? (
@@ -646,17 +604,13 @@ function Dashboard() {
                                         <p>로딩 중...</p>
                                     </div>
                                 ) : kpiLatestImage && !kpiImageError ? (
-                                    <div className="kpi-viewer-image-wrap" onClick={() => setKpiImageFullscreen(true)}>
+                                    <div className="kpi-viewer-image-wrap">
                                         <img
                                             src={getKpiImageUrl(kpiLatestImage.imageId)}
                                             alt="KPI 성과지표"
                                             className="kpi-viewer-image"
                                             onError={() => setKpiImageError(true)}
                                         />
-                                        <div className="kpi-viewer-zoom-hint">
-                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><line x1="11" y1="8" x2="11" y2="14" /><line x1="8" y1="11" x2="14" y2="11" /></svg>
-                                            <span>클릭하여 크게 보기</span>
-                                        </div>
                                     </div>
                                 ) : (
                                     <div className="kpi-viewer-placeholder">
@@ -668,61 +622,27 @@ function Dashboard() {
                             </div>
                         </div>
 
-                        {/* 전체화면 라이트박스 - Portal로 body에 직접 렌더링 (stacking context 우회) */}
+                        {/* 모아보기 팝업 - Portal로 body에 직접 렌더링 */}
                         {kpiImageFullscreen && kpiLatestImage && createPortal(
                             <div
                                 className="kpi-lightbox-overlay"
-                                onClick={closeLightbox}
-                                onWheel={handleLightboxWheel}
-                                onMouseMove={handleLightboxMouseMove}
-                                onMouseUp={handleLightboxMouseUp}
-                                onMouseLeave={handleLightboxMouseUp}
+                                onClick={() => setKpiImageFullscreen(false)}
                             >
-                                {/* 닫기 버튼 */}
                                 <button
                                     className="kpi-lightbox-close"
-                                    onClick={(e) => { e.stopPropagation(); closeLightbox(); }}
+                                    onClick={(e) => { e.stopPropagation(); setKpiImageFullscreen(false); }}
                                     aria-label="닫기"
                                 >
-                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                                 </button>
-
-                                {/* 줌 컨트롤 */}
-                                <div className="kpi-lightbox-zoom-controls" onClick={(e) => e.stopPropagation()}>
-                                    <button className="kpi-zoom-btn" onClick={handleZoomOut} aria-label="축소" disabled={zoomLevel <= 0.5}>
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
-                                    </button>
-                                    <button className="kpi-zoom-level" onClick={handleZoomReset} title="클릭하여 원래 크기로">
-                                        {Math.round(zoomLevel * 100)}%
-                                    </button>
-                                    <button className="kpi-zoom-btn" onClick={handleZoomIn} aria-label="확대" disabled={zoomLevel >= 5}>
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
-                                    </button>
-                                </div>
-
-                                {/* 이미지 영역 */}
-                                <div
-                                    className="kpi-lightbox-content"
-                                    onClick={(e) => e.stopPropagation()}
-                                    onMouseDown={handleLightboxMouseDown}
-                                    style={{ cursor: isDragging ? 'grabbing' : zoomLevel > 1 ? 'grab' : 'default' }}
-                                >
+                                <div className="kpi-lightbox-content" onClick={(e) => e.stopPropagation()}>
                                     <img
-                                        ref={lightboxImageRef}
                                         src={getKpiImageUrl(kpiLatestImage.imageId)}
                                         alt="KPI 성과지표"
                                         className="kpi-lightbox-image"
-                                        style={{
-                                            transform: `scale(${zoomLevel}) translate(${panOffset.x / zoomLevel}px, ${panOffset.y / zoomLevel}px)`,
-                                            transition: isDragging ? 'none' : 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                                            userSelect: 'none',
-                                        }}
-                                        draggable={false}
                                     />
                                 </div>
-                                <p className="kpi-lightbox-hint">
-                                    {zoomLevel > 1 ? '드래그하여 이동 · 휠로 줌 · ESC로 닫기' : '휠 또는 + 버튼으로 확대 · ESC로 닫기'}
-                                </p>
+                                <p className="kpi-lightbox-hint">ESC 또는 배경 클릭으로 닫기</p>
                             </div>,
                             document.body
                         )}
@@ -748,31 +668,54 @@ function Dashboard() {
                                 {/* 본부별 현황표 */}
                                 {sortedDeptStats.length > 0 && (
                                     <div className="dashboard-dept-stats">
-                                        <div className="dept-stats-table-wrapper">
-                                            <table className="dept-stats-table">
-                                                <thead>
-                                                <tr>
-                                                    <th>본부</th>
-                                                    <th>전체</th>
-                                                    <th>진행</th>
-                                                    <th>완료</th>
-                                                    <th>지연</th>
-                                                    <th>중단</th>
-                                                </tr>
-                                                </thead>
-                                                <tbody>
-                                                {sortedDeptStats.map((dept) => (
-                                                    <tr key={dept.deptName}>
-                                                        <td className="dept-name-cell">{dept.deptName}</td>
-                                                        <td className="dept-stat-cell total">{dept.total}</td>
-                                                        <td className="dept-stat-cell in-progress">{dept.inProgress}</td>
-                                                        <td className="dept-stat-cell completed">{dept.completed}</td>
-                                                        <td className="dept-stat-cell delayed">{dept.delayed}</td>
-                                                        <td className="dept-stat-cell stopped">{dept.stopped}</td>
+                                        <div className="dept-stats-card">
+                                            <div className="dept-stats-card-header">
+                                                <span className="dept-stats-card-title">본부별 현황</span>
+                                            </div>
+                                            <div className="dept-stats-table-wrapper">
+                                                <table className="dept-stats-table">
+                                                    <thead>
+                                                    <tr>
+                                                        <th className="th-dept">본부</th>
+                                                        <th className="th-total">전체</th>
+                                                        <th className="th-inprogress">진행</th>
+                                                        <th className="th-completed">완료</th>
+                                                        <th className="th-delayed">지연</th>
+                                                        <th className="th-stopped">중단</th>
                                                     </tr>
-                                                ))}
-                                                </tbody>
-                                            </table>
+                                                    </thead>
+                                                    <tbody>
+                                                    {sortedDeptStats.map((dept, idx) => (
+                                                        <tr key={dept.deptName} className={idx % 2 === 1 ? 'row-even' : ''}>
+                                                            <td className="dept-name-cell">{dept.deptName}</td>
+                                                            <td className="dept-stat-cell total">
+                                                                <span className="stat-badge stat-total">{dept.total}</span>
+                                                            </td>
+                                                            <td className="dept-stat-cell in-progress">
+                                                                {dept.inProgress > 0
+                                                                    ? <span className="stat-badge stat-inprogress">{dept.inProgress}</span>
+                                                                    : <span className="stat-zero">—</span>}
+                                                            </td>
+                                                            <td className="dept-stat-cell completed">
+                                                                {dept.completed > 0
+                                                                    ? <span className="stat-badge stat-completed">{dept.completed}</span>
+                                                                    : <span className="stat-zero">—</span>}
+                                                            </td>
+                                                            <td className="dept-stat-cell delayed">
+                                                                {dept.delayed > 0
+                                                                    ? <span className="stat-badge stat-delayed">{dept.delayed}</span>
+                                                                    : <span className="stat-zero">—</span>}
+                                                            </td>
+                                                            <td className="dept-stat-cell stopped">
+                                                                {dept.stopped > 0
+                                                                    ? <span className="stat-badge stat-stopped">{dept.stopped}</span>
+                                                                    : <span className="stat-zero">—</span>}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
                                         </div>
                                     </div>
                                 )}

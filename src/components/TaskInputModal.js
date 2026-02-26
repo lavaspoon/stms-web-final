@@ -1361,51 +1361,53 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
         <div className="task-input-modal-overlay">
             <div className="task-input-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
-                    <div className="modal-header-content">
-                        <div className="modal-header-top">
-                            <h2 className="task-name-header">{task.name || task.taskName}</h2>
-                        </div>
+                    {/* 닫기 버튼 */}
+                    <button className="close-btn" onClick={onClose} aria-label="닫기">
+                        <X size={18} />
+                    </button>
+
+                    {/* 1행: 과제명 + 설명 */}
+                    <div className="modal-header-title-row">
+                        <h2 className="task-name-header">{task.name || task.taskName}</h2>
                         {task.description && task.description.trim() && (
                             <p className="task-description-header">{task.description}</p>
                         )}
-                        <div className="modal-header-badges">
-                            {getStatusBadge(task.status)}
-                            <span className={`task-input-evaluation-badge ${isQuantitative ? 'quantitative' : 'qualitative'}`}>
-                                {evaluationText}
-                            </span>
-                            {task.startDate && task.endDate && (
-                                <div className="task-period-info">
-                                    <Calendar size={14} />
-                                    <span className="task-period-text">
-                                        {formatDate(task.startDate)} ~ {formatDate(task.endDate)}
-                                    </span>
-                                </div>
-                            )}
-                            {task.managers && task.managers.length > 0 && (
-                                <div className="task-managers-info-inline">
+                    </div>
+
+                    {/* 2행: 뱃지 + 기간 + 부서/담당자 */}
+                    <div className="modal-header-meta-row">
+                        {getStatusBadge(task.status)}
+                        <span className={`task-input-evaluation-badge ${isQuantitative ? 'quantitative' : 'qualitative'}`}>
+                            {evaluationText}
+                        </span>
+                        {task.startDate && task.endDate && (
+                            <div className="task-period-info">
+                                <Calendar size={13} />
+                                <span className="task-period-text">
+                                    {formatDate(task.startDate)} ~ {formatDate(task.endDate)}
+                                </span>
+                            </div>
+                        )}
+                        {task.managers && task.managers.length > 0 && (
+                            <>
+                                <span className="meta-divider" />
+                                <div className="task-dept-manager-list">
                                     {getManagersByDept(task.managers).map((deptGroup, idx) => (
-                                        <span key={idx} className="manager-dept-inline">
-                                            <span className="dept-name-inline">{deptGroup.deptName}</span>
-                                            <span className="dept-separator-inline">·</span>
-                                            <span className="manager-names-inline">
+                                        <div key={idx} className="dept-manager-card">
+                                            <span className="dept-manager-dept-label">{deptGroup.deptName}</span>
+                                            <div className="dept-manager-chips">
                                                 {deptGroup.managers.map((m, mIdx) => (
-                                                    <span key={m.userId || mIdx}>
+                                                    <span key={m.userId || mIdx} className="manager-chip">
                                                         {m.mbName || '-'}
-                                                        {mIdx < deptGroup.managers.length - 1 && ', '}
+                                                        {mIdx < deptGroup.managers.length - 1 && <span className="manager-chip-sep">·</span>}
                                                     </span>
                                                 ))}
-                                            </span>
-                                            {idx < getManagersByDept(task.managers).length - 1 && <span className="dept-separator-inline"> / </span>}
-                                        </span>
+                                            </div>
+                                        </div>
                                     ))}
                                 </div>
-                            )}
-                        </div>
-                    </div>
-                    <div className="modal-header-right">
-                        <button className="close-btn" onClick={onClose}>
-                            <X size={20} />
-                        </button>
+                            </>
+                        )}
                     </div>
                 </div>
 

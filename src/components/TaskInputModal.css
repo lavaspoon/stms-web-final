@@ -28,86 +28,105 @@
     border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
+/* ===== 모달 헤더 - 2행 레이아웃 ===== */
 .task-input-modal .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 20px;
-    border-bottom: 2px solid #d1d5db;
     position: sticky;
     top: 0;
-    background: white;
     z-index: 10;
-    box-shadow: 0 1px 8px rgba(0, 0, 0, 0.04);
+    background: linear-gradient(160deg, #f0f7ff 0%, #ffffff 65%);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 18px 18px 0 0;
-    gap: 20px;
-    min-height: 70px;
-}
-
-.task-input-modal .modal-header-content {
-    flex: 1;
+    padding: 14px 52px 13px 20px;
     display: flex;
     flex-direction: column;
     gap: 8px;
-    min-width: 0;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
 }
 
-.task-input-modal .modal-header-top {
+/* 닫기 버튼 */
+.task-input-modal .modal-header .close-btn {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 30px;
+    height: 30px;
     display: flex;
     align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.05);
+    border: none;
+    border-radius: 50%;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
 }
 
-.task-input-modal .modal-header-badges {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-
-.task-input-modal .task-managers-info-inline {
-    display: flex;
-    align-items: center;
-    gap: 0;
-    font-size: 13px;
-    color: #4b5563;
-    letter-spacing: -0.016em;
-    flex-wrap: wrap;
-    margin-left: 4px;
-}
-
-.task-input-modal .manager-dept-inline {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    line-height: 1.4;
-}
-
-.task-input-modal .dept-name-inline {
-    font-weight: 600;
+.task-input-modal .modal-header .close-btn:hover {
+    background: rgba(0, 0, 0, 0.1);
     color: #1d1d1f;
+    transform: rotate(90deg);
 }
 
-.task-input-modal .dept-separator-inline {
+/* 1행: 과제명 + 설명 */
+.task-input-modal .modal-header-title-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* 과제명 */
+.task-input-modal .task-name-header {
+    font-size: 16px;
+    font-weight: 700;
+    color: #111827;
+    margin: 0;
+    letter-spacing: -0.022em;
+    line-height: 1.35;
+    flex-shrink: 0;
+}
+
+/* 과제 설명 - 과제명 옆에 인라인으로 */
+.task-input-modal .task-description-header {
+    font-size: 12px;
     color: #9ca3af;
-    margin: 0 2px;
+    margin: 0;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 400px;
 }
 
-.task-input-modal .manager-names-inline {
-    color: #4b5563;
-    font-weight: 500;
-}
-
-.task-input-modal .task-period-info {
+/* 2행: 뱃지 + 기간 + 부서/담당자 */
+.task-input-modal .modal-header-meta-row {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 12px;
-    background: rgba(59, 130, 246, 0.08);
-    border: 1px solid rgba(59, 130, 246, 0.15);
-    border-radius: 8px;
-    font-size: 13px;
+    flex-wrap: wrap;
+}
+
+/* 구분선 */
+.task-input-modal .meta-divider {
+    width: 1px;
+    height: 14px;
+    background: #d1d5db;
+    flex-shrink: 0;
+    margin: 0 2px;
+}
+
+/* 기간 칩 */
+.task-input-modal .task-period-info {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    background: rgba(59, 130, 246, 0.07);
+    border: 1px solid rgba(59, 130, 246, 0.18);
+    border-radius: 20px;
+    font-size: 11px;
     color: #3b82f6;
     font-weight: 500;
     white-space: nowrap;
@@ -115,20 +134,63 @@
 
 .task-input-modal .task-period-info svg {
     flex-shrink: 0;
-    opacity: 0.8;
+    opacity: 0.85;
 }
 
 .task-input-modal .task-period-text {
     letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
 }
 
-.task-input-modal .modal-header-right {
+/* ===== 부서 / 담당자 - 2행에 인라인 ===== */
+.task-input-modal .task-dept-manager-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    align-items: center;
+}
+
+.task-input-modal .dept-manager-card {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px 3px 8px;
+    background: white;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.task-input-modal .dept-manager-dept-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #374151;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+}
+
+.task-input-modal .dept-manager-chips {
     display: flex;
     align-items: center;
-    gap: 16px;
-    flex-shrink: 0;
+    gap: 3px;
 }
 
+.task-input-modal .manager-chip {
+    font-size: 12px;
+    font-weight: 500;
+    color: #4b5563;
+    letter-spacing: -0.01em;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.task-input-modal .manager-chip-sep {
+    color: #d1d5db;
+    font-size: 11px;
+}
+
+/* read-only 배지 */
 .task-input-modal .read-only-badge {
     display: inline-flex;
     align-items: center;
@@ -348,13 +410,7 @@
     color: #1d1d1f;
 }
 
-.task-input-modal .modal-header h2 {
-    font-size: 18px;
-    font-weight: 600;
-    color: #1d1d1f;
-    margin: 0;
-    letter-spacing: -0.022em;
-}
+/* (modal-header h2 is now managed by .task-name-header class) */
 
 .task-info-section {
     padding: 18px 24px;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Target, Briefcase, BarChart3, FileText, Loader2, Download, AlertCircle, CheckSquare, Square, X, CheckCircle, Code, Edit, Copy, Check } from 'lucide-react';
+import { Target, Briefcase, BarChart3, FileText, Loader2, Download, AlertCircle, CheckSquare, Square, X, CheckCircle, Code, Edit, Copy, Check, Search } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Lottie from 'lottie-react';
@@ -34,6 +34,9 @@ function AIReport() {
     // 추가 프롬프트로 수정
     const [modifyPrompt, setModifyPrompt] = useState('');
     const [isModifying, setIsModifying] = useState(false);
+    // 과제 선택 모달 진행상태 필터 & 검색
+    const [statusFilter, setStatusFilter] = useState('all');
+    const [searchQuery, setSearchQuery] = useState('');
     // 보고서 생성 시 사용한 정보 저장 (수정 프롬프트에 사용)
     const [reportGenerationInfo, setReportGenerationInfo] = useState(null);
 
@@ -144,6 +147,8 @@ function AIReport() {
         setReport('');
         setReportFormat('text');
         setModifyPrompt('');
+        setStatusFilter('all');
+        setSearchQuery('');
         setIsTaskSelectModalOpen(true);
 
         // 보고서 유형과 상관없이 이달 활동 입력 여부 확인
@@ -191,12 +196,24 @@ function AIReport() {
         }
     };
 
-    // 전체 선택/해제
+    // 진행상태 필터 + 검색어 적용된 과제 목록
+    const filteredTasks = tasks.filter(t => {
+        const matchesStatus = statusFilter === 'all' || normalizeStatus(t.status) === statusFilter;
+        const matchesSearch = !searchQuery.trim() || t.taskName.toLowerCase().includes(searchQuery.trim().toLowerCase());
+        return matchesStatus && matchesSearch;
+    });
+
+    // 전체 선택/해제 (필터된 목록 기준)
     const handleSelectAll = () => {
-        if (selectedTaskIds.size === tasks.length) {
-            setSelectedTaskIds(new Set());
+        const allFilteredSelected = filteredTasks.length > 0 && filteredTasks.every(t => selectedTaskIds.has(t.taskId));
+        if (allFilteredSelected) {
+            const newSelected = new Set(selectedTaskIds);
+            filteredTasks.forEach(t => newSelected.delete(t.taskId));
+            setSelectedTaskIds(newSelected);
         } else {
-            setSelectedTaskIds(new Set(tasks.map(t => t.taskId)));
+            const newSelected = new Set(selectedTaskIds);
+            filteredTasks.forEach(t => newSelected.add(t.taskId));
+            setSelectedTaskIds(newSelected);
         }
     };
 
@@ -460,8 +477,8 @@ function AIReport() {
         }
     };
 
-    const allSelected = tasks.length > 0 && selectedTaskIds.size === tasks.length;
-    const someSelected = selectedTaskIds.size > 0 && selectedTaskIds.size < tasks.length;
+    const allSelected = filteredTasks.length > 0 && filteredTasks.every(t => selectedTaskIds.has(t.taskId));
+    const someSelected = filteredTasks.some(t => selectedTaskIds.has(t.taskId)) && !allSelected;
 
     return (
         <div className="dashboard">
@@ -774,9 +791,20 @@ function AIReport() {
                 }}>
                     <div className="task-select-modal" onClick={(e) => e.stopPropagation()}>
                         <div className="task-select-modal-header">
-                            <h3>
-                                {reportType === 'monthly' ? '월간 보고서' : '종합 보고서'} - 과제 선택
-                            </h3>
+                            <div className="task-select-modal-header-left">
+                                <div className="task-select-modal-header-icon">
+                                    <FileText size={16} />
+                                </div>
+                                <div className="task-select-modal-header-text">
+                                    <div className="task-select-modal-header-badges">
+                                        <span className="task-select-modal-type-badge">
+                                            {reportType === 'monthly' ? '월간 보고서' : '종합 보고서'}
+                                        </span>
+                                        <span className="task-select-modal-tasktype-badge">{taskType}</span>
+                                    </div>
+                                    <h3>보고서에 포함할 과제를 선택하세요</h3>
+                                </div>
+                            </div>
                             <button
                                 className="task-select-modal-close"
                                 onClick={() => setIsTaskSelectModalOpen(false)}
@@ -816,18 +844,74 @@ function AIReport() {
                             ) : (
                                 <>
                                     <div className="task-select-modal-actions">
-                                        <button
-                                            className="task-select-all-btn"
-                                            onClick={handleSelectAll}
-                                        >
-                                            {allSelected ? '전체 해제' : '전체 선택'}
-                                        </button>
-                                        <span className="task-select-count">
-                                            선택: {selectedTaskIds.size} / {tasks.length}
-                                        </span>
+                                        <div className="task-select-actions-row">
+                                            <div className="task-select-actions-left">
+                                                <button
+                                                    className="task-select-all-btn"
+                                                    onClick={handleSelectAll}
+                                                >
+                                                    {allSelected ? '전체 해제' : '전체 선택'}
+                                                </button>
+                                                <select
+                                                    className="task-status-filter-select"
+                                                    value={statusFilter}
+                                                    onChange={(e) => setStatusFilter(e.target.value)}
+                                                >
+                                                    <option value="all">전체 상태</option>
+                                                    <option value="inProgress">진행중</option>
+                                                    <option value="completed">완료</option>
+                                                    <option value="delayed">지연</option>
+                                                    <option value="stopped">중단</option>
+                                                </select>
+                                                <div className="task-search-input-wrapper">
+                                                    <Search size={14} className="task-search-icon" />
+                                                    <input
+                                                        type="text"
+                                                        className="task-search-input"
+                                                        placeholder="과제명 검색..."
+                                                        value={searchQuery}
+                                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                                    />
+                                                    {searchQuery && (
+                                                        <button
+                                                            className="task-search-clear"
+                                                            onClick={() => setSearchQuery('')}
+                                                        >
+                                                            <X size={12} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <span className="task-select-count">
+                                                선택 {selectedTaskIds.size} / {tasks.length}
+                                                {(statusFilter !== 'all' || searchQuery) && (
+                                                    <span className="task-select-filter-hint"> · 표시 {filteredTasks.length}개</span>
+                                                )}
+                                            </span>
+                                        </div>
+
+                                        {/* 선택된 과제 배지 */}
+                                        {selectedTaskIds.size > 0 && (
+                                            <div className="task-selected-badges">
+                                                {tasks.filter(t => selectedTaskIds.has(t.taskId)).map(task => (
+                                                    <span key={task.taskId} className="task-selected-badge">
+                                                        <span className="task-selected-badge-name">{task.taskName}</span>
+                                                        <button
+                                                            className="task-selected-badge-remove"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleToggleTask(task.taskId);
+                                                            }}
+                                                        >
+                                                            <X size={11} />
+                                                        </button>
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="task-select-grid">
-                                        {tasks.map((task) => {
+                                        {filteredTasks.map((task) => {
                                             const isSelected = selectedTaskIds.has(task.taskId);
                                             const showActivityStatus = task.hasCurrentMonthActivity !== null;
                                             const statusInfo = getStatusLabel(task.status);
@@ -837,22 +921,20 @@ function AIReport() {
                                                     className={`task-select-card ${isSelected ? 'selected' : ''}`}
                                                     onClick={() => handleToggleTask(task.taskId)}
                                                 >
+                                                    {task.status && (
+                                                        <div className={`task-status-corner-badge ${normalizeStatus(task.status)}`}>
+                                                            {statusInfo.text}
+                                                        </div>
+                                                    )}
                                                     <div className="task-select-card-checkbox">
                                                         {isSelected ? (
-                                                            <CheckSquare size={20} className="checkbox-icon" />
+                                                            <CheckSquare size={18} className="checkbox-icon" />
                                                         ) : (
-                                                            <Square size={20} className="checkbox-icon" />
+                                                            <Square size={18} className="checkbox-icon" />
                                                         )}
                                                     </div>
                                                     <div className="task-select-card-content">
-                                                        <div className="task-select-card-name-row">
-                                                            {task.status && (
-                                                                <span className={`task-status-badge ${normalizeStatus(task.status)}`}>
-                                                                    {statusInfo.text}
-                                                                </span>
-                                                            )}
-                                                            <div className="task-select-card-name">{task.taskName}</div>
-                                                        </div>
+                                                        <div className="task-select-card-name">{task.taskName}</div>
                                                         {(task.category1 && task.category1 !== '-') && (
                                                             <div className="task-select-card-category">
                                                                 {task.category1}
@@ -863,12 +945,12 @@ function AIReport() {
                                                             <div className="task-select-card-status">
                                                                 {task.hasCurrentMonthActivity ? (
                                                                     <span className="activity-status inputted">
-                                                                        <CheckCircle size={14} />
+                                                                        <CheckCircle size={11} />
                                                                         이달 입력됨
                                                                     </span>
                                                                 ) : (
                                                                     <span className="activity-status not-inputted">
-                                                                        <AlertCircle size={14} />
+                                                                        <AlertCircle size={11} />
                                                                         이달 미입력
                                                                     </span>
                                                                 )}

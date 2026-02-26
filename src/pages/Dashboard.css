@@ -493,16 +493,40 @@
     padding: 20px 28px;
     background: white;
     border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-    align-items: flex-start;
+    align-items: stretch;
 }
 
 .dashboard-average-achievement {
     flex-shrink: 0;
+    display: flex;
 }
 
 .dashboard-dept-stats {
     flex: 1;
     min-width: 0;
+}
+
+.dept-stats-card {
+    background: white;
+    border: 1px solid rgba(0, 0, 0, 0.07);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.dept-stats-card-header {
+    display: flex;
+    align-items: center;
+    padding: 11px 16px;
+    background: linear-gradient(135deg, #f8faff 0%, #f0f4ff 100%);
+    border-bottom: 1px solid rgba(74, 144, 226, 0.12);
+}
+
+.dept-stats-card-title {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #374151;
+    letter-spacing: -0.01em;
 }
 
 .dept-stats-table-wrapper {
@@ -513,44 +537,54 @@
 .dept-stats-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 14px;
+    font-size: 13px;
     background: white;
 }
 
-.dept-stats-table thead {
-    background: transparent;
+.dept-stats-table thead tr {
+    background: #fafbff;
 }
 
 .dept-stats-table th {
-    padding: 6px 8px;
+    padding: 8px 10px;
     text-align: center;
-    font-weight: 500;
-    font-size: 13px;
-    color: #86868b;
+    font-weight: 600;
+    font-size: 11px;
+    color: #9ca3af;
     white-space: nowrap;
-    border-bottom: 1px solid #e9ecef;
-    letter-spacing: -0.01em;
+    border-bottom: 1px solid #f0f2f8;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
 }
 
-.dept-stats-table th:first-child {
+.dept-stats-table th.th-dept {
     text-align: center;
-    padding-left: 8px;
-    font-weight: 600;
+    padding-left: 10px;
     color: #6b7280;
 }
+
+.dept-stats-table th.th-inprogress { color: #3b82f6; }
+.dept-stats-table th.th-completed  { color: #16a34a; }
+.dept-stats-table th.th-delayed    { color: #dc2626; }
+.dept-stats-table th.th-stopped    { color: #9ca3af; }
 
 .dept-stats-table td {
-    padding: 6px 8px;
+    padding: 9px 10px;
     text-align: center;
-    font-weight: 400;
     font-variant-numeric: tabular-nums;
-    border-bottom: 1px solid #f5f5f5;
-    color: #6b7280;
-    font-size: 14px;
+    border-bottom: 1px solid #f3f4f6;
 }
 
 .dept-stats-table tbody tr:hover {
+    background: #f8faff;
+}
+
+.dept-stats-table tbody tr.row-even {
     background: #fafafa;
+}
+
+.dept-stats-table tbody tr.row-even:hover {
+    background: #f0f5ff;
 }
 
 .dept-stats-table tbody tr:last-child td {
@@ -559,78 +593,106 @@
 
 .dept-name-cell {
     text-align: center;
-    font-weight: 500;
-    color: #6b7280;
-    padding-left: 8px;
+    font-weight: 600;
+    color: #374151;
+    padding-left: 10px;
     white-space: nowrap;
-    max-width: 100px;
+    max-width: 120px;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-size: 14px;
+    font-size: 13px;
 }
 
 .dept-stat-cell {
     font-weight: 500;
 }
 
-.dept-stat-cell.total {
+/* 공통 stat 배지 */
+.stat-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.stat-badge.stat-total {
+    background: #f3f4f6;
     color: #374151;
-    font-weight: 600;
 }
 
-.dept-stat-cell.in-progress {
-    color: #6b7280;
+.stat-badge.stat-inprogress {
+    background: #eff6ff;
+    color: #2563eb;
 }
 
-.dept-stat-cell.completed {
-    color: #6b7280;
+.stat-badge.stat-completed {
+    background: #f0fdf4;
+    color: #16a34a;
 }
 
-.dept-stat-cell.delayed {
-    color: #6b7280;
+.stat-badge.stat-delayed {
+    background: #fef2f2;
+    color: #dc2626;
 }
 
-.dept-stat-cell.stopped {
-    color: #6b7280;
+.stat-badge.stat-stopped {
+    background: #f3f4f6;
+    color: #9ca3af;
+}
+
+.stat-zero {
+    color: #d1d5db;
+    font-size: 13px;
+    font-weight: 400;
 }
 
 .average-achievement-card {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    padding: 20px 24px;
-    background: white;
+    justify-content: center;
+    padding: 24px 28px;
+    background: #4A90E2;
     border-radius: 12px;
-    border: 1px solid rgba(0, 0, 0, 0.06);
-    max-width: 280px;
+    min-width: 160px;
+    width: 160px;
+    gap: 6px;
+    box-shadow: 0 2px 8px rgba(74, 144, 226, 0.25);
 }
 
 .average-achievement-content {
     width: 100%;
-    text-align: left;
+    text-align: center;
 }
 
 .average-achievement-label {
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: 500;
-    color: #6b7280;
-    margin-bottom: 4px;
-    letter-spacing: -0.01em;
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 8px;
+    letter-spacing: 0.01em;
 }
 
 .average-achievement-value {
-    font-size: 48px;
-    font-weight: 700;
-    color: #007aff;
+    font-size: 52px;
+    font-weight: 800;
+    color: #ffffff;
     line-height: 1;
-    margin-bottom: 2px;
-    letter-spacing: -0.03em;
+    margin-bottom: 6px;
+    letter-spacing: -0.04em;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .average-achievement-subtext {
     font-size: 11px;
-    color: #9ca3af;
+    color: rgba(255, 255, 255, 0.65);
     font-weight: 400;
-    letter-spacing: -0.01em;
+    letter-spacing: 0.01em;
 }
 
 /* ===== 상태별 통계 박스 ===== */
@@ -1642,21 +1704,40 @@
     }
 
     .average-achievement-card {
-        padding: 16px 20px;
-        max-width: 100%;
+        padding: 20px 24px;
+        width: 100%;
+        min-width: unset;
+        flex-direction: row;
+        justify-content: flex-start;
+        gap: 16px;
+    }
+
+    .average-achievement-content {
+        text-align: left;
     }
 
     .average-achievement-value {
-        font-size: 40px;
+        font-size: 42px;
     }
 
     .dept-stats-table {
-        font-size: 13px;
+        font-size: 12px;
     }
 
     .dept-stats-table th,
     .dept-stats-table td {
-        padding: 8px 10px;
+        padding: 7px 8px;
+    }
+
+    .dept-name-cell {
+        padding-left: 8px;
+        max-width: 90px;
+    }
+
+    .stat-badge {
+        min-width: 24px;
+        padding: 2px 6px;
+        font-size: 11px;
     }
 
     .dashboard-status-stats {
@@ -1847,84 +1928,45 @@
     white-space: nowrap;
 }
 
-/* 보고서 본문 영역 */
+/* 뷰어 본문 - 스크롤 가능한 고정 높이 */
 .kpi-viewer-body {
-    padding: 36px 60px 44px 60px;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    min-height: 400px;
-    /* 종이 질감: 약간 따뜻한 크림색 + 그리드 패턴 */
-    background:
-        repeating-linear-gradient(0deg,
-            transparent,
-            transparent 27px,
-            rgba(0, 0, 0, 0.028) 27px,
-            rgba(0, 0, 0, 0.028) 28px),
-        repeating-linear-gradient(90deg,
-            transparent,
-            transparent 27px,
-            rgba(0, 0, 0, 0.018) 27px,
-            rgba(0, 0, 0, 0.018) 28px),
-        #f5f3ee;
-    position: relative;
-}
-
-/* 좌측 여백선 - 공문서/보고서 스타일 */
-.kpi-viewer-body::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 44px;
-    bottom: 0;
-    width: 2px;
-    background: rgba(220, 38, 38, 0.18);
-    pointer-events: none;
-}
-
-/* 우측 여백선 */
-.kpi-viewer-body::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    right: 44px;
-    bottom: 0;
-    width: 1px;
-    background: rgba(0, 0, 0, 0.06);
-    pointer-events: none;
-}
-
-/* 이미지 자체 - A4 문서지 느낌 */
-.kpi-viewer-image {
-    max-width: 100%;
-    width: 100%;
-    /* 래퍼(max-width 제한된) 너비를 채워 좌우 공백 제거 */
-    height: auto;
-    max-height: calc(100vh - 220px);
-    min-height: 200px;
-    object-fit: contain;
-    border-radius: 2px;
-    /* 종이 그림자 */
-    box-shadow:
-        0 1px 1px rgba(0, 0, 0, 0.08),
-        0 2px 4px rgba(0, 0, 0, 0.06),
-        0 8px 20px rgba(0, 0, 0, 0.1),
-        4px 8px 24px rgba(0, 0, 0, 0.08);
     display: block;
-    cursor: zoom-in;
-    transition: box-shadow 0.25s ease, transform 0.25s ease;
-    background: white;
+    overflow-y: auto;
+    overflow-x: auto;
+    max-height: calc(100vh - 300px);
+    min-height: 400px;
+    background: #f0f0f0;
+    padding: 0;
     position: relative;
-    z-index: 1;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
 }
 
-.kpi-viewer-image:hover {
-    box-shadow:
-        0 2px 2px rgba(0, 0, 0, 0.1),
-        0 4px 8px rgba(0, 0, 0, 0.08),
-        0 16px 36px rgba(0, 0, 0, 0.14),
-        6px 12px 32px rgba(0, 0, 0, 0.1);
-    transform: translateY(-2px);
+.kpi-viewer-body::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.kpi-viewer-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.kpi-viewer-body::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+}
+
+.kpi-viewer-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.35);
+}
+
+/* 이미지 자체 */
+.kpi-viewer-image {
+    width: 100%;
+    height: auto;
+    display: block;
+    object-fit: contain;
+    background: white;
 }
 
 .kpi-viewer-placeholder {
@@ -1972,57 +2014,40 @@
     }
 }
 
-/* 이미지 래퍼 - 줌 힌트 오버레이 */
+/* 이미지 래퍼 - 너비 100% (JS로 zoom 비율 적용) */
 .kpi-viewer-image-wrap {
-    position: relative;
-    display: inline-block;
-    cursor: zoom-in;
-    /* 종이 모서리와 동일하게 radius 최소화 */
-    border-radius: 2px;
-    overflow: hidden;
-    /* A4 세로 비율(너비/높이 ≈ 0.71) 기준으로 최대 너비 계산
-       → height 제약에 비례한 너비로 래퍼를 제한하여 좌우 공백 최소화 */
-    max-width: min(calc((100vh - 260px) * 0.71), 100%);
-}
-
-.kpi-viewer-image-wrap .kpi-viewer-image {
-    cursor: zoom-in;
     display: block;
+    min-width: 100%;
 }
 
-.kpi-viewer-zoom-hint {
-    position: absolute;
-    inset: 0;
+/* ===== KPI 뷰어 헤더 모아보기 버튼 ===== */
+.kpi-viewer-fullscreen-btn {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    justify-content: center;
     gap: 6px;
-    background: rgba(0, 0, 0, 0);
-    color: transparent;
+    padding: 6px 12px;
+    background: rgba(37, 99, 235, 0.08);
+    border: 1px solid rgba(37, 99, 235, 0.2);
+    border-radius: 8px;
+    color: #2563eb;
     font-size: 12px;
     font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    transition: all 0.25s ease;
-    border-radius: 2px;
-    pointer-events: none;
+    letter-spacing: -0.01em;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    white-space: nowrap;
 }
 
-.kpi-viewer-image-wrap:hover .kpi-viewer-zoom-hint {
-    background: rgba(10, 20, 50, 0.44);
-    color: rgba(255, 255, 255, 0.92);
+.kpi-viewer-fullscreen-btn:hover {
+    background: rgba(37, 99, 235, 0.14);
+    border-color: rgba(37, 99, 235, 0.35);
 }
 
-.kpi-viewer-image-wrap:hover .kpi-viewer-image {
-    box-shadow:
-        0 2px 2px rgba(0, 0, 0, 0.1),
-        0 4px 8px rgba(0, 0, 0, 0.08),
-        0 16px 36px rgba(0, 0, 0, 0.14),
-        6px 12px 32px rgba(0, 0, 0, 0.1);
+.kpi-viewer-fullscreen-btn svg {
+    flex-shrink: 0;
 }
 
-/* ===== 전체화면 라이트박스 ===== */
+/* ===== 모아보기 라이트박스 팝업 ===== */
 .kpi-lightbox-overlay {
     position: fixed;
     inset: 0;
@@ -2034,21 +2059,14 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    animation: kpi-lightbox-in 0.28s cubic-bezier(0.34, 1.2, 0.64, 1);
-    padding: 48px 32px 32px 32px;
+    animation: kpi-lightbox-in 0.25s cubic-bezier(0.34, 1.2, 0.64, 1);
+    padding: 56px 32px 40px 32px;
     box-sizing: border-box;
 }
 
 @keyframes kpi-lightbox-in {
-    from {
-        opacity: 0;
-        backdrop-filter: blur(0px);
-    }
-
-    to {
-        opacity: 1;
-        backdrop-filter: blur(12px);
-    }
+    from { opacity: 0; }
+    to   { opacity: 1; }
 }
 
 .kpi-lightbox-close {
@@ -2082,19 +2100,12 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    animation: kpi-lightbox-img-in 0.32s cubic-bezier(0.34, 1.2, 0.64, 1);
+    animation: kpi-lightbox-img-in 0.3s cubic-bezier(0.34, 1.2, 0.64, 1);
 }
 
 @keyframes kpi-lightbox-img-in {
-    from {
-        opacity: 0;
-        transform: scale(0.92);
-    }
-
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
+    from { opacity: 0; transform: scale(0.93); }
+    to   { opacity: 1; transform: scale(1); }
 }
 
 .kpi-lightbox-image {
@@ -2103,7 +2114,7 @@
     width: auto;
     height: auto;
     object-fit: contain;
-    border-radius: 12px;
+    border-radius: 10px;
     box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6), 0 8px 24px rgba(0, 0, 0, 0.4);
     display: block;
     user-select: none;
@@ -2116,7 +2127,7 @@
     left: 50%;
     transform: translateX(-50%);
     font-size: 12px;
-    color: rgba(255, 255, 255, 0.35);
+    color: rgba(255, 255, 255, 0.32);
     font-weight: 400;
     letter-spacing: 0.01em;
     white-space: nowrap;
