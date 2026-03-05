@@ -1410,7 +1410,7 @@ function Dashboard() {
                                     const StatusIcon = statusInfo.icon;
 
                                     return (
-                                        <div key={task.id} className="milestone-row" onClick={() => handleRowClick(task)}>
+                                        <div key={task.id} className={`milestone-row row-status-${normalizedStatus}`} onClick={() => handleRowClick(task)}>
                                             <div className="milestone-status-cell">
                                                 <span className={`dashboard-table-status-badge ${normalizeStatus(task.status)}`}>
                                                     <StatusIcon size={14} />

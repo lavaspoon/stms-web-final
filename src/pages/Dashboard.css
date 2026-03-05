@@ -1113,8 +1113,8 @@
 
 /* 과제명 컬럼 */
 .dashboard-table-task-name {
-    min-width: 300px;
-    max-width: 500px;
+    min-width: 220px;
+    max-width: 380px;
     text-align: left;
     /* 과제명은 왼쪽 정렬 유지 */
     overflow: visible;
@@ -1270,7 +1270,7 @@
 /* 목표/실적 컬럼 */
 .dashboard-table-target,
 .dashboard-table-actual {
-    width: 110px;
+    width: 160px;
     text-align: center;
     font-variant-numeric: tabular-nums;
 }
@@ -1658,8 +1658,8 @@
     }
 
     .dashboard-table-task-name {
-        min-width: 200px;
-        max-width: 300px;
+        min-width: 160px;
+        max-width: 240px;
     }
 
     .task-name {
@@ -2310,6 +2310,24 @@
     align-items: center;
     overflow: visible;
     gap: 24px;
+    position: relative;
+}
+
+/* 마일스톤 행 좌측 상태 색상 라인 (테이블 뷰와 동일) */
+.milestone-row.row-status-inProgress {
+    box-shadow: inset 3px 0 0 #3b82f6;
+}
+
+.milestone-row.row-status-completed {
+    box-shadow: inset 3px 0 0 #10b981;
+}
+
+.milestone-row.row-status-delayed {
+    box-shadow: inset 3px 0 0 #ef4444;
+}
+
+.milestone-row.row-status-stopped {
+    box-shadow: inset 3px 0 0 #9ca3af;
 }
 
 .milestone-status-cell {

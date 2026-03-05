@@ -800,11 +800,6 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
             return;
         }
 
-        if (!formData.activityContent.trim()) {
-            alert('활동내역을 입력해주세요.');
-            return;
-        }
-
         // 평가기준 확인
         const evaluationType = task?.performance?.evaluation || task?.performanceOriginal?.evaluation || task?.evaluationType || '';
         const isQuantitative = evaluationType === 'quantitative' || evaluationType === '정량';
@@ -869,7 +864,6 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
             setUploadingFiles([]);
 
             alert('활동내역이 성공적으로 저장되었습니다.');
-            onClose();
         } catch (error) {
             console.error('저장 실패:', error);
             const errorMessage = error.response?.data?.message || error.message || '저장 중 오류가 발생했습니다.';
@@ -942,20 +936,19 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     const isReverse = task?.reverseYn === 'Y'; // 역계산 여부
 
     if (taskMetric === 'percent') {
-        // % 기준: 입력한 실적 %가 바로 누적 실적
+        // % 기준: 입력한 실적 %가 바로 현재 실적
         actualValue = currentMonthActualValue || 0;
         // 목표 대비 입력한 실적 %를 기준으로 달성률 계산
-        if (targetValue > 0 && actualValue >= 0) {
+        if (targetValue > 0) {
             if (isReverse) {
-                // 역계산: (1 - 실적값 / 목표값) * 100
-                calculatedAchievement = Math.max(0, (1 - actualValue / targetValue) * 100);
+                // 역계산: 목표값 / 실적값 * 100 (실적이 낮을수록 달성률이 높아짐)
+                calculatedAchievement = actualValue > 0 ? (targetValue / actualValue) * 100 : 0;
             } else {
                 calculatedAchievement = (actualValue / targetValue) * 100;
             }
         }
     } else {
         // 건수, 금액 기준: 현재 입력값 + 다른 월 실적 합계
-        // 현재 입력 중인 월을 제외한 다른 월들의 실적 합계
         const currentInputMonth = isReadOnly ? viewingMonth : inputMonth;
         const otherMonthsSum = monthlyActualValues
             .filter(item => item.month !== currentInputMonth)
@@ -963,10 +956,10 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
         // 현재 입력값 + 다른 월 실적 합계 = 누적 실적 (실시간 반영)
         actualValue = currentMonthActualValue + otherMonthsSum;
         // 누적 실적 대비 목표 달성률 계산
-        if (targetValue > 0 && actualValue >= 0) {
+        if (targetValue > 0) {
             if (isReverse) {
-                // 역계산: (1 - 실적값 / 목표값) * 100
-                calculatedAchievement = Math.max(0, (1 - actualValue / targetValue) * 100);
+                // 역계산: 목표값 / 실적값 * 100 (실적이 낮을수록 달성률이 높아짐)
+                calculatedAchievement = actualValue > 0 ? (targetValue / actualValue) * 100 : 0;
             } else {
                 calculatedAchievement = (actualValue / targetValue) * 100;
             }
@@ -1445,7 +1438,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                     </div>
                                 ) : (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                        <h3>활동내역 입력 (필수)</h3>
+                                        <h3>활동내역 입력</h3>
                                         <div className="month-navigation-inline">
                                             <button
                                                 type="button"
@@ -1491,7 +1484,6 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                     onChange={handleChange}
                                     placeholder={isReadOnly ? "활동내역이 없습니다" : `${inputMonth}월 진행한 활동내역을 입력하세요`}
                                     rows="10"
-                                    required={!isReadOnly}
                                     disabled={isReadOnly}
                                     readOnly={isReadOnly}
                                     className="activity-main-textarea"
@@ -1807,7 +1799,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                 {taskMetric === 'percent' ? (
                                     // % 기준: 누적 실적 입력창
                                     <div className="performance-actual-compact">
-                                        <span className="performance-actual-label-compact">누적 실적</span>
+                                        <span className="performance-actual-label-compact">{isReadOnly ? viewingMonth : inputMonth}월 누적 실적</span>
                                         {isReadOnly ? (
                                             <span className="performance-actual-value-compact">{actualValue ? parseFloat(actualValue).toLocaleString() : '0'}{metricUnit}</span>
                                         ) : (
@@ -1875,12 +1867,12 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
 
                                 {/* 달성률 박스 */}
                                 <div className="performance-achievement-compact">
-                                    <span className="performance-achievement-label-compact">누적 달성률</span>
+                                    <span className="performance-achievement-label-compact">{isReadOnly ? viewingMonth : inputMonth}월 달성률</span>
                                     <span
                                         className="performance-achievement-value-compact"
                                         style={{ color: progressColor }}
                                     >
-                                        {calculatedAchievement.toFixed(1)}%
+                                        {calculatedAchievement.toFixed(2)}%
                                     </span>
                                 </div>
 

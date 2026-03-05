@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, User, Target, TrendingUp, ChevronRight, ChevronDown, Search } from 'lucide-react';
 import { getAllDepts, getDeptMembers, getAllMembers } from '../api/deptApi';
-import { createTask, updateTask } from '../api/taskApi';
+import { createTask, updateTask, deleteTask } from '../api/taskApi';
 import './TaskRegisterModal.css';
 
 function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
@@ -30,6 +30,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
     const [managerSearchTerm, setManagerSearchTerm] = useState(''); // 구성원 검색어
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [deleting, setDeleting] = useState(false);
     const [expandedDepts, setExpandedDepts] = useState(new Set());
 
     // 부서 목록 조회
@@ -352,6 +353,26 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
             ...prev,
             managers: prev.managers.filter(m => m.userId !== userId)
         }));
+    };
+
+    const handleDelete = async () => {
+        if (!editData) return;
+        const confirmed = window.confirm(
+            `"${editData.name || editData.taskName}" 과제를 삭제하시겠습니까?\n삭제된 과제는 목록에서 더 이상 표시되지 않습니다.`
+        );
+        if (!confirmed) return;
+
+        setDeleting(true);
+        try {
+            await deleteTask(editData.id);
+            alert('과제가 삭제되었습니다.');
+            onClose(true);
+        } catch (error) {
+            console.error('과제 삭제 실패:', error);
+            alert('과제 삭제 중 오류가 발생했습니다. 다시 시도해주세요.');
+        } finally {
+            setDeleting(false);
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -915,15 +936,26 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
 
                     {/* 버튼 */}
                     <div className="form-actions">
-                        <button type="button" className="btn-cancel" onClick={onClose}>
-                            취소
-                        </button>
-                        <button type="submit" className="btn-submit" disabled={submitting}>
-                            {submitting
-                                ? (editData ? '수정 중...' : '등록 중...')
-                                : (editData ? '수정하기' : '등록하기')
-                            }
-                        </button>
+                        <div className="form-actions-left">
+                            {editData && (
+                                <button
+                                    type="button"
+                                    className="btn-delete"
+                                    onClick={handleDelete}
+                                    disabled={deleting || submitting}
+                                >
+                                    {deleting ? '삭제 중...' : '과제 삭제'}
+                                </button>
+                            )}
+                        </div>
+                        <div className="form-actions-right">
+                            <button type="submit" className="btn-submit" disabled={submitting || deleting}>
+                                {submitting
+                                    ? (editData ? '수정 중...' : '등록 중...')
+                                    : (editData ? '수정하기' : '등록하기')
+                                }
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>

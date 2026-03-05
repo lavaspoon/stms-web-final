@@ -457,7 +457,8 @@
 
 .form-actions {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
     gap: 10px;
     padding: 14px 20px;
     margin-top: 12px;
@@ -466,8 +467,20 @@
     border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
+.form-actions-left {
+    display: flex;
+    align-items: center;
+}
+
+.form-actions-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
 .btn-cancel,
-.btn-submit {
+.btn-submit,
+.btn-delete {
     padding: 8px 20px;
     border-radius: 6px;
     font-size: 14px;
@@ -503,6 +516,25 @@
     background: #9ca3af;
     cursor: not-allowed;
     opacity: 0.6;
+}
+
+.btn-delete {
+    background: rgba(239, 68, 68, 0.08);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.btn-delete:hover:not(:disabled) {
+    background: #ef4444;
+    color: white;
+    border-color: #ef4444;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+}
+
+.btn-delete:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 /* 진행상태 Select */

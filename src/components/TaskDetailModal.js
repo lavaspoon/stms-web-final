@@ -203,7 +203,7 @@ function TaskDetailModal({ isOpen, onClose, taskId }) {
     const isReverse = task?.reverseYn === 'Y';
     const totalAchievement = totalTarget > 0
         ? isReverse
-            ? Math.max(0, Math.round((1 - totalActual / totalTarget) * 100))
+            ? (totalActual > 0 ? Math.round((totalTarget / totalActual) * 100) : 0)
             : Math.round((totalActual / totalTarget) * 100)
         : 0;
 
@@ -211,8 +211,9 @@ function TaskDetailModal({ isOpen, onClose, taskId }) {
     const calcAchievementRate = (targetVal, actualVal) => {
         if (!targetVal || targetVal === 0) return 0;
         if (isReverse) {
-            // 역계산: (1 - 실적값 / 목표값) * 100
-            return Math.max(0, Math.round((1 - actualVal / targetVal) * 100));
+            // 역계산: 목표값 / 실적값 * 100 (실적이 낮을수록 달성률이 높아짐)
+            if (!actualVal || actualVal === 0) return 0;
+            return Math.round((targetVal / actualVal) * 100);
         }
         return Math.round((actualVal / targetVal) * 100);
     };

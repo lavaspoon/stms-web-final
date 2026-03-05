@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Login from './pages/Login';
+import AutoLogin from './pages/AutoLogin';
 import Dashboard from './pages/Dashboard';
 import OITasks from './pages/OITasks';
 import KeyTasks from './pages/KeyTasks';
@@ -28,6 +29,7 @@ function App() {
         <ScrollToTop />
         <Routes>
           <Route path="/" element={<Login />} />
+          <Route path="/auth" element={<AutoLogin />} />
           <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
           <Route path="/oi-tasks" element={<Layout><OITasks /></Layout>} />
           <Route path="/key-tasks" element={<Layout><KeyTasks /></Layout>} />

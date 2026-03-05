@@ -53,6 +53,7 @@ function OITasks() {
     // 테이블 헤더 필터 상태
     const [headerFilters, setHeaderFilters] = useState({
         status: [],
+        category1: [],
         evaluation: [],
         dept: []
     });
@@ -330,12 +331,13 @@ function OITasks() {
 
     // 모든 필터 초기화
     const clearAllFilters = () => {
-        setHeaderFilters({ status: [], evaluation: [], dept: [] });
+        setHeaderFilters({ status: [], category1: [], evaluation: [], dept: [] });
     };
 
     // 필터 적용 여부 확인
     const hasActiveFilters = () => {
         return headerFilters.status.length > 0 ||
+            headerFilters.category1.length > 0 ||
             headerFilters.evaluation.length > 0 ||
             headerFilters.dept.length > 0;
     };
@@ -596,10 +598,20 @@ function OITasks() {
         return Array.from(deptSet).sort();
     };
 
+    // 대주제(category1) 옵션 목록 추출
+    const allCategory1Options = [...new Set(
+        tasks.map(t => t.category1).filter(c => c && c !== '-')
+    )].sort((a, b) => a.localeCompare(b, 'ko'));
+
     // 필터링된 과제 목록 (정밀하게)
     // API에서 이미 사용자별 과제만 반환하므로, 상태 및 검색어 필터링만 수행
     const filteredTasks = tasks
         .filter(task => {
+            // 헤더 필터: 대주제
+            if (headerFilters.category1.length > 0) {
+                if (!headerFilters.category1.includes(task.category1)) return false;
+            }
+
             // 헤더 필터: 상태
             if (headerFilters.status.length > 0) {
                 const normalizedTaskStatus = normalizeStatus(task.status);
@@ -911,12 +923,65 @@ function OITasks() {
                                     </div>
                                 </th>
                                 <th>
-                                    <span
-                                        className="sortable-header"
-                                        onClick={() => handleSort('name')}
-                                    >
-                                        과제명
-                                    </span>
+                                    <div className="table-header-filter">
+                                        <span
+                                            className="sortable-header"
+                                            onClick={() => handleSort('name')}
+                                        >
+                                            과제명
+                                        </span>
+                                        <button
+                                            ref={el => filterButtonRefs.current['category1'] = el}
+                                            className={`filter-icon-btn ${headerFilters.category1.length > 0 ? 'active' : ''}`}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleFilterDropdown('category1', e);
+                                            }}
+                                        >
+                                            <Filter size={14} />
+                                            {headerFilters.category1.length > 0 && (
+                                                <span className="filter-count">{headerFilters.category1.length}</span>
+                                            )}
+                                        </button>
+                                        {activeFilterDropdown === 'category1' && (
+                                            <div
+                                                className="filter-dropdown filter-dropdown-wide"
+                                                ref={filterDropdownRef}
+                                                style={{
+                                                    top: `${dropdownPosition.top}px`,
+                                                    left: `${dropdownPosition.left}px`,
+                                                    transform: 'translateX(-50%)'
+                                                }}
+                                            >
+                                                <div className="filter-dropdown-header">
+                                                    <span>대주제 필터</span>
+                                                    {headerFilters.category1.length > 0 && (
+                                                        <button
+                                                            className="filter-clear-btn"
+                                                            onClick={() => clearFilter('category1')}
+                                                        >
+                                                            <X size={12} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <div className="filter-options">
+                                                    {allCategory1Options.map(cat => (
+                                                        <label key={cat} className="filter-option">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={headerFilters.category1.includes(cat)}
+                                                                onChange={() => toggleFilterOption('category1', cat)}
+                                                            />
+                                                            <span>{cat}</span>
+                                                        </label>
+                                                    ))}
+                                                    {allCategory1Options.length === 0 && (
+                                                        <div className="filter-empty">대주제 정보가 없습니다</div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 </th>
                                 <th>
                                     <div className="table-header-filter">
