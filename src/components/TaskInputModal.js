@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, FileText, TrendingUp, Calendar, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Sparkles, CheckCircle, Wand2, Clock, AlertCircle, XCircle, Upload, Download, Trash2, Paperclip } from 'lucide-react';
-import { inputTaskActivity, getTaskActivity, getAllPreviousActivities, uploadActivityFile, getActivityFiles, downloadActivityFile, deleteActivityFile, getMonthlyActualValues } from '../api/taskApi';
+import { getTask, getTaskActivity, getAllPreviousActivities, uploadActivityFile, getActivityFiles, downloadActivityFile, deleteActivityFile, getMonthlyActualValues } from '../api/taskApi';
 import { checkSpelling, improveContext, generateCustomReport } from '../api/aiApi';
 import { formatDate } from '../utils/dateUtils';
+import { calcAchievementRate } from '../utils/achievementRate';
 import useUserStore from '../store/userStore';
 import './TaskInputModal.css';
 import axios from "axios";
@@ -32,6 +33,12 @@ const formatDateTime = (dateString) => {
 function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     const { user } = useUserStore();
     const isAdmin = user?.role === '관리자' || user?.role === '매니저';
+
+    // 저장 후 바로 반영용 (task는 prop이라 부모가 갱신 전까지 오래된 값일 수 있음)
+    const [taskData, setTaskData] = useState(null);
+    useEffect(() => {
+        setTaskData(task || null);
+    }, [task]);
 
     // 담당자 여부 확인
     const isTaskManager = () => {
@@ -73,9 +80,6 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
 
     // 입력 모드용 선택한 월 상태 (담당자가 입력할 월)
     const [inputMonth, setInputMonth] = useState(currentMonth);
-
-    // 각 월별로 입력 중인 데이터를 임시 저장 (키: "year-month", 값: formData)
-    const [monthlyInputCache, setMonthlyInputCache] = useState({});
 
     // 활동내역 입력 시간 상태
     const [activityUpdatedAt, setActivityUpdatedAt] = useState(null);
@@ -136,7 +140,6 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
             setViewingMonth(currentMonth);
             setInputMonth(currentMonth);
             setMonthlyActualValues([]);
-            setMonthlyInputCache({}); // 캐시도 초기화
             setActivityUpdatedAt(null);
             setSelectedFiles([]); // 선택된 파일 목록 초기화
             setUploadingFiles([]); // 업로드 중인 파일 목록 초기화
@@ -289,10 +292,11 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                             setFiles([]);
                         }
                     } else {
+                        const defaultVal = (taskMetric === 'count' || taskMetric === 'amount') ? '0' : '';
                         const emptyFormData = {
                             activityContent: '',
                             status: task.status || 'inProgress',
-                            actualValue: ''
+                            actualValue: defaultVal
                         };
                         setFormData(emptyFormData);
                         formDataRef.current = emptyFormData; // ref 업데이트
@@ -303,10 +307,11 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                     }
                 } catch (error) {
                     console.error('활동내역 조회 실패:', error);
+                    const defaultVal = (taskMetric === 'count' || taskMetric === 'amount') ? '0' : '';
                     const emptyFormData = {
                         activityContent: '',
                         status: task.status || 'inProgress',
-                        actualValue: ''
+                        actualValue: defaultVal
                     };
                     setFormData(emptyFormData);
                     formDataRef.current = emptyFormData; // ref 업데이트
@@ -338,36 +343,9 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                 try {
                     setLoading(true);
 
-                    // 먼저 캐시에서 해당 월의 입력 데이터 확인
-                    const cacheKey = `${currentYear}-${inputMonth}`;
-                    const cachedData = monthlyInputCache[cacheKey];
-
-                    // 서버에서 데이터 로드
                     const data = await getTaskActivity(task.id, currentYear, inputMonth);
 
-                    // 캐시된 데이터가 있고, 서버 데이터와 activityId가 같거나 서버에 데이터가 없는 경우 캐시 사용
-                    // (서버에 저장된 최신 데이터가 있으면 서버 데이터 우선)
-                    if (cachedData && (!data || !data.activityId || data.activityId === cachedData.activityId)) {
-                        // 캐시된 데이터 사용
-                        const cachedFormData = {
-                            activityContent: cachedData.activityContent || '',
-                            status: cachedData.status || task.status || 'inProgress',
-                            actualValue: cachedData.actualValue || ''
-                        };
-                        setFormData(cachedFormData);
-                        formDataRef.current = cachedFormData; // ref 업데이트
-                        setCurrentActivityId(cachedData.activityId || null);
-                        currentActivityIdRef.current = cachedData.activityId || null; // ref 업데이트
-                        // 캐시에는 시간 정보가 없으므로 null로 설정
-                        setActivityUpdatedAt(null);
-
-                        // 파일 목록 로드 (activityId가 있으면)
-                        if (cachedData.activityId) {
-                            await loadFiles(cachedData.activityId);
-                        } else {
-                            setFiles([]);
-                        }
-                    } else if (data) {
+                    if (data) {
                         // 서버 데이터 사용
                         // 월별 실적값 사용 (백엔드에서 월별로 저장된 값 반환)
                         // 소수점 유지를 위해 숫자 값을 그대로 문자열로 변환
@@ -434,34 +412,18 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                     }
                 } catch (error) {
                     console.error('활동내역 조회 실패:', error);
-                    // 에러 발생 시 캐시 확인
-                    const cacheKey = `${currentYear}-${inputMonth}`;
-                    const cachedData = monthlyInputCache[cacheKey];
-                    if (cachedData) {
-                        const cachedFormData = {
-                            activityContent: cachedData.activityContent || '',
-                            status: cachedData.status || task.status || 'inProgress',
-                            actualValue: cachedData.actualValue || ''
-                        };
-                        setFormData(cachedFormData);
-                        formDataRef.current = cachedFormData; // ref 업데이트
-                        setCurrentActivityId(cachedData.activityId || null);
-                        currentActivityIdRef.current = cachedData.activityId || null; // ref 업데이트
-                        setActivityUpdatedAt(null);
-                        setFiles([]);
-                    } else {
-                        const emptyFormData = {
-                            activityContent: '',
-                            status: task.status || 'inProgress',
-                            actualValue: ''
-                        };
-                        setFormData(emptyFormData);
-                        formDataRef.current = emptyFormData; // ref 업데이트
-                        setCurrentActivityId(null);
-                        currentActivityIdRef.current = null; // ref 업데이트
-                        setActivityUpdatedAt(null);
-                        setFiles([]);
-                    }
+                    const defaultVal = (taskMetric === 'count' || taskMetric === 'amount') ? '0' : '';
+                    const emptyFormData = {
+                        activityContent: '',
+                        status: task.status || 'inProgress',
+                        actualValue: defaultVal
+                    };
+                    setFormData(emptyFormData);
+                    formDataRef.current = emptyFormData; // ref 업데이트
+                    setCurrentActivityId(null);
+                    currentActivityIdRef.current = null; // ref 업데이트
+                    setActivityUpdatedAt(null);
+                    setFiles([]);
                 } finally {
                     setLoading(false);
                 }
@@ -487,17 +449,6 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
 
     // 입력 모드에서 월 이동 함수
     const handleInputMonthChange = (direction) => {
-        // 현재 입력 중인 데이터를 캐시에 저장 (ref를 사용하여 최신 값 보장)
-        const currentCacheKey = `${currentYear}-${inputMonth}`;
-        setMonthlyInputCache(prev => ({
-            ...prev,
-            [currentCacheKey]: {
-                ...formDataRef.current,
-                activityId: currentActivityIdRef.current
-            }
-        }));
-
-        // 월 변경
         if (direction === 'prev') {
             setInputMonth(prev => {
                 if (prev === 1) return 12;
@@ -800,6 +751,29 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
             return;
         }
 
+        // 저장하려는 달의 이전 달 데이터 존재 여부 확인 (과제 첫달은 예외)
+        const taskStart = task?.startDate ? new Date(task.startDate) : null;
+        const taskFirstYear = taskStart ? taskStart.getFullYear() : null;
+        const taskFirstMonth = taskStart ? taskStart.getMonth() + 1 : null;
+        const isTaskFirstMonth = taskFirstYear != null && taskFirstMonth != null &&
+            currentYear === taskFirstYear && inputMonth === taskFirstMonth;
+
+        if (!isTaskFirstMonth) {
+            const prevMonth = inputMonth === 1 ? 12 : inputMonth - 1;
+            const prevYear = inputMonth === 1 ? currentYear - 1 : currentYear;
+            try {
+                const prevData = await getTaskActivity(task.id, prevYear, prevMonth);
+                if (!prevData || !prevData.activityId) {
+                    alert(`${prevYear}년 ${prevMonth}월 활동내역을 먼저 입력해 주세요.`);
+                    return;
+                }
+            } catch (err) {
+                console.error('이전 달 활동내역 조회 실패:', err);
+                alert('이전 달 데이터 확인 중 오류가 발생했습니다.');
+                return;
+            }
+        }
+
         // 평가기준 확인
         const evaluationType = task?.performance?.evaluation || task?.performanceOriginal?.evaluation || task?.evaluationType || '';
         const isQuantitative = evaluationType === 'quantitative' || evaluationType === '정량';
@@ -810,8 +784,11 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
             // FormData 생성 (파일 포함)
             const formDataToSend = new FormData();
             formDataToSend.append('activityContent', formData.activityContent);
-            if (isQuantitative && formData.actualValue) {
-                formDataToSend.append('actualValue', formData.actualValue);
+            if (isQuantitative) {
+                const val = (taskMetric === 'count' || taskMetric === 'amount')
+                    ? (formData.actualValue !== '' && formData.actualValue != null ? formData.actualValue : '0')
+                    : formData.actualValue;
+                if (val !== '' && val != null) formDataToSend.append('actualValue', val);
             }
             if (formData.status) {
                 formDataToSend.append('status', formData.status);
@@ -844,19 +821,15 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                 await loadFiles(response.data.activityId);
             }
 
-            // 저장된 데이터로 캐시 업데이트
-            const cacheKey = `${currentYear}-${inputMonth}`;
-            setMonthlyInputCache(prev => ({
-                ...prev,
-                [cacheKey]: {
-                    ...formData,
-                    activityId: response.data?.activityId || currentActivityId
-                }
-            }));
-
-            // 월별 실적값 다시 로드 (그래프 업데이트)
+            // 저장 직후 반영: 과제 최신 정보 + 월별 실적 (누적/달성률 표시 갱신)
             if (evaluationType === 'quantitative' || evaluationType === '정량') {
                 await loadMonthlyActualValues();
+            }
+            try {
+                const updatedTask = await getTask(task.id);
+                setTaskData(updatedTask);
+            } catch (err) {
+                console.error('저장 후 과제 정보 갱신 실패:', err);
             }
 
             // 선택된 파일 목록 초기화
@@ -924,49 +897,30 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     console.log('TaskInputModal - metricUnit:', metricUnit);
     console.log('TaskInputModal - metricLabel:', metricLabel);
 
+    // 저장 직후 반영용 (taskData가 있으면 우선 사용)
+    const effectiveTask = taskData ?? task;
     // 목표값과 실적값
-    // 목표값은 task에서 가져오고, 실적값은 월별로 저장된 값(formData.actualValue)을 우선 사용
-    const targetValue = task?.targetValue != null && task.targetValue !== 0 ? parseFloat(task.targetValue) : 0;
-    // 월별 실적값이 있으면 사용, 없으면 task의 실적값 사용 (호환성)
+    const targetValue = effectiveTask?.targetValue != null && effectiveTask.targetValue !== 0 ? parseFloat(effectiveTask.targetValue) : 0;
     const currentMonthActualValue = formData.actualValue ? parseFloat(formData.actualValue) : 0;
 
     // 평가 기준에 따라 실적값과 달성률 계산 (실시간 반영)
-    let actualValue = 0; // 표시할 실적값
-    let calculatedAchievement = 0; // 계산된 달성률
-    const isReverse = task?.reverseYn === 'Y'; // 역계산 여부
+    let actualValue = 0;
+    let calculatedAchievement = 0;
+    const isReverse = task?.reverseYn === 'Y';
 
     if (taskMetric === 'percent') {
-        // % 기준: 입력한 실적 %가 바로 현재 실적
         actualValue = currentMonthActualValue || 0;
-        // 목표 대비 입력한 실적 %를 기준으로 달성률 계산
-        if (targetValue > 0) {
-            if (isReverse) {
-                // 역계산: 목표값 / 실적값 * 100 (실적이 낮을수록 달성률이 높아짐)
-                calculatedAchievement = actualValue > 0 ? (targetValue / actualValue) * 100 : 0;
-            } else {
-                calculatedAchievement = (actualValue / targetValue) * 100;
-            }
-        }
+        calculatedAchievement = calcAchievementRate(targetValue, actualValue, isReverse, false);
     } else {
-        // 건수, 금액 기준: 현재 입력값 + 다른 월 실적 합계
         const currentInputMonth = isReadOnly ? viewingMonth : inputMonth;
         const otherMonthsSum = monthlyActualValues
             .filter(item => item.month !== currentInputMonth)
             .reduce((sum, item) => sum + (item.actualValue || 0), 0);
-        // 현재 입력값 + 다른 월 실적 합계 = 누적 실적 (실시간 반영)
         actualValue = currentMonthActualValue + otherMonthsSum;
-        // 누적 실적 대비 목표 달성률 계산
-        if (targetValue > 0) {
-            if (isReverse) {
-                // 역계산: 목표값 / 실적값 * 100 (실적이 낮을수록 달성률이 높아짐)
-                calculatedAchievement = actualValue > 0 ? (targetValue / actualValue) * 100 : 0;
-            } else {
-                calculatedAchievement = (actualValue / targetValue) * 100;
-            }
-        }
+        calculatedAchievement = calcAchievementRate(targetValue, actualValue, isReverse, false);
     }
 
-    const achievement = task?.achievement != null ? parseFloat(task.achievement) : 0;
+    const achievement = effectiveTask?.achievement != null ? parseFloat(effectiveTask.achievement) : 0;
 
     // 달성률에 따라 색상 계산 (0-100%에 따라 파란색에서 초록색으로 점진적 변화)
     const getProgressColor = (achievement) => {
@@ -1071,61 +1025,28 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
         );
     };
 
-    // 월별 실적 그래프 컴포넌트
+    // 월별 실적 그래프 컴포넌트 - 1월~12월 범례 유지, 활동내역 있는 달까지만 선 연결
     const MonthlyLineChart = ({ data, color, targetValue: chartTargetValue, metricUnit: chartMetricUnit, isPercent, currentInputMonth, currentInputValue }) => {
-        if (!data || data.length === 0) {
-            // 데이터가 없으면 현재 입력 중인 값만 표시
-            if (currentInputValue && currentInputValue > 0) {
-                const singleData = [{ month: currentInputMonth, actualValue: currentInputValue, year: currentYear }];
-                return renderChart(singleData, color, chartTargetValue, chartMetricUnit, isPercent, currentInputMonth, currentInputValue);
-            }
-            return null;
-        }
-
-        // 처음 입력한 달 찾기 (가장 이른 년월)
-        const sortedByDate = [...data].sort((a, b) => {
-            if (a.year !== b.year) return a.year - b.year;
-            return a.month - b.month;
-        });
-        const firstMonth = sortedByDate.length > 0 ? sortedByDate[0] : null;
-
-        if (!firstMonth) return null;
-
-        // 처음 입력한 달부터 12개월 데이터 생성
-        const startMonth = firstMonth.month;
-        const startYear = firstMonth.year;
-        const processedData = [];
-
-        // 현재 입력 중인 값도 포함
-        const dataWithCurrent = [...data];
+        const dataWithCurrent = [...(data || [])];
         if (currentInputValue != null && currentInputValue !== '' && !isReadOnly) {
             const currentValue = parseFloat(currentInputValue) || 0;
             const existingIndex = dataWithCurrent.findIndex(d => d.month === currentInputMonth && d.year === currentYear);
             if (existingIndex >= 0) {
                 dataWithCurrent[existingIndex] = { ...dataWithCurrent[existingIndex], actualValue: currentValue };
-            } else {
+            } else if (currentValue > 0) {
                 dataWithCurrent.push({ month: currentInputMonth, year: currentYear, actualValue: currentValue });
             }
         }
 
-        // 처음 입력한 달부터 12개월 생성 (모든 달 표시)
-        for (let i = 0; i < 12; i++) {
-            const targetMonth = startMonth + i;
-            let month = targetMonth;
-            let year = startYear;
-
-            // 12월을 넘어가면 다음 해 1월로
-            while (month > 12) {
-                month -= 12;
-                year += 1;
-            }
-
-            const monthData = dataWithCurrent.find(d => d.month === month && d.year === year);
+        // 1월~12월 고정 (현재 연도 기준)
+        const processedData = [];
+        for (let month = 1; month <= 12; month++) {
+            const monthData = dataWithCurrent.find(d => d.month === month && d.year === currentYear);
+            const hasSavedData = !!(data || []).find(d => d.month === month && d.year === currentYear);
             if (monthData && monthData.actualValue != null) {
-                processedData.push({ ...monthData, actualValue: monthData.actualValue });
+                processedData.push({ ...monthData, actualValue: monthData.actualValue, hasSavedData });
             } else {
-                // 활동내역이 없으면 0으로 표시
-                processedData.push({ month, year, actualValue: 0 });
+                processedData.push({ month, year: currentYear, actualValue: 0, hasSavedData: false });
             }
         }
 
@@ -1136,7 +1057,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     const renderChart = (processedData, color, chartTargetValue, chartMetricUnit, isPercent, currentInputMonth, currentInputValue) => {
         const width = 280;
         const height = 85;
-        const padding = { top: 18, right: 5, bottom: 30, left: 5 };
+        const padding = { top: 20, right: 18, bottom: 28, left: 18 };
         const chartWidth = width - padding.left - padding.right;
         const chartHeight = height - padding.top - padding.bottom;
 
@@ -1153,27 +1074,23 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
         const points = normalizedData.map((d, index) => {
             const x = padding.left + (index / (normalizedData.length - 1 || 1)) * chartWidth;
             const y = padding.top + chartHeight - (d.normalized * chartHeight);
-            // 목표치 달성 여부 확인
             const isAchieved = chartTargetValue > 0 && d.actualValue >= chartTargetValue;
-            // 미래 달 여부 확인
             const year = d.year || currentYear;
             const isFuture = year > currentYear || (year === currentYear && d.month > currentMonth);
-            return { x, y, value: d.actualValue, month: d.month, year: d.year || currentYear, isAchieved, isFuture };
+            const hasSavedData = d.hasSavedData !== false;
+            return { x, y, value: d.actualValue, month: d.month, year: d.year || currentYear, isAchieved, isFuture, hasSavedData, index };
         });
 
-        // 경로 생성 (꺾은선) - 현재 달까지만 선 연결
-        const pathData = points
-            .filter((point, index) => {
-                // 첫 번째 점은 항상 포함
-                if (index === 0) return true;
-                // 이전 점이 미래가 아니고 현재 점도 미래가 아닐 때만 선 연결
-                const prevPoint = points[index - 1];
-                return !prevPoint.isFuture && !point.isFuture;
-            })
-            .map((point, index) => {
-                return `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`;
-            })
-            .join(' ');
+        // 경로 생성 - 저장된 월만 선 연결 (저장되지 않은 월은 선 끊김)
+        const pathParts = [];
+        for (let i = 0; i < points.length; i++) {
+            const point = points[i];
+            const prevPoint = i > 0 ? points[i - 1] : null;
+            if (!point.hasSavedData) continue;
+            const canConnect = prevPoint?.hasSavedData && !prevPoint.isFuture && !point.isFuture;
+            pathParts.push(canConnect ? `L ${point.x} ${point.y}` : `M ${point.x} ${point.y}`);
+        }
+        const pathData = pathParts.join(' ');
 
         // 월 이름 배열
         const monthNames = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
@@ -1191,25 +1108,35 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                             </linearGradient>
                         </defs>
 
-                        {/* 영역 채우기 - 현재 달까지만 */}
+                        {/* 영역 채우기 - 저장된 월만, 현재 달까지만 */}
                         {(() => {
-                            // 현재 달 이하의 마지막 점 찾기
-                            let lastCurrentPoint = null;
-                            for (let i = points.length - 1; i >= 0; i--) {
-                                if (!points[i].isFuture) {
-                                    lastCurrentPoint = points[i];
-                                    break;
+                            const savedPoints = points.filter(p => p.hasSavedData && !p.isFuture);
+                            if (savedPoints.length === 0) return null;
+                            const segments = [];
+                            let seg = [];
+                            for (const p of savedPoints) {
+                                const prev = seg[seg.length - 1];
+                                const prevIdx = prev ? points.findIndex(x => x === prev) : -1;
+                                const currIdx = points.indexOf(p);
+                                if (seg.length === 0 || currIdx === prevIdx + 1) {
+                                    seg.push(p);
+                                } else {
+                                    if (seg.length > 0) segments.push(seg);
+                                    seg = [p];
                                 }
                             }
-                            if (lastCurrentPoint) {
+                            if (seg.length > 0) segments.push(seg);
+                            return segments.map((pts, si) => {
+                                const first = pts[0], last = pts[pts.length - 1];
+                                const segPath = pts.map((pt, i) => (i === 0 ? 'M' : 'L') + ` ${pt.x} ${pt.y}`).join(' ');
                                 return (
                                     <path
-                                        d={`${pathData} L ${lastCurrentPoint.x} ${height - padding.bottom} L ${padding.left} ${height - padding.bottom} Z`}
+                                        key={si}
+                                        d={`${segPath} L ${last.x} ${height - padding.bottom} L ${first.x} ${height - padding.bottom} Z`}
                                         fill={`url(#lineGradient-${task?.id || 'default'})`}
                                     />
                                 );
-                            }
-                            return null;
+                            });
                         })()}
 
                         {/* 꺾은선 */}
@@ -1222,62 +1149,73 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                             strokeLinejoin="round"
                         />
 
-                        {/* 점 및 호버 영역 */}
-                        {points.map((point, index) => {
+                        {/* 1월~12월 범례 (항상 표시) + 점/호버 (저장된 월만) */}
+                        {points.map((point, idx) => {
+                            const index = point.index;
                             const monthName = `${point.year}년 ${point.month}월`;
                             const isHovered = hoveredPoint?.index === index;
 
                             return (
                                 <g key={index}>
-                                    {/* 호버 영역 (더 큰 원) */}
-                                    <circle
-                                        cx={point.x}
-                                        cy={point.y}
-                                        r="8"
-                                        fill="transparent"
-                                        onMouseEnter={() => setHoveredPoint({ index, ...point, monthName })}
-                                        style={{ cursor: 'pointer' }}
-                                    />
-
-                                    {/* 목표 달성 시 강조 원 */}
-                                    {point.isAchieved && (
-                                        <circle
-                                            cx={point.x}
-                                            cy={point.y}
-                                            r={isHovered ? "7" : "6"}
-                                            fill="rgba(16, 185, 129, 0.15)"
-                                            stroke="rgba(16, 185, 129, 0.3)"
-                                            strokeWidth="1.5"
-                                            style={{ transition: 'r 0.2s ease' }}
-                                        />
-                                    )}
-
-                                    {/* 점 */}
-                                    <circle
-                                        cx={point.x}
-                                        cy={point.y}
-                                        r={isHovered ? "4" : (point.isAchieved ? "3.5" : "2.5")}
-                                        fill={point.isAchieved ? "#10b981" : color}
-                                        stroke="white"
-                                        strokeWidth={isHovered ? "2" : (point.isAchieved ? "2" : "1")}
-                                        style={{ transition: 'r 0.2s ease' }}
-                                    />
-
-                                    {/* 목표 달성 체크마크 */}
-                                    {point.isAchieved && (
-                                        <g transform={`translate(${point.x}, ${point.y})`}>
-                                            <path
-                                                d="M -3.5 -0.5 L -1 2 L 3.5 -2.5"
-                                                stroke="white"
-                                                strokeWidth="1.8"
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                fill="none"
+                                    {/* 호버 영역·점·달성 표시 - 저장된 월만 */}
+                                    {point.hasSavedData && (
+                                        <>
+                                            <circle
+                                                cx={point.x}
+                                                cy={point.y}
+                                                r="8"
+                                                fill="transparent"
+                                                onMouseEnter={() => setHoveredPoint({ index, ...point, monthName })}
+                                                style={{ cursor: 'pointer' }}
                                             />
-                                        </g>
+                                            {point.isAchieved && (
+                                                <circle
+                                                    cx={point.x}
+                                                    cy={point.y}
+                                                    r={isHovered ? "7" : "6"}
+                                                    fill="rgba(16, 185, 129, 0.15)"
+                                                    stroke="rgba(16, 185, 129, 0.3)"
+                                                    strokeWidth="1.5"
+                                                    style={{ transition: 'r 0.2s ease' }}
+                                                />
+                                            )}
+                                            <circle
+                                                cx={point.x}
+                                                cy={point.y}
+                                                r={isHovered ? "4" : (point.isAchieved ? "3.5" : "2.5")}
+                                                fill={point.isAchieved ? "#10b981" : color}
+                                                stroke="white"
+                                                strokeWidth={isHovered ? "2" : (point.isAchieved ? "2" : "1")}
+                                                style={{ transition: 'r 0.2s ease' }}
+                                            />
+                                            {point.isAchieved && (
+                                                <g transform={`translate(${point.x}, ${point.y})`}>
+                                                    <path
+                                                        d="M -3.5 -0.5 L -1 2 L 3.5 -2.5"
+                                                        stroke="white"
+                                                        strokeWidth="1.8"
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        fill="none"
+                                                    />
+                                                </g>
+                                            )}
+                                            {point.isAchieved && (
+                                                <text
+                                                    x={point.x}
+                                                    y={height - padding.bottom + 24}
+                                                    fontSize="8"
+                                                    fill="#10b981"
+                                                    textAnchor="middle"
+                                                    fontWeight="700"
+                                                >
+                                                    달성
+                                                </text>
+                                            )}
+                                        </>
                                     )}
 
-                                    {/* 월 레이블 */}
+                                    {/* 월 레이블 - 1월~12월 항상 표시 */}
                                     <text
                                         x={point.x}
                                         y={height - padding.bottom + 12}
@@ -1288,20 +1226,6 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                     >
                                         {point.month}월
                                     </text>
-
-                                    {/* 달성 표시 */}
-                                    {point.isAchieved && (
-                                        <text
-                                            x={point.x}
-                                            y={height - padding.bottom + 24}
-                                            fontSize="8"
-                                            fill="#10b981"
-                                            textAnchor="middle"
-                                            fontWeight="700"
-                                        >
-                                            달성
-                                        </text>
-                                    )}
                                 </g>
                             );
                         })}
@@ -1797,9 +1721,9 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                             <div className="performance-compact-row">
                                 {/* 실적값 입력 - 평가 기준에 따라 다르게 표시 */}
                                 {taskMetric === 'percent' ? (
-                                    // % 기준: 누적 실적 입력창
-                                    <div className="performance-actual-compact">
-                                        <span className="performance-actual-label-compact">{isReadOnly ? viewingMonth : inputMonth}월 누적 실적</span>
+                                    // % 기준: 해당 월 실적 입력창
+                                    <div className="performance-row-box performance-actual-compact">
+                                        <span className="performance-actual-label-compact">{isReadOnly ? viewingMonth : inputMonth}월 실적</span>
                                         {isReadOnly ? (
                                             <span className="performance-actual-value-compact">{actualValue ? parseFloat(actualValue).toLocaleString() : '0'}{metricUnit}</span>
                                         ) : (
@@ -1821,8 +1745,8 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                         )}
                                     </div>
                                 ) : (
-                                    // 건수, 금액 기준: #월 실적 입력창
-                                    <div className="performance-actual-compact">
+                                    // 건수, 금액 기준: #월 실적 입력창만
+                                    <div className="performance-row-box performance-actual-compact">
                                         <span className="performance-actual-label-compact">{isReadOnly ? `${viewingMonth}월 실적` : `${inputMonth}월 실적`}</span>
                                         {isReadOnly ? (
                                             <span className="performance-actual-value-compact">{currentMonthActualValue ? parseFloat(currentMonthActualValue).toLocaleString() : '0'}{metricUnit}</span>
@@ -1831,7 +1755,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                                 <input
                                                     type="number"
                                                     name="actualValue"
-                                                    value={formData.actualValue || ''}
+                                                    value={formData.actualValue !== '' && formData.actualValue != null ? formData.actualValue : '0'}
                                                     onChange={handleChange}
                                                     placeholder="0"
                                                     step="1"
@@ -1846,34 +1770,22 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                     </div>
                                 )}
 
-                                {/* 누적 실적 / 목표 통합 표시 */}
-                                <div className="performance-target-actual-combined">
-                                    <div className="performance-combined-label">
-                                        누적 실적 / 목표
-                                        {task.targetDescription && task.targetDescription.trim() && (
-                                            <span className="target-description-inline">({task.targetDescription})</span>
+                                {/* 목표 + 현재 과제 달성률 통합 박스 */}
+                                <div className="performance-target-achievement-box">
+                                    <div className="performance-ta-section performance-ta-target">
+                                        <span className="performance-ta-label">목표</span>
+                                        <span className="performance-ta-target-value">{(targetValue != null ? Number(targetValue).toLocaleString() : '0')}{metricUnit}</span>
+                                        {effectiveTask?.targetDescription && String(effectiveTask.targetDescription).trim() && (
+                                            <span className="performance-ta-target-desc">{effectiveTask.targetDescription}</span>
                                         )}
                                     </div>
-                                    <div className="performance-combined-values">
-                                        <span className="performance-combined-actual" style={{ color: progressColor }}>
-                                            {actualValue ? parseFloat(actualValue).toLocaleString() : '0'}{metricUnit}
-                                        </span>
-                                        <span className="performance-combined-separator">/</span>
-                                        <span className="performance-combined-target">
-                                            {targetValue ? parseFloat(targetValue).toLocaleString() : '0'}{metricUnit}
+                                    <div className="performance-ta-divider" />
+                                    <div className="performance-ta-section performance-ta-achievement">
+                                        <span className="performance-ta-label">현재 과제 달성률</span>
+                                        <span className="performance-ta-achievement-value" style={{ color: progressColor }}>
+                                            {achievement != null ? Number(achievement).toFixed(1) : '0'}%
                                         </span>
                                     </div>
-                                </div>
-
-                                {/* 달성률 박스 */}
-                                <div className="performance-achievement-compact">
-                                    <span className="performance-achievement-label-compact">{isReadOnly ? viewingMonth : inputMonth}월 달성률</span>
-                                    <span
-                                        className="performance-achievement-value-compact"
-                                        style={{ color: progressColor }}
-                                    >
-                                        {calculatedAchievement.toFixed(2)}%
-                                    </span>
                                 </div>
 
                                 {/* 월별 실적 그래프 */}

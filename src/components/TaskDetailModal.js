@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, TrendingUp, Calendar, ChevronDown, ChevronUp, User, Building, Clock, Target, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getTask, getAllPreviousActivities, getYearlyGoals } from '../api/taskApi';
 import { formatDate } from '../utils/dateUtils';
+import { calcAchievementRate } from '../utils/achievementRate';
 import { ModalContentSkeleton, TableSkeleton } from './Skeleton';
 import './TaskDetailModal.css';
 
@@ -199,24 +200,8 @@ function TaskDetailModal({ isOpen, onClose, taskId }) {
     const totalTarget = yearlyGoals.reduce((sum, goal) => sum + goal.targetValue, 0);
     const totalActual = yearlyGoals.reduce((sum, goal) => sum + goal.actualValue, 0);
 
-    // 달성률 계산 (역계산 여부 반영)
     const isReverse = task?.reverseYn === 'Y';
-    const totalAchievement = totalTarget > 0
-        ? isReverse
-            ? (totalActual > 0 ? Math.round((totalTarget / totalActual) * 100) : 0)
-            : Math.round((totalActual / totalTarget) * 100)
-        : 0;
-
-    // 역계산 달성률 계산 함수 (월별 테이블용)
-    const calcAchievementRate = (targetVal, actualVal) => {
-        if (!targetVal || targetVal === 0) return 0;
-        if (isReverse) {
-            // 역계산: 목표값 / 실적값 * 100 (실적이 낮을수록 달성률이 높아짐)
-            if (!actualVal || actualVal === 0) return 0;
-            return Math.round((targetVal / actualVal) * 100);
-        }
-        return Math.round((actualVal / targetVal) * 100);
-    };
+    const totalAchievement = calcAchievementRate(totalTarget, totalActual, isReverse);
 
     // 담당자 부서 추출
     const getManagerDepts = (managers) => {
@@ -469,7 +454,7 @@ function TaskDetailModal({ isOpen, onClose, taskId }) {
                                                     <td className="row-header">달성률(%)</td>
                                                     {yearlyGoals.map((goal) => (
                                                         <td key={`achievement-${goal.month}`} className={goal.month === currentMonth ? 'current-month' : ''}>
-                                                            {calcAchievementRate(goal.targetValue, goal.actualValue)}%
+                                                            {calcAchievementRate(goal.targetValue, goal.actualValue, isReverse)}%
                                                         </td>
                                                     ))}
                                                     <td className="total-cell">

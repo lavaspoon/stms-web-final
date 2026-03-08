@@ -1340,7 +1340,7 @@ function KPITasks() {
                                                             className="dashboard-badge dashboard-badge-achievement"
                                                             title={task.reverseYn === 'Y' ? '역계산 과제: 실적이 목표보다 낮을수록 달성률이 높아집니다' : undefined}
                                                         >
-                                                            {task.achievement || 0}%
+                                                            {Number(task.achievement ?? 0).toFixed(1)}%
                                                         </span>
                                                     </div>
                                                 )}

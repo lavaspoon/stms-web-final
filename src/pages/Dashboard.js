@@ -43,6 +43,7 @@ function Dashboard() {
     // 테이블 헤더 필터 상태
     const [headerFilters, setHeaderFilters] = useState({
         status: [],
+        category1: [],
         evaluation: [],
         dept: []
     });
@@ -258,15 +259,21 @@ function Dashboard() {
 
     // 모든 필터 초기화
     const clearAllFilters = () => {
-        setHeaderFilters({ status: [], evaluation: [], dept: [] });
+        setHeaderFilters({ status: [], category1: [], evaluation: [], dept: [] });
     };
 
     // 필터 적용 여부 확인
     const hasActiveFilters = () => {
         return headerFilters.status.length > 0 ||
+            headerFilters.category1.length > 0 ||
             headerFilters.evaluation.length > 0 ||
             headerFilters.dept.length > 0;
     };
+
+    // 대주제(category1) 옵션 목록 추출
+    const allCategory1Options = [...new Set(
+        currentTasks.map(t => t.category1).filter(c => c && c !== '-')
+    )].sort((a, b) => a.localeCompare(b, 'ko'));
 
     // 모든 담당 본부 목록 추출
     const getAllDepts = () => {
@@ -305,6 +312,11 @@ function Dashboard() {
 
     // 필터링된 과제 목록
     const filteredTasks = currentTasks.filter(task => {
+        // 헤더 필터: 대주제
+        if (headerFilters.category1.length > 0) {
+            if (!headerFilters.category1.includes(task.category1)) return false;
+        }
+
         // 헤더 필터: 상태
         if (headerFilters.status.length > 0) {
             const normalizedTaskStatus = normalizeStatus(task.status);
@@ -479,7 +491,7 @@ function Dashboard() {
         const totalAchievement = quantitativeTasks.reduce((sum, task) => {
             return sum + (task.achievement || 0);
         }, 0);
-        averageAchievement = Math.round(totalAchievement / quantitativeTasks.length);
+        averageAchievement = Math.round(totalAchievement / quantitativeTasks.length * 10) / 10; /* 소수 첫째자리 */
     }
 
     // 최상위 본부별 통계 계산
@@ -592,7 +604,7 @@ function Dashboard() {
                                         onClick={() => setKpiImageFullscreen(true)}
                                         aria-label="모아보기"
                                     >
-                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3" /><path d="M21 8V5a2 2 0 0 0-2-2h-3" /><path d="M3 16v3a2 2 0 0 0 2 2h3" /><path d="M16 21h3a2 2 0 0 0 2-2v-3" /></svg>
                                         <span>원본 보기</span>
                                     </button>
                                 )}
@@ -633,7 +645,7 @@ function Dashboard() {
                                     onClick={(e) => { e.stopPropagation(); setKpiImageFullscreen(false); }}
                                     aria-label="닫기"
                                 >
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                                 </button>
                                 <div className="kpi-lightbox-content" onClick={(e) => e.stopPropagation()}>
                                     <img
@@ -658,7 +670,7 @@ function Dashboard() {
                                         <div className="average-achievement-card">
                                             <div className="average-achievement-content">
                                                 <div className="average-achievement-label">전체 평균 달성률</div>
-                                                <div className="average-achievement-value">{averageAchievement}%</div>
+                                                <div className="average-achievement-value">{Number(averageAchievement).toFixed(1)}%</div>
                                                 <div className="average-achievement-subtext">정량 평가 기준</div>
                                             </div>
                                         </div>
@@ -675,44 +687,44 @@ function Dashboard() {
                                             <div className="dept-stats-table-wrapper">
                                                 <table className="dept-stats-table">
                                                     <thead>
-                                                    <tr>
-                                                        <th className="th-dept">본부</th>
-                                                        <th className="th-total">전체</th>
-                                                        <th className="th-inprogress">진행</th>
-                                                        <th className="th-completed">완료</th>
-                                                        <th className="th-delayed">지연</th>
-                                                        <th className="th-stopped">중단</th>
-                                                    </tr>
+                                                        <tr>
+                                                            <th className="th-dept">본부</th>
+                                                            <th className="th-total">전체</th>
+                                                            <th className="th-inprogress">진행</th>
+                                                            <th className="th-completed">완료</th>
+                                                            <th className="th-delayed">지연</th>
+                                                            <th className="th-stopped">중단</th>
+                                                        </tr>
                                                     </thead>
                                                     <tbody>
-                                                    {sortedDeptStats.map((dept, idx) => (
-                                                        <tr key={dept.deptName} className={idx % 2 === 1 ? 'row-even' : ''}>
-                                                            <td className="dept-name-cell">{dept.deptName}</td>
-                                                            <td className="dept-stat-cell total">
-                                                                <span className="stat-badge stat-total">{dept.total}</span>
-                                                            </td>
-                                                            <td className="dept-stat-cell in-progress">
-                                                                {dept.inProgress > 0
-                                                                    ? <span className="stat-badge stat-inprogress">{dept.inProgress}</span>
-                                                                    : <span className="stat-zero">—</span>}
-                                                            </td>
-                                                            <td className="dept-stat-cell completed">
-                                                                {dept.completed > 0
-                                                                    ? <span className="stat-badge stat-completed">{dept.completed}</span>
-                                                                    : <span className="stat-zero">—</span>}
-                                                            </td>
-                                                            <td className="dept-stat-cell delayed">
-                                                                {dept.delayed > 0
-                                                                    ? <span className="stat-badge stat-delayed">{dept.delayed}</span>
-                                                                    : <span className="stat-zero">—</span>}
-                                                            </td>
-                                                            <td className="dept-stat-cell stopped">
-                                                                {dept.stopped > 0
-                                                                    ? <span className="stat-badge stat-stopped">{dept.stopped}</span>
-                                                                    : <span className="stat-zero">—</span>}
-                                                            </td>
-                                                        </tr>
-                                                    ))}
+                                                        {sortedDeptStats.map((dept, idx) => (
+                                                            <tr key={dept.deptName} className={idx % 2 === 1 ? 'row-even' : ''}>
+                                                                <td className="dept-name-cell">{dept.deptName}</td>
+                                                                <td className="dept-stat-cell total">
+                                                                    <span className="stat-badge stat-total">{dept.total}</span>
+                                                                </td>
+                                                                <td className="dept-stat-cell in-progress">
+                                                                    {dept.inProgress > 0
+                                                                        ? <span className="stat-badge stat-inprogress">{dept.inProgress}</span>
+                                                                        : <span className="stat-zero">—</span>}
+                                                                </td>
+                                                                <td className="dept-stat-cell completed">
+                                                                    {dept.completed > 0
+                                                                        ? <span className="stat-badge stat-completed">{dept.completed}</span>
+                                                                        : <span className="stat-zero">—</span>}
+                                                                </td>
+                                                                <td className="dept-stat-cell delayed">
+                                                                    {dept.delayed > 0
+                                                                        ? <span className="stat-badge stat-delayed">{dept.delayed}</span>
+                                                                        : <span className="stat-zero">—</span>}
+                                                                </td>
+                                                                <td className="dept-stat-cell stopped">
+                                                                    {dept.stopped > 0
+                                                                        ? <span className="stat-badge stat-stopped">{dept.stopped}</span>
+                                                                        : <span className="stat-zero">—</span>}
+                                                                </td>
+                                                            </tr>
+                                                        ))}
                                                     </tbody>
                                                 </table>
                                             </div>
@@ -841,399 +853,459 @@ function Dashboard() {
                         <div className="dashboard-table-container">
                             <table className="dashboard-table">
                                 <thead>
-                                <tr>
-                                    <th>
-                                        <div className="table-header-filter">
+                                    <tr>
+                                        <th>
+                                            <div className="table-header-filter">
                                                 <span
                                                     className="sortable-header"
                                                     onClick={() => handleSort('status')}
                                                 >
                                                     상태
                                                 </span>
-                                            <button
-                                                ref={el => filterButtonRefs.current['status'] = el}
-                                                className={`filter-icon-btn ${headerFilters.status.length > 0 ? 'active' : ''}`}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    toggleFilterDropdown('status', e);
-                                                }}
-                                            >
-                                                <Filter size={14} />
-                                                {headerFilters.status.length > 0 && (
-                                                    <span className="filter-count">{headerFilters.status.length}</span>
-                                                )}
-                                            </button>
-                                            {activeFilterDropdown === 'status' && (
-                                                <div
-                                                    className="filter-dropdown"
-                                                    ref={filterDropdownRef}
-                                                    style={{
-                                                        top: `${dropdownPosition.top}px`,
-                                                        left: `${dropdownPosition.left}px`,
-                                                        transform: 'translateX(-50%)'
+                                                <button
+                                                    ref={el => filterButtonRefs.current['status'] = el}
+                                                    className={`filter-icon-btn ${headerFilters.status.length > 0 ? 'active' : ''}`}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        toggleFilterDropdown('status', e);
                                                     }}
                                                 >
-                                                    <div className="filter-dropdown-header">
-                                                        <span>상태 필터</span>
-                                                        {headerFilters.status.length > 0 && (
-                                                            <button
-                                                                className="filter-clear-btn"
-                                                                onClick={() => clearFilter('status')}
-                                                            >
-                                                                <X size={12} />
-                                                            </button>
-                                                        )}
+                                                    <Filter size={14} />
+                                                    {headerFilters.status.length > 0 && (
+                                                        <span className="filter-count">{headerFilters.status.length}</span>
+                                                    )}
+                                                </button>
+                                                {activeFilterDropdown === 'status' && (
+                                                    <div
+                                                        className="filter-dropdown"
+                                                        ref={filterDropdownRef}
+                                                        style={{
+                                                            top: `${dropdownPosition.top}px`,
+                                                            left: `${dropdownPosition.left}px`,
+                                                            transform: 'translateX(-50%)'
+                                                        }}
+                                                    >
+                                                        <div className="filter-dropdown-header">
+                                                            <span>상태 필터</span>
+                                                            {headerFilters.status.length > 0 && (
+                                                                <button
+                                                                    className="filter-clear-btn"
+                                                                    onClick={() => clearFilter('status')}
+                                                                >
+                                                                    <X size={12} />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                        <div className="filter-options">
+                                                            {['inProgress', 'completed', 'delayed', 'stopped'].map(status => {
+                                                                const statusMap = {
+                                                                    inProgress: '진행중',
+                                                                    completed: '완료',
+                                                                    delayed: '지연',
+                                                                    stopped: '중단'
+                                                                };
+                                                                return (
+                                                                    <label key={status} className="filter-option">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={headerFilters.status.includes(status)}
+                                                                            onChange={() => toggleFilterOption('status', status)}
+                                                                        />
+                                                                        <span>{statusMap[status]}</span>
+                                                                    </label>
+                                                                );
+                                                            })}
+                                                        </div>
                                                     </div>
-                                                    <div className="filter-options">
-                                                        {['inProgress', 'completed', 'delayed', 'stopped'].map(status => {
-                                                            const statusMap = {
-                                                                inProgress: '진행중',
-                                                                completed: '완료',
-                                                                delayed: '지연',
-                                                                stopped: '중단'
-                                                            };
-                                                            return (
-                                                                <label key={status} className="filter-option">
+                                                )}
+                                            </div>
+                                        </th>
+                                        <th>
+                                            <div className="table-header-filter">
+                                                <span
+                                                    className="sortable-header"
+                                                    onClick={() => handleSort('name')}
+                                                >
+                                                    과제명
+                                                </span>
+                                                <button
+                                                    ref={el => filterButtonRefs.current['category1'] = el}
+                                                    className={`filter-icon-btn ${headerFilters.category1.length > 0 ? 'active' : ''}`}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        toggleFilterDropdown('category1', e);
+                                                    }}
+                                                >
+                                                    <Filter size={14} />
+                                                    {headerFilters.category1.length > 0 && (
+                                                        <span className="filter-count">{headerFilters.category1.length}</span>
+                                                    )}
+                                                </button>
+                                                {activeFilterDropdown === 'category1' && (
+                                                    <div
+                                                        className="filter-dropdown filter-dropdown-wide"
+                                                        ref={filterDropdownRef}
+                                                        style={{
+                                                            top: `${dropdownPosition.top}px`,
+                                                            left: `${dropdownPosition.left}px`,
+                                                            transform: 'translateX(-50%)'
+                                                        }}
+                                                    >
+                                                        <div className="filter-dropdown-header">
+                                                            <span>대주제 필터</span>
+                                                            {headerFilters.category1.length > 0 && (
+                                                                <button
+                                                                    className="filter-clear-btn"
+                                                                    onClick={() => clearFilter('category1')}
+                                                                >
+                                                                    <X size={12} />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                        <div className="filter-options">
+                                                            {allCategory1Options.map(cat => (
+                                                                <label key={cat} className="filter-option">
                                                                     <input
                                                                         type="checkbox"
-                                                                        checked={headerFilters.status.includes(status)}
-                                                                        onChange={() => toggleFilterOption('status', status)}
+                                                                        checked={headerFilters.category1.includes(cat)}
+                                                                        onChange={() => toggleFilterOption('category1', cat)}
                                                                     />
-                                                                    <span>{statusMap[status]}</span>
+                                                                    <span>{cat}</span>
                                                                 </label>
-                                                            );
-                                                        })}
+                                                            ))}
+                                                            {allCategory1Options.length === 0 && (
+                                                                <div className="filter-empty">대주제 정보가 없습니다</div>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </th>
-                                    <th>
-                                            <span
-                                                className="sortable-header"
-                                                onClick={() => handleSort('name')}
-                                            >
-                                                과제명
-                                            </span>
-                                    </th>
-                                    <th>
-                                        <div className="table-header-filter">
+                                                )}
+                                            </div>
+                                        </th>
+                                        <th>
+                                            <div className="table-header-filter">
                                                 <span
                                                     className="sortable-header"
                                                     onClick={() => handleSort('evaluation')}
                                                 >
                                                     평가기준
                                                 </span>
-                                            <button
-                                                ref={el => filterButtonRefs.current['evaluation'] = el}
-                                                className={`filter-icon-btn ${headerFilters.evaluation.length > 0 ? 'active' : ''}`}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    toggleFilterDropdown('evaluation', e);
-                                                }}
-                                            >
-                                                <Filter size={14} />
-                                                {headerFilters.evaluation.length > 0 && (
-                                                    <span className="filter-count">{headerFilters.evaluation.length}</span>
-                                                )}
-                                            </button>
-                                            {activeFilterDropdown === 'evaluation' && (
-                                                <div
-                                                    className="filter-dropdown"
-                                                    ref={filterDropdownRef}
-                                                    style={{
-                                                        top: `${dropdownPosition.top}px`,
-                                                        left: `${dropdownPosition.left}px`,
-                                                        transform: 'translateX(-50%)'
+                                                <button
+                                                    ref={el => filterButtonRefs.current['evaluation'] = el}
+                                                    className={`filter-icon-btn ${headerFilters.evaluation.length > 0 ? 'active' : ''}`}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        toggleFilterDropdown('evaluation', e);
                                                     }}
                                                 >
-                                                    <div className="filter-dropdown-header">
-                                                        <span>평가기준 필터</span>
-                                                        {headerFilters.evaluation.length > 0 && (
-                                                            <button
-                                                                className="filter-clear-btn"
-                                                                onClick={() => clearFilter('evaluation')}
-                                                            >
-                                                                <X size={12} />
-                                                            </button>
-                                                        )}
+                                                    <Filter size={14} />
+                                                    {headerFilters.evaluation.length > 0 && (
+                                                        <span className="filter-count">{headerFilters.evaluation.length}</span>
+                                                    )}
+                                                </button>
+                                                {activeFilterDropdown === 'evaluation' && (
+                                                    <div
+                                                        className="filter-dropdown"
+                                                        ref={filterDropdownRef}
+                                                        style={{
+                                                            top: `${dropdownPosition.top}px`,
+                                                            left: `${dropdownPosition.left}px`,
+                                                            transform: 'translateX(-50%)'
+                                                        }}
+                                                    >
+                                                        <div className="filter-dropdown-header">
+                                                            <span>평가기준 필터</span>
+                                                            {headerFilters.evaluation.length > 0 && (
+                                                                <button
+                                                                    className="filter-clear-btn"
+                                                                    onClick={() => clearFilter('evaluation')}
+                                                                >
+                                                                    <X size={12} />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                        <div className="filter-options">
+                                                            {['정량', '정성'].map(evalType => (
+                                                                <label key={evalType} className="filter-option">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={headerFilters.evaluation.includes(evalType)}
+                                                                        onChange={() => toggleFilterOption('evaluation', evalType)}
+                                                                    />
+                                                                    <span>{evalType}</span>
+                                                                </label>
+                                                            ))}
+                                                        </div>
                                                     </div>
-                                                    <div className="filter-options">
-                                                        {['정량', '정성'].map(evalType => (
-                                                            <label key={evalType} className="filter-option">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={headerFilters.evaluation.includes(evalType)}
-                                                                    onChange={() => toggleFilterOption('evaluation', evalType)}
-                                                                />
-                                                                <span>{evalType}</span>
-                                                            </label>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </th>
-                                    <th>
+                                                )}
+                                            </div>
+                                        </th>
+                                        <th>
                                             <span
                                                 className="sortable-header"
                                                 onClick={() => handleSort('target')}
                                             >
                                                 목표
                                             </span>
-                                    </th>
-                                    <th>
+                                        </th>
+                                        <th>
                                             <span
                                                 className="sortable-header"
                                                 onClick={() => handleSort('actual')}
                                             >
                                                 실적
                                             </span>
-                                    </th>
-                                    <th>
+                                        </th>
+                                        <th>
                                             <span
                                                 className="sortable-header"
                                                 onClick={() => handleSort('achievement')}
                                             >
                                                 달성률
                                             </span>
-                                    </th>
-                                    <th>
-                                        <div className="table-header-filter">
+                                        </th>
+                                        <th>
+                                            <div className="table-header-filter">
                                                 <span
                                                     className="sortable-header"
                                                     onClick={() => handleSort('dept')}
                                                 >
                                                     담당 본부
                                                 </span>
-                                            <button
-                                                ref={el => filterButtonRefs.current['dept'] = el}
-                                                className={`filter-icon-btn ${headerFilters.dept.length > 0 ? 'active' : ''}`}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    toggleFilterDropdown('dept', e);
-                                                }}
-                                            >
-                                                <Filter size={14} />
-                                                {headerFilters.dept.length > 0 && (
-                                                    <span className="filter-count">{headerFilters.dept.length}</span>
-                                                )}
-                                            </button>
-                                            {activeFilterDropdown === 'dept' && (
-                                                <div
-                                                    className="filter-dropdown filter-dropdown-wide"
-                                                    ref={filterDropdownRef}
-                                                    style={{
-                                                        top: `${dropdownPosition.top}px`,
-                                                        left: `${dropdownPosition.left}px`,
-                                                        transform: 'translateX(-50%)'
+                                                <button
+                                                    ref={el => filterButtonRefs.current['dept'] = el}
+                                                    className={`filter-icon-btn ${headerFilters.dept.length > 0 ? 'active' : ''}`}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        toggleFilterDropdown('dept', e);
                                                     }}
                                                 >
-                                                    <div className="filter-dropdown-header">
-                                                        <span>담당 본부 필터</span>
-                                                        {headerFilters.dept.length > 0 && (
-                                                            <button
-                                                                className="filter-clear-btn"
-                                                                onClick={() => clearFilter('dept')}
-                                                            >
-                                                                <X size={12} />
-                                                            </button>
-                                                        )}
+                                                    <Filter size={14} />
+                                                    {headerFilters.dept.length > 0 && (
+                                                        <span className="filter-count">{headerFilters.dept.length}</span>
+                                                    )}
+                                                </button>
+                                                {activeFilterDropdown === 'dept' && (
+                                                    <div
+                                                        className="filter-dropdown filter-dropdown-wide"
+                                                        ref={filterDropdownRef}
+                                                        style={{
+                                                            top: `${dropdownPosition.top}px`,
+                                                            left: `${dropdownPosition.left}px`,
+                                                            transform: 'translateX(-50%)'
+                                                        }}
+                                                    >
+                                                        <div className="filter-dropdown-header">
+                                                            <span>담당 본부 필터</span>
+                                                            {headerFilters.dept.length > 0 && (
+                                                                <button
+                                                                    className="filter-clear-btn"
+                                                                    onClick={() => clearFilter('dept')}
+                                                                >
+                                                                    <X size={12} />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                        <div className="filter-options">
+                                                            {getAllDepts().map(dept => (
+                                                                <label key={dept} className="filter-option">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={headerFilters.dept.includes(dept)}
+                                                                        onChange={() => toggleFilterOption('dept', dept)}
+                                                                    />
+                                                                    <span>{dept}</span>
+                                                                </label>
+                                                            ))}
+                                                            {getAllDepts().length === 0 && (
+                                                                <div className="filter-empty">본부 정보가 없습니다</div>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                    <div className="filter-options">
-                                                        {getAllDepts().map(dept => (
-                                                            <label key={dept} className="filter-option">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={headerFilters.dept.includes(dept)}
-                                                                    onChange={() => toggleFilterOption('dept', dept)}
-                                                                />
-                                                                <span>{dept}</span>
-                                                            </label>
-                                                        ))}
-                                                        {getAllDepts().length === 0 && (
-                                                            <div className="filter-empty">본부 정보가 없습니다</div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </th>
-                                </tr>
+                                                )}
+                                            </div>
+                                        </th>
+                                    </tr>
                                 </thead>
                                 <tbody>
-                                {sortedTasks.map(task => {
-                                    const statusInfo = getStatusInfo(task.status);
-                                    const StatusIcon = statusInfo.icon;
-                                    const isQualitative = task.evaluationType === 'qualitative';
+                                    {sortedTasks.map(task => {
+                                        const statusInfo = getStatusInfo(task.status);
+                                        const StatusIcon = statusInfo.icon;
+                                        const isQualitative = task.evaluationType === 'qualitative';
 
-                                    // 평가기준 표시
-                                    const evaluationText = isQualitative ? '정성' : '정량';
+                                        // 평가기준 표시
+                                        const evaluationText = isQualitative ? '정성' : '정량';
 
-                                    // 목표/실적 포맷팅 (정량일 때만)
-                                    const formatValue = (value, metric) => {
-                                        if (value === null || value === undefined || value === 0) return '0';
-                                        const numValue = typeof value === 'number' ? value : parseFloat(value);
-                                        if (metric === 'amount') {
-                                            return numValue.toLocaleString('ko-KR') + '원';
-                                        } else if (metric === 'count') {
-                                            return numValue.toLocaleString('ko-KR') + '건';
-                                        } else if (metric === 'percent') {
-                                            return numValue.toLocaleString('ko-KR') + '%';
-                                        } else {
-                                            return numValue.toLocaleString('ko-KR');
-                                        }
-                                    };
+                                        // 목표/실적 포맷팅 (정량일 때만)
+                                        const formatValue = (value, metric) => {
+                                            if (value === null || value === undefined || value === 0) return '0';
+                                            const numValue = typeof value === 'number' ? value : parseFloat(value);
+                                            if (metric === 'amount') {
+                                                return numValue.toLocaleString('ko-KR') + '원';
+                                            } else if (metric === 'count') {
+                                                return numValue.toLocaleString('ko-KR') + '건';
+                                            } else if (metric === 'percent') {
+                                                return numValue.toLocaleString('ko-KR') + '%';
+                                            } else {
+                                                return numValue.toLocaleString('ko-KR');
+                                            }
+                                        };
 
-                                    // metric 한글 변환
-                                    const metricText = task.metric === 'count' ? '건수' :
-                                        task.metric === 'amount' ? '금액' :
-                                            task.metric === 'percent' ? '%' : task.metric || '-';
+                                        // metric 한글 변환
+                                        const metricText = task.metric === 'count' ? '건수' :
+                                            task.metric === 'amount' ? '금액' :
+                                                task.metric === 'percent' ? '%' : task.metric || '-';
 
-                                    // 날짜를 mm.dd 형식으로 변환
-                                    const formatCompactDate = (dateString) => {
-                                        if (!dateString) return '';
-                                        try {
-                                            const date = new Date(dateString);
-                                            if (isNaN(date.getTime())) return '';
-                                            const month = String(date.getMonth() + 1).padStart(2, '0');
-                                            const day = String(date.getDate()).padStart(2, '0');
-                                            return `${month}.${day}`;
-                                        } catch (error) {
-                                            return '';
-                                        }
-                                    };
+                                        // 날짜를 mm.dd 형식으로 변환
+                                        const formatCompactDate = (dateString) => {
+                                            if (!dateString) return '';
+                                            try {
+                                                const date = new Date(dateString);
+                                                if (isNaN(date.getTime())) return '';
+                                                const month = String(date.getMonth() + 1).padStart(2, '0');
+                                                const day = String(date.getDate()).padStart(2, '0');
+                                                return `${month}.${day}`;
+                                            } catch (error) {
+                                                return '';
+                                            }
+                                        };
 
-                                    return (
-                                        <tr
-                                            key={task.id}
-                                            className={`dashboard-table-row row-status-${normalizeStatus(task.status)}`}
-                                            onClick={() => handleRowClick(task)}
-                                        >
-                                            <td className="dashboard-table-status">
+                                        return (
+                                            <tr
+                                                key={task.id}
+                                                className={`dashboard-table-row row-status-${normalizeStatus(task.status)}`}
+                                                onClick={() => handleRowClick(task)}
+                                            >
+                                                <td className="dashboard-table-status">
                                                     <span className={`dashboard-table-status-badge ${normalizeStatus(task.status)}`}>
                                                         <StatusIcon size={13} />
                                                         {statusInfo.text}
                                                     </span>
-                                            </td>
-                                            <td className="dashboard-table-task-name">
-                                                <div className="task-name-wrapper">
-                                                    <div className="task-category-path">
-                                                        {task.category1 && task.category1 !== '-' ? (
-                                                            <>
-                                                                <span className="category-text">{task.category1}</span>
-                                                                {task.category2 && task.category2 !== '-' && (
-                                                                    <>
-                                                                        <span className="category-separator"> &gt; </span>
-                                                                        <span className="category-text">{task.category2}</span>
-                                                                        {task.category3 && task.category3 !== '-' && (
-                                                                            <>
-                                                                                <span className="category-separator"> &gt; </span>
-                                                                                <span className="category-text">{task.category3}</span>
-                                                                            </>
-                                                                        )}
-                                                                    </>
-                                                                )}
-                                                            </>
-                                                        ) : (
-                                                            <span className="category-text">-</span>
-                                                        )}
+                                                </td>
+                                                <td className="dashboard-table-task-name">
+                                                    <div className="task-name-wrapper">
+                                                        <div className="task-category-path">
+                                                            {task.category1 && task.category1 !== '-' ? (
+                                                                <>
+                                                                    <span className="category-text">{task.category1}</span>
+                                                                    {task.category2 && task.category2 !== '-' && (
+                                                                        <>
+                                                                            <span className="category-separator"> &gt; </span>
+                                                                            <span className="category-text">{task.category2}</span>
+                                                                            {task.category3 && task.category3 !== '-' && (
+                                                                                <>
+                                                                                    <span className="category-separator"> &gt; </span>
+                                                                                    <span className="category-text">{task.category3}</span>
+                                                                                </>
+                                                                            )}
+                                                                        </>
+                                                                    )}
+                                                                </>
+                                                            ) : (
+                                                                <span className="category-text">-</span>
+                                                            )}
+                                                        </div>
+                                                        <div className="task-name">{task.name}</div>
                                                     </div>
-                                                    <div className="task-name">{task.name}</div>
-                                                </div>
-                                            </td>
-                                            <td className="dashboard-table-evaluation">
+                                                </td>
+                                                <td className="dashboard-table-evaluation">
                                                     <span className="dashboard-badge dashboard-badge-evaluation">
                                                         {evaluationText}
                                                     </span>
-                                            </td>
-                                            <td className="dashboard-table-target">
-                                                {isQualitative ? (
-                                                    <span className="dashboard-badge dashboard-badge-default">-</span>
-                                                ) : (
-                                                    <span className="dashboard-badge dashboard-badge-target">
-                                                            {formatValue(task.targetValue, task.metric)}
-                                                        </span>
-                                                )}
-                                            </td>
-                                            <td className="dashboard-table-actual">
-                                                {isQualitative ? (
-                                                    <span className="dashboard-badge dashboard-badge-default">-</span>
-                                                ) : (
-                                                    <span className="dashboard-badge dashboard-badge-actual">
+                                                </td>
+                                                <td className="dashboard-table-target">
+                                                    {isQualitative ? (
+                                                        <span className="dashboard-badge dashboard-badge-default">-</span>
+                                                    ) : (
+                                                        <div className="dashboard-target-badge-wrapper">
+                                                            <span className="dashboard-badge dashboard-badge-target">
+                                                                {formatValue(task.targetValue, task.metric)}
+                                                            </span>
+                                                            {task.targetDescription && task.targetDescription.trim() && (
+                                                                <span className="dashboard-target-tooltip">
+                                                                    {task.targetDescription}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="dashboard-table-actual">
+                                                    {isQualitative ? (
+                                                        <span className="dashboard-badge dashboard-badge-default">-</span>
+                                                    ) : (
+                                                        <span className="dashboard-badge dashboard-badge-actual">
                                                             {formatValue(task.actualValue, task.metric)}
                                                         </span>
-                                                )}
-                                            </td>
-                                            <td className="dashboard-table-achievement">
-                                                {!isQualitative && (
-                                                    <span className="dashboard-badge dashboard-badge-achievement">
-                                                            {task.achievement || 0}%
+                                                    )}
+                                                </td>
+                                                <td className="dashboard-table-achievement">
+                                                    {!isQualitative && (
+                                                        <span className="dashboard-badge dashboard-badge-achievement">
+                                                            {Number(task.achievement ?? 0).toFixed(1)}%
                                                         </span>
-                                                )}
-                                            </td>
-                                            <td className="dashboard-table-dept">
-                                                {(() => {
-                                                    // 본부명 중복 제거
-                                                    const topDeptSet = new Set();
-                                                    if (task.managers && task.managers.length > 0) {
-                                                        task.managers.forEach(manager => {
-                                                            if (manager.topDeptName) {
-                                                                topDeptSet.add(manager.topDeptName);
-                                                            }
-                                                        });
-                                                    }
-                                                    // 담당자가 없거나 본부 정보가 없으면 과제의 본부 사용
-                                                    if (topDeptSet.size === 0 && task.topDeptName) {
-                                                        topDeptSet.add(task.topDeptName);
-                                                    }
-                                                    const topDeptNames = Array.from(topDeptSet);
-                                                    if (topDeptNames.length === 0) {
-                                                        return <span className="dashboard-badge dashboard-badge-default">-</span>;
-                                                    }
-                                                    return (
-                                                        <div className="dashboard-badges-wrapper">
-                                                            {topDeptNames.map((topDeptName, idx) => {
-                                                                // 해당 본부의 팀들 필터링
-                                                                const topDeptManagers = task.managers ? task.managers.filter(manager =>
-                                                                    manager.topDeptName === topDeptName
-                                                                ) : [];
-                                                                // 팀명(deptName) 중복 제거
-                                                                const teamNames = Array.from(new Set(
-                                                                    topDeptManagers
-                                                                        .map(manager => manager.deptName)
-                                                                        .filter(name => name && name !== '-')
-                                                                ));
-
-                                                                let tooltipText = '';
-                                                                if (teamNames.length === 0) {
-                                                                    tooltipText = '';
-                                                                } else if (teamNames.length === 1) {
-                                                                    tooltipText = teamNames[0];
-                                                                } else {
-                                                                    tooltipText = `${teamNames[0]}외 ${teamNames.length - 1}개 팀`;
+                                                    )}
+                                                </td>
+                                                <td className="dashboard-table-dept">
+                                                    {(() => {
+                                                        // 본부명 중복 제거
+                                                        const topDeptSet = new Set();
+                                                        if (task.managers && task.managers.length > 0) {
+                                                            task.managers.forEach(manager => {
+                                                                if (manager.topDeptName) {
+                                                                    topDeptSet.add(manager.topDeptName);
                                                                 }
+                                                            });
+                                                        }
+                                                        // 담당자가 없거나 본부 정보가 없으면 과제의 본부 사용
+                                                        if (topDeptSet.size === 0 && task.topDeptName) {
+                                                            topDeptSet.add(task.topDeptName);
+                                                        }
+                                                        const topDeptNames = Array.from(topDeptSet);
+                                                        if (topDeptNames.length === 0) {
+                                                            return <span className="dashboard-badge dashboard-badge-default">-</span>;
+                                                        }
+                                                        return (
+                                                            <div className="dashboard-badges-wrapper">
+                                                                {topDeptNames.map((topDeptName, idx) => {
+                                                                    // 해당 본부의 팀들 필터링
+                                                                    const topDeptManagers = task.managers ? task.managers.filter(manager =>
+                                                                        manager.topDeptName === topDeptName
+                                                                    ) : [];
+                                                                    // 팀명(deptName) 중복 제거
+                                                                    const teamNames = Array.from(new Set(
+                                                                        topDeptManagers
+                                                                            .map(manager => manager.deptName)
+                                                                            .filter(name => name && name !== '-')
+                                                                    ));
 
-                                                                return (
-                                                                    <div key={idx} className="dashboard-dept-badge-wrapper">
+                                                                    let tooltipText = '';
+                                                                    if (teamNames.length === 0) {
+                                                                        tooltipText = '';
+                                                                    } else if (teamNames.length === 1) {
+                                                                        tooltipText = teamNames[0];
+                                                                    } else {
+                                                                        tooltipText = `${teamNames[0]}외 ${teamNames.length - 1}개 팀`;
+                                                                    }
+
+                                                                    return (
+                                                                        <div key={idx} className="dashboard-dept-badge-wrapper">
                                                                             <span className="dashboard-badge dashboard-badge-dept">
                                                                                 {topDeptName}
                                                                             </span>
-                                                                        {tooltipText && (
-                                                                            <span className="dashboard-dept-tooltip">
+                                                                            {tooltipText && (
+                                                                                <span className="dashboard-dept-tooltip">
                                                                                     {tooltipText}
                                                                                 </span>
-                                                                        )}
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    );
-                                                })()}
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        );
+                                                    })()}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
@@ -1306,17 +1378,72 @@ function Dashboard() {
                                         )}
                                     </div>
                                 </div>
-                                <div
-                                    className="milestone-task-header sortable-header"
-                                    onClick={() => handleSort('category1')}
-                                    style={{ cursor: 'pointer' }}
-                                >
-                                    과제명
-                                    {sortConfig.column === 'category1' && sortConfig.direction && (
-                                        <span className="sort-indicator">
-                                            {sortConfig.direction === 'asc' ? ' ↑' : ' ↓'}
+                                <div className="milestone-task-header">
+                                    <div className="table-header-filter">
+                                        <span
+                                            className="sortable-header"
+                                            onClick={() => handleSort('category1')}
+                                            style={{ cursor: 'pointer' }}
+                                        >
+                                            과제명
+                                            {sortConfig.column === 'category1' && sortConfig.direction && (
+                                                <span className="sort-indicator">
+                                                    {sortConfig.direction === 'asc' ? ' ↑' : ' ↓'}
+                                                </span>
+                                            )}
                                         </span>
-                                    )}
+                                        <button
+                                            ref={el => filterButtonRefs.current['category1-milestone'] = el}
+                                            className={`filter-icon-btn ${headerFilters.category1.length > 0 ? 'active' : ''}`}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleFilterDropdown('category1-milestone', e);
+                                            }}
+                                        >
+                                            <Filter size={14} />
+                                            {headerFilters.category1.length > 0 && (
+                                                <span className="filter-count">{headerFilters.category1.length}</span>
+                                            )}
+                                        </button>
+                                        {activeFilterDropdown === 'category1-milestone' && (
+                                            <div
+                                                className="filter-dropdown filter-dropdown-wide"
+                                                ref={filterDropdownRef}
+                                                style={{
+                                                    top: `${dropdownPosition.top}px`,
+                                                    left: `${dropdownPosition.left}px`,
+                                                    transform: 'translateX(-50%)'
+                                                }}
+                                            >
+                                                <div className="filter-dropdown-header">
+                                                    <span>대주제 필터</span>
+                                                    {headerFilters.category1.length > 0 && (
+                                                        <button
+                                                            className="filter-clear-btn"
+                                                            onClick={() => clearFilter('category1')}
+                                                        >
+                                                            <X size={12} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <div className="filter-options">
+                                                    {allCategory1Options.map(cat => (
+                                                        <label key={cat} className="filter-option">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={headerFilters.category1.includes(cat)}
+                                                                onChange={() => toggleFilterOption('category1', cat)}
+                                                            />
+                                                            <span>{cat}</span>
+                                                        </label>
+                                                    ))}
+                                                    {allCategory1Options.length === 0 && (
+                                                        <div className="filter-empty">대주제 정보가 없습니다</div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="milestone-timeline-header">
                                     <div className="milestone-months">
@@ -1461,7 +1588,7 @@ function Dashboard() {
                                                             </div>
                                                             {!isQualitative && (
                                                                 <span className="milestone-achievement-label">
-                                                                    {task.achievement || 0}%
+                                                                    {Number(task.achievement ?? 0).toFixed(1)}%
                                                                 </span>
                                                             )}
                                                             {!isQualitative ? (
@@ -1481,7 +1608,7 @@ function Dashboard() {
                                                                     </div>
                                                                     <div className="tooltip-row achievement">
                                                                         <span className="tooltip-label">달성률</span>
-                                                                        <span className="tooltip-value">{task.achievement || 0}%</span>
+                                                                        <span className="tooltip-value">{Number(task.achievement ?? 0).toFixed(1)}%</span>
                                                                     </div>
                                                                 </div>
                                                             ) : (

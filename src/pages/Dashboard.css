@@ -887,6 +887,8 @@
     letter-spacing: 0.06em;
     text-transform: uppercase;
     white-space: nowrap;
+    min-height: 38px;
+    box-sizing: border-box;
 }
 
 .dashboard-table th:first-child {
@@ -2158,17 +2160,19 @@
 .milestone-header {
     display: flex;
     align-items: center;
-    background: #fafafa;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-    padding: 14px 24px;
+    background: #f8f9fb;
+    border-bottom: 2px solid #e9ecef;
+    padding: 11px 20px;
     font-weight: 600;
-    font-size: 13px;
-    color: #1d1d1f;
-    letter-spacing: -0.01em;
+    font-size: 11px;
+    color: #6b7280;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
     gap: 24px;
     position: relative;
-    z-index: 1;
     border-radius: 16px 16px 0 0;
+    min-height: 38px;
+    box-sizing: border-box;
 }
 
 .milestone-status-header {
@@ -2187,21 +2191,26 @@
 .milestone-task-header {
     width: 380px;
     flex-shrink: 0;
+    text-align: center;
 }
 
-.milestone-task-header.sortable-header {
+.milestone-task-header .table-header-filter {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
+}
+
+.milestone-task-header .sortable-header {
     transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.milestone-task-header.sortable-header:hover {
+.milestone-task-header .sortable-header:hover {
     color: #007aff;
 }
 
 .milestone-task-header .sort-indicator {
-    font-size: 12px;
+    font-size: 11px;
     color: #007aff;
     font-weight: 600;
 }
@@ -2220,11 +2229,12 @@
 
 .milestone-month-label {
     text-align: center;
-    font-size: 12px;
-    color: #86868b;
-    font-weight: 500;
-    padding: 10px 4px;
-    letter-spacing: -0.015em;
+    font-size: 11px;
+    color: #6b7280;
+    font-weight: 600;
+    padding: 11px 4px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
     position: relative;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     border-right: 1px solid rgba(0, 0, 0, 0.04);
