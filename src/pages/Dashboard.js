@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Target, Briefcase, BarChart3, AlertCircle, CheckCircle, Clock, XCircle, Filter, ArrowUpDown, X, Table2, GanttChart, ImageIcon, ChevronDown, ChevronUp } from 'lucide-react';
+import { Target, Briefcase, BarChart3, AlertCircle, CheckCircle, Clock, XCircle, Filter, ArrowUpDown, X, Table2, GanttChart, ImageIcon, ChevronDown, ChevronUp, Check } from 'lucide-react';
 import useUserStore from '../store/userStore';
 import TaskInputModal from '../components/TaskInputModal';
 import { getTasksByType } from '../api/taskApi';
 import { getLatestKpiImage, getKpiImageUrl } from '../api/kpiImageApi';
 import { formatDate } from '../utils/dateUtils';
+import { formatTableValue } from '../utils/formatValue';
 import { TableSkeleton, StatBoxSkeleton } from '../components/Skeleton';
 import './Dashboard.css';
 
@@ -103,6 +104,7 @@ function Dashboard() {
                 targetValue: task.targetValue || 0,
                 actualValue: task.actualValue || 0,
                 targetDescription: task.targetDescription || '',
+                reverseYn: task.reverseYn || 'N',
                 performanceType: task.performanceType || 'nonFinancial' // 재무(financial), 비재무(nonFinancial)
             });
 
@@ -1135,20 +1137,7 @@ function Dashboard() {
                                         // 평가기준 표시
                                         const evaluationText = isQualitative ? '정성' : '정량';
 
-                                        // 목표/실적 포맷팅 (정량일 때만)
-                                        const formatValue = (value, metric) => {
-                                            if (value === null || value === undefined || value === 0) return '0';
-                                            const numValue = typeof value === 'number' ? value : parseFloat(value);
-                                            if (metric === 'amount') {
-                                                return numValue.toLocaleString('ko-KR') + '원';
-                                            } else if (metric === 'count') {
-                                                return numValue.toLocaleString('ko-KR') + '건';
-                                            } else if (metric === 'percent') {
-                                                return numValue.toLocaleString('ko-KR') + '%';
-                                            } else {
-                                                return numValue.toLocaleString('ko-KR');
-                                            }
-                                        };
+                                        const taskMetric = task.metric;
 
                                         // metric 한글 변환
                                         const metricText = task.metric === 'count' ? '건수' :
@@ -1218,7 +1207,7 @@ function Dashboard() {
                                                     ) : (
                                                         <div className="dashboard-target-badge-wrapper">
                                                             <span className="dashboard-badge dashboard-badge-target">
-                                                                {formatValue(task.targetValue, task.metric)}
+                                                                {formatTableValue(task.targetValue, task.metric)}
                                                             </span>
                                                             {task.targetDescription && task.targetDescription.trim() && (
                                                                 <span className="dashboard-target-tooltip">
@@ -1232,16 +1221,31 @@ function Dashboard() {
                                                     {isQualitative ? (
                                                         <span className="dashboard-badge dashboard-badge-default">-</span>
                                                     ) : (
-                                                        <span className="dashboard-badge dashboard-badge-actual">
-                                                            {formatValue(task.actualValue, task.metric)}
-                                                        </span>
+                                                        <div className="dashboard-target-badge-wrapper">
+                                                            <span className="dashboard-badge dashboard-badge-actual">
+                                                                {formatTableValue(task.actualValue, task.metric)}
+                                                            </span>
+                                                            <span className="dashboard-target-tooltip">
+                                                                {task.metric === 'percent' || task.metric === '%' ? '월 평균' : '누적 합계'}
+                                                            </span>
+                                                        </div>
                                                     )}
                                                 </td>
                                                 <td className="dashboard-table-achievement">
                                                     {!isQualitative && (
-                                                        <span className="dashboard-badge dashboard-badge-achievement">
-                                                            {Number(task.achievement ?? 0).toFixed(1)}%
-                                                        </span>
+                                                        <div className="achievement-cell">
+                                                            <span className="dashboard-badge dashboard-badge-achievement achievement-badge-with-tooltip">
+                                                                {task.reverseYn === 'Y' && (
+                                                                    <>
+                                                                        <span className="reverse-indicator-icon">
+                                                                            <Check size={10} />
+                                                                        </span>
+                                                                        <span className="reverse-tooltip">역산</span>
+                                                                    </>
+                                                                )}
+                                                                {Number(task.achievement ?? 0).toFixed(1)}%
+                                                            </span>
+                                                        </div>
                                                     )}
                                                 </td>
                                                 <td className="dashboard-table-dept">
@@ -1507,21 +1511,7 @@ function Dashboard() {
                                     }
                                     const topDeptNames = Array.from(topDeptSet);
 
-                                    // 목표/실적/달성률 포맷팅
                                     const isQualitative = task.evaluationType === 'qualitative';
-                                    const formatValue = (value, metric) => {
-                                        if (value === null || value === undefined || value === 0) return '0';
-                                        const numValue = typeof value === 'number' ? value : parseFloat(value);
-                                        if (metric === 'amount') {
-                                            return numValue.toLocaleString('ko-KR') + '원';
-                                        } else if (metric === 'count') {
-                                            return numValue.toLocaleString('ko-KR') + '건';
-                                        } else if (metric === 'percent') {
-                                            return numValue.toLocaleString('ko-KR') + '%';
-                                        } else {
-                                            return numValue.toLocaleString('ko-KR');
-                                        }
-                                    };
 
                                     // 정성 평가의 경우 현재 월까지 진행률 계산
                                     let progressPercentage = task.achievement || 0;
@@ -1600,11 +1590,11 @@ function Dashboard() {
                                                                     )}
                                                                     <div className="tooltip-row">
                                                                         <span className="tooltip-label">목표</span>
-                                                                        <span className="tooltip-value">{formatValue(task.targetValue, task.metric)}</span>
+                                                                        <span className="tooltip-value">{formatTableValue(task.targetValue, task.metric)}</span>
                                                                     </div>
                                                                     <div className="tooltip-row">
                                                                         <span className="tooltip-label">실적</span>
-                                                                        <span className="tooltip-value">{formatValue(task.actualValue, task.metric)}</span>
+                                                                        <span className="tooltip-value">{formatTableValue(task.actualValue, task.metric)}</span>
                                                                     </div>
                                                                     <div className="tooltip-row achievement">
                                                                         <span className="tooltip-label">달성률</span>

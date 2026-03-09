@@ -1403,6 +1403,47 @@
     gap: 3px;
 }
 
+.reverse-indicator-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: inherit;
+    flex-shrink: 0;
+    opacity: 0.9;
+}
+
+.dashboard-badge-achievement .reverse-indicator-icon:hover {
+    opacity: 1;
+}
+
+/* 역계산 툴팁 - 바로 표시, 문구 '역산' */
+.achievement-badge-with-tooltip {
+    position: relative;
+}
+
+.reverse-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 4px;
+    padding: 2px 6px;
+    font-size: 10px;
+    font-weight: 600;
+    white-space: nowrap;
+    background: rgba(0, 0, 0, 0.85);
+    color: #fff;
+    border-radius: 4px;
+    opacity: 0;
+    pointer-events: none;
+    transition: none;
+    z-index: 10;
+}
+
+.achievement-badge-with-tooltip:hover .reverse-tooltip {
+    opacity: 1;
+}
+
 .dashboard-target-tooltip {
     display: block;
     font-size: 10px;
@@ -1460,8 +1501,11 @@
     padding: 0;
 }
 
-/* 달성률 배지 - 초록 계열 + 은은한 배경 */
+/* 달성률 배지 - 초록 계열 + 은은한 배경 (역계산 시 체크 아이콘과 % 같은 박스 안) */
 .dashboard-badge-achievement {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     background: rgba(16, 185, 129, 0.1);
     color: #059669;
     font-size: 12px;

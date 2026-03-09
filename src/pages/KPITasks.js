@@ -5,6 +5,7 @@ import TaskRegisterModal from '../components/TaskRegisterModal';
 import TaskInputModal from '../components/TaskInputModal';
 import TaskDetailModal from '../components/TaskDetailModal';
 import { getTasksByType } from '../api/taskApi';
+import { formatTableValue } from '../utils/formatValue';
 import { uploadKpiImage, getAllKpiImages, deleteKpiImage, getKpiImageUrl } from '../api/kpiImageApi';
 import { TableSkeleton } from '../components/Skeleton';
 import './KPITasks.css';
@@ -1148,7 +1149,7 @@ function KPITasks() {
                                         className="sortable-header"
                                         onClick={() => handleSort('actual')}
                                     >
-                                        누적 실적
+                                        실적
                                     </span>
                                 </th>
                                 <th>
@@ -1156,7 +1157,7 @@ function KPITasks() {
                                         className="sortable-header"
                                         onClick={() => handleSort('achievement')}
                                     >
-                                        누적 달성률
+                                        달성률
                                     </span>
                                 </th>
                                 <th>
@@ -1243,20 +1244,7 @@ function KPITasks() {
                                     const isQualitative = evaluationType === 'qualitative' || evaluationType === '정성';
                                     const evaluationText = isQualitative ? '정성' : '정량';
 
-                                    // 목표/실적 포맷팅 (정량일 때만)
-                                    const formatValue = (value, metric) => {
-                                        if (value === null || value === undefined) return '0';
-                                        const numValue = typeof value === 'number' ? value : parseFloat(value);
-                                        if (metric === 'amount') {
-                                            return numValue.toLocaleString('ko-KR') + '원';
-                                        } else if (metric === 'count') {
-                                            return numValue.toLocaleString('ko-KR') + '건';
-                                        } else if (metric === 'percent') {
-                                            return numValue.toLocaleString('ko-KR') + '%';
-                                        } else {
-                                            return numValue.toLocaleString('ko-KR');
-                                        }
-                                    };
+                                    const taskMetric = task.metric || task.performanceOriginal?.metric;
 
                                     // 날짜를 mm.dd 형식으로 변환
                                     const formatCompactDate = (dateString) => {
@@ -1316,7 +1304,7 @@ function KPITasks() {
                                                 {!isQualitative && (
                                                     <div className="dashboard-target-badge-wrapper">
                                                         <span className="dashboard-badge dashboard-badge-target">
-                                                            {formatValue(task.targetValue, task.metric || task.performanceOriginal?.metric)}
+                                                            {formatTableValue(task.targetValue, taskMetric)}
                                                         </span>
                                                         {task.targetDescription && task.targetDescription.trim() && (
                                                             <span className="dashboard-target-tooltip">
@@ -1328,18 +1316,28 @@ function KPITasks() {
                                             </td>
                                             <td className="dashboard-table-actual">
                                                 {!isQualitative && (
-                                                    <span className="dashboard-badge dashboard-badge-actual">
-                                                        {formatValue(task.actualValue, task.metric || task.performanceOriginal?.metric)}
-                                                    </span>
+                                                    <div className="dashboard-target-badge-wrapper">
+                                                        <span className="dashboard-badge dashboard-badge-actual">
+                                                            {formatTableValue(task.actualValue, taskMetric)}
+                                                        </span>
+                                                        <span className="dashboard-target-tooltip">
+                                                            {taskMetric === 'percent' || taskMetric === '%' ? '월 평균' : '누적 합계'}
+                                                        </span>
+                                                    </div>
                                                 )}
                                             </td>
                                             <td className="dashboard-table-achievement">
                                                 {!isQualitative && (
                                                     <div className="achievement-cell">
-                                                        <span
-                                                            className="dashboard-badge dashboard-badge-achievement"
-                                                            title={task.reverseYn === 'Y' ? '역계산 과제: 실적이 목표보다 낮을수록 달성률이 높아집니다' : undefined}
-                                                        >
+                                                        <span className="dashboard-badge dashboard-badge-achievement achievement-badge-with-tooltip">
+                                                            {task.reverseYn === 'Y' && (
+                                                                <>
+                                                                    <span className="reverse-indicator-icon">
+                                                                        <Check size={10} />
+                                                                    </span>
+                                                                    <span className="reverse-tooltip">역산</span>
+                                                                </>
+                                                            )}
                                                             {Number(task.achievement ?? 0).toFixed(1)}%
                                                         </span>
                                                     </div>

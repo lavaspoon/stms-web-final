@@ -1232,25 +1232,25 @@
         grid-template-columns: 1fr;
         gap: 16px;
     }
-    
+
     .ai-actions {
         padding: 10px;
     }
-    
+
     .ai-quick-actions {
         flex-direction: column;
     }
-    
+
     .ai-btn {
         width: 100%;
         justify-content: center;
     }
-    
+
     .ai-custom-prompt-section {
         flex-direction: column;
         align-items: stretch;
     }
-    
+
     .ai-custom-prompt-input {
         width: 100%;
     }
@@ -1957,18 +1957,108 @@
     min-width: 140px;
 }
 
-/* 목표 + 현재 과제 달성률 통합 박스 */
+/* 목표 / 합계·평균 / 현재 과제 달성률 통합 박스 */
 .performance-target-achievement-box {
     display: flex;
-    align-items: stretch;
+    flex-direction: column;
     flex-shrink: 0;
-    min-width: 260px;
-    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-    border-radius: 10px;
-    border: 1px solid #bae6fd;
+    min-width: 320px;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
     overflow: hidden;
     box-sizing: border-box;
-    min-height: 80px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.performance-ta-summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    align-items: stretch;
+    min-height: 72px;
+}
+
+.performance-ta-item {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    padding: 12px 14px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.6);
+    min-width: 0;
+}
+
+.performance-ta-item:not(:last-child) {
+    border-right: 1px solid #e2e8f0;
+}
+
+.performance-ta-item-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    line-height: 1.2;
+}
+
+.performance-ta-item-value {
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+    overflow-wrap: break-word;
+    max-width: 100%;
+}
+
+.performance-ta-item:first-child .performance-ta-item-value {
+    color: #0369a1;
+}
+
+.performance-ta-item:nth-child(2) .performance-ta-item-value {
+    color: #475569;
+}
+
+.performance-ta-item-achievement .performance-ta-item-value {
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.performance-ta-target-desc-row {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 18px 16px;
+    margin-top: 1px;
+    border-top: 1px solid #e2e8f0;
+    border-radius: 0 0 12px 12px;
+    background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    text-align: center;
+}
+
+.performance-ta-target-desc-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #3b82f6;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    display: block;
+}
+
+.performance-ta-target-desc {
+    font-size: 14px;
+    font-weight: 500;
+    color: #1e293b;
+    line-height: 1.6;
+    letter-spacing: -0.01em;
+    word-break: keep-all;
+    display: block;
+    text-align: center;
+    max-width: 100%;
 }
 
 .performance-ta-section {
@@ -2011,14 +2101,6 @@
     font-weight: 700;
     color: #0369a1;
     font-variant-numeric: tabular-nums;
-}
-
-.performance-ta-target-desc {
-    font-size: 11px;
-    color: #0c4a6e;
-    line-height: 1.35;
-    word-break: keep-all;
-    opacity: 0.95;
 }
 
 .performance-ta-achievement-value {
@@ -2316,14 +2398,16 @@
     font-weight: 500;
 }
 
-/* 월별 실적 그래프 */
+/* 월별 실적 그래프 (툴팁 위쪽 잘림 방지) */
 .monthly-chart-compact {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    width: 296px;
-    flex-shrink: 0;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    flex-shrink: 1;
     padding: 14px 16px;
     background: linear-gradient(180deg, #fafbfc 0%, #f3f4f6 100%);
     border-radius: 10px;
@@ -2331,16 +2415,19 @@
     min-height: 100px;
     box-sizing: border-box;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    overflow: visible;
 }
 
 .monthly-chart-wrapper {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     width: 100%;
+    max-width: 100%;
     height: 100%;
     padding: 0 4px;
+    overflow: visible;
 }
 
 .monthly-chart-label {
@@ -2354,17 +2441,19 @@
 
 .monthly-chart-svg-container {
     position: relative;
-    width: 280px;
+    width: 100%;
     height: 85px;
     flex-shrink: 0;
+    overflow: visible;
 }
 
 .monthly-chart-wrapper svg {
     display: block;
     border-radius: 6px;
+    width: 100%;
 }
 
-/* 툴팁 스타일 */
+/* 툴팁 스타일 (위쪽 잘리지 않도록 z-index 상향) */
 .monthly-chart-tooltip {
     position: absolute;
     background: rgba(17, 24, 39, 0.95);
@@ -2375,10 +2464,16 @@
     font-weight: 600;
     white-space: nowrap;
     pointer-events: none;
-    z-index: 1000;
+    z-index: 10001;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     backdrop-filter: blur(8px);
     animation: tooltipFadeIn 0.15s ease-out;
+}
+
+/* 툴팁 금액만 표시 (지점 위에 정확히) */
+.monthly-chart-tooltip-value-only {
+    padding: 5px 8px;
+    font-size: 12px;
 }
 
 .monthly-chart-tooltip::after {
@@ -2544,6 +2639,38 @@
     padding: 0;
     background: transparent;
     border: none;
+}
+
+.file-section-header-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 12px;
+    margin: 0;
+    border: none;
+    border-radius: 8px;
+    background: #f9fafb;
+    color: #374151;
+    font: inherit;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+
+.file-section-header-toggle:hover {
+    background: #f3f4f6;
+    color: #1d1d1f;
+}
+
+.file-section-header-toggle h3 {
+    flex: 1;
+    text-align: left;
+    margin: 0;
+}
+
+.file-section-header-toggle svg:last-child {
+    flex-shrink: 0;
+    color: #9ca3af;
 }
 
 .file-section-header {
