@@ -55,8 +55,10 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
         });
     };
 
-    // 읽기 전용 모드: forceReadOnly가 true이거나 담당자가 아닌 경우
-    const isReadOnly = forceReadOnly || !isTaskManager();
+    // 읽기 전용 모드:
+    // - forceReadOnly가 true인 경우 (부모에서 강제)
+    // - 관리자/매니저가 아니면서, 해당 과제의 담당자가 아닌 경우
+    const isReadOnly = forceReadOnly || (!isAdmin && !isTaskManager());
 
     const [formData, setFormData] = useState({
         activityContent: '',
@@ -110,8 +112,8 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     const [monthlyActualValues, setMonthlyActualValues] = useState([]);
     const [hoveredPoint, setHoveredPoint] = useState(null); // 마우스 오버된 점 정보
 
-    // 첨부파일 섹션 접기/펼치기
-    const [fileSectionOpen, setFileSectionOpen] = useState(false);
+    // 첨부파일 섹션 접기/펼치기 (기본 펼침)
+    const [fileSectionOpen, setFileSectionOpen] = useState(true);
 
     // 월별 실적값 로드 함수 (지정 연도 또는 과제 전체 기간)
     const loadMonthlyActualValues = async (year) => {
@@ -202,7 +204,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
             setInputMonth(currentMonth);
             setMonthlyActualValues([]);
             setActivityUpdatedAt(null);
-            setFileSectionOpen(false); // 첨부파일 섹션 접기
+            setFileSectionOpen(true); // 첨부파일 섹션 기본 펼침
             setSelectedFiles([]); // 선택된 파일 목록 초기화
             setUploadingFiles([]); // 업로드 중인 파일 목록 초기화
             setShowCustomPrompt(false); // 프롬프트 입력창 닫기
@@ -352,7 +354,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                             setFiles([]);
                         }
                     } else {
-                        const defaultVal = (taskMetric === 'count' || taskMetric === 'amount') ? '0' : '';
+                        const defaultVal = (taskMetric === 'count' || taskMetric === 'amount' || taskMetric === 'monthly_avg_count') ? '0' : '';
                         const emptyFormData = {
                             activityContent: '',
                             status: task.status || 'inProgress',
@@ -367,7 +369,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                     }
                 } catch (error) {
                     console.error('활동내역 조회 실패:', error);
-                    const defaultVal = (taskMetric === 'count' || taskMetric === 'amount') ? '0' : '';
+                    const defaultVal = (taskMetric === 'count' || taskMetric === 'amount' || taskMetric === 'monthly_avg_count') ? '0' : '';
                     const emptyFormData = {
                         activityContent: '',
                         status: task.status || 'inProgress',
@@ -472,7 +474,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                     }
                 } catch (error) {
                     console.error('활동내역 조회 실패:', error);
-                    const defaultVal = (taskMetric === 'count' || taskMetric === 'amount') ? '0' : '';
+                    const defaultVal = (taskMetric === 'count' || taskMetric === 'amount' || taskMetric === 'monthly_avg_count') ? '0' : '';
                     const emptyFormData = {
                         activityContent: '',
                         status: task.status || 'inProgress',
@@ -868,7 +870,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
             const formDataToSend = new FormData();
             formDataToSend.append('activityContent', formData.activityContent);
             if (isQuantitative) {
-                const val = (taskMetric === 'count' || taskMetric === 'amount')
+                const val = (taskMetric === 'count' || taskMetric === 'amount' || taskMetric === 'monthly_avg_count')
                     ? (formData.actualValue !== '' && formData.actualValue != null ? formData.actualValue : '0')
                     : formData.actualValue;
                 if (val !== '' && val != null) formDataToSend.append('actualValue', val);
@@ -941,7 +943,8 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
             '%': 'percent',
             'count': 'count',
             'amount': 'amount',
-            'percent': 'percent'
+            'percent': 'percent',
+            'monthly_avg_count': 'monthly_avg_count'
         };
         return metricMap[metric] || 'percent';
     };
@@ -951,7 +954,8 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
         const unitMap = {
             'count': '건',
             'amount': '원',
-            'percent': '%'
+            'percent': '%',
+            'monthly_avg_count': '건'
         };
         return unitMap[normalizedMetric] || '%';
     };
@@ -960,7 +964,8 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
         const labelMap = {
             'count': '건수',
             'amount': '금액',
-            'percent': '%'
+            'percent': '%',
+            'monthly_avg_count': '월 평균 건수'
         };
         return labelMap[normalizedMetric] || '%';
     };
@@ -995,6 +1000,27 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     if (taskMetric === 'percent') {
         actualValue = currentMonthActualValue || 0;
         calculatedAchievement = calcAchievementRate(targetValue, actualValue, isReverse, false);
+    } else if (taskMetric === 'monthly_avg_count') {
+        // 평균 목표(건수): 월별 달성률 = 실적/월목표*100, 과제 달성률 = 각 월 달성률의 합/월 수, 실적 표시 = 월 평균 건수
+        const currentInputYear = isReadOnly ? viewingYear : inputYear;
+        const currentInputMonth = isReadOnly ? viewingMonth : inputMonth;
+        const baseVals = monthlyActualValues.map(m => ({
+            year: m.year != null ? m.year : currentInputYear,
+            month: m.month,
+            val: Number(m.actualValue || 0)
+        }));
+        const currIdx = baseVals.findIndex(b => b.year === currentInputYear && b.month === currentInputMonth);
+        if (currIdx >= 0) {
+            baseVals[currIdx].val = currentMonthActualValue;
+        } else {
+            baseVals.push({ year: currentInputYear, month: currentInputMonth, val: currentMonthActualValue });
+        }
+        const allVals = baseVals.map(b => b.val);
+        actualValue = allVals.length ? allVals.reduce((a, b) => a + b, 0) / allVals.length : 0;
+        const monthlyTarget = targetValue || 1;
+        calculatedAchievement = allVals.length
+            ? allVals.map(v => (v / monthlyTarget) * 100).reduce((a, b) => a + b, 0) / allVals.length
+            : 0;
     } else {
         const currentInputYear = isReadOnly ? viewingYear : inputYear;
         const currentInputMonth = isReadOnly ? viewingMonth : inputMonth;
@@ -1159,8 +1185,8 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
         const displayYear = chartYearForRender != null ? chartYearForRender : chartYear;
         const labelFn = formatLabel || ((yr, mo) => `${mo}월`);
         const width = 520; // viewBox 기준 너비 (CSS에서 반응형으로 스케일)
-        const height = 85;
-        const padding = { top: 20, right: 18, bottom: 28, left: 18 };
+        const height = 90; // 날짜 레이블 하단 여유 확보
+        const padding = { top: 18, right: 18, bottom: 22, left: 18 };
         const chartWidth = width - padding.left - padding.right;
         const chartHeight = height - padding.top - padding.bottom;
 
@@ -1282,14 +1308,14 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                         </>
                                     )}
 
-                                    {/* 월 레이블 - 26.01 형식 */}
+                                    {/* 월 레이블 - 26.01 형식 (bottom 가깝게, 폰트 키움) */}
                                     <text
                                         x={point.x}
-                                        y={height - padding.bottom + 12}
-                                        fontSize="9"
+                                        y={height - 4}
+                                        fontSize="11"
                                         fill="#6b7280"
                                         textAnchor="middle"
-                                        fontWeight="500"
+                                        fontWeight="600"
                                     >
                                         {labelFn(point.year, point.month)}
                                     </text>
@@ -1764,21 +1790,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                 </div>
                             )}
 
-                            {/* 활동내역이 저장된 경우: 파일이 없으면 "첨부파일 없음" 표시 */}
-                            {files.length === 0 && uploadingFiles.length === 0 && currentActivityId && (
-                                <div className="file-empty-state">
-                                    <Paperclip size={14} />
-                                    <span>첨부파일 없음</span>
-                                </div>
-                            )}
-
-                            {/* 읽기 전용 모드: 활동내역이 없는 경우에도 "첨부파일 없음" 표시 */}
-                            {isReadOnly && !currentActivityId && files.length === 0 && uploadingFiles.length === 0 && (
-                                <div className="file-empty-state">
-                                    <Paperclip size={14} />
-                                    <span>첨부파일 없음</span>
-                                </div>
-                            )}
+                            {/* 첨부파일이 전혀 없을 때는 아무 표시도 하지 않아 공간을 아낀다 */}
                         </div>
                         )}
                     </section>
@@ -1854,7 +1866,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                         </div>
                                         <div className="performance-ta-item">
                                             <span className="performance-ta-item-label">
-                                                {taskMetric === 'percent' ? '평균 실적(%)' : '누적 합계'}
+                                                {taskMetric === 'percent' ? '평균 실적(%)' : taskMetric === 'monthly_avg_count' ? '월 평균 건수' : '누적 합계'}
                                             </span>
                                             <span className="performance-ta-item-value">
                                                 {formatTableValue(aggregatedTaskActualValue, taskMetric)}

@@ -25,20 +25,10 @@ function KPITasks() {
         if (!currentUserId) return false;
 
         // userId와 mbId 모두 확인
-        const isManager = task.managers.some(manager => {
+        return task.managers.some(manager => {
             const managerUserId = manager.userId || manager.mbId;
             return managerUserId === currentUserId;
         });
-
-        console.log('isTaskManager check:', {
-            taskId: task.id,
-            taskName: task.name,
-            currentUserId,
-            managers: task.managers.map(m => ({ userId: m.userId, mbId: m.mbId, mbName: m.mbName })),
-            isManager
-        });
-
-        return isManager;
     };
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -647,6 +637,9 @@ function KPITasks() {
                 const normalizedTaskStatus = normalizeStatus(task.status);
                 // 진행중인 과제 중 미입력인 것만 표시
                 if (normalizedTaskStatus !== 'inProgress' || task.isInputted) return false;
+            } else if (filterStatus === 'myTasks') {
+                // 담당 과제: 현재 사용자가 담당자인 과제만 표시
+                if (!isTaskManager(task)) return false;
             } else if (filterStatus === 'myTeam') {
                 // 내팀 필터: 사용자의 팀과 같은 팀에 속한 담당자가 있는 과제만 표시
                 const userDeptName = user?.deptName;
@@ -899,6 +892,12 @@ function KPITasks() {
                         onClick={() => setFilterStatus('all')}
                     >
                         전체 ({userTasks.length})
+                    </button>
+                    <button
+                        className={filterStatus === 'myTasks' ? 'kpi-filter-btn active' : 'kpi-filter-btn'}
+                        onClick={() => setFilterStatus('myTasks')}
+                    >
+                        담당 과제 ({userTasks.filter(t => isTaskManager(t)).length})
                     </button>
                     {user?.deptName && (
                         <button
@@ -1221,13 +1220,13 @@ function KPITasks() {
                                         )}
                                     </div>
                                 </th>
-                                {isAdmin && <th>액션</th>}
+                                <th>액션</th>
                             </tr>
                         </thead>
                         <tbody>
                             {filteredTasks.length === 0 ? (
                                 <tr>
-                                    <td colSpan={isAdmin ? 8 : 7} className="empty-table-message">
+                                    <td colSpan={8} className="empty-table-message">
                                         <div className="empty-table-content">
                                             <Filter size={32} />
                                             <p>조건에 맞는 과제가 없습니다.</p>
@@ -1321,7 +1320,7 @@ function KPITasks() {
                                                             {formatTableValue(task.actualValue, taskMetric)}
                                                         </span>
                                                         <span className="dashboard-target-tooltip">
-                                                            {taskMetric === 'percent' || taskMetric === '%' ? '월 평균' : '누적 합계'}
+                                                            {taskMetric === 'percent' || taskMetric === '%' ? '월 평균' : taskMetric === 'monthly_avg_count' ? '월 평균 건수' : '누적 합계'}
                                                         </span>
                                                     </div>
                                                 )}
@@ -1402,13 +1401,13 @@ function KPITasks() {
                                                     );
                                                 })()}
                                             </td>
-                                            {isAdmin && (
-                                                <td>
+                                            <td>
+                                                {(isAdmin || isTaskManager(task)) && (
                                                     <div className="kpi-action-buttons" onClick={(e) => e.stopPropagation()}>
                                                         <button className="kpi-btn-edit" onClick={() => handleEditTask(task)}>수정</button>
                                                     </div>
-                                                </td>
-                                            )}
+                                                )}
+                                            </td>
                                         </tr>
                                     );
                                 })

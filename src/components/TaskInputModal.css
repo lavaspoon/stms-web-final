@@ -706,7 +706,7 @@
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     font-family: inherit;
     resize: vertical;
-    min-height: 200px;
+    min-height: 140px;
     letter-spacing: -0.016em;
     box-shadow: 0 2px 8px rgba(0, 122, 255, 0.1);
 }
@@ -1908,7 +1908,7 @@
 
 /* 목표 대비 실적 섹션 - 컴팩트 버전 (한 줄) */
 .performance-section-compact {
-    padding: 10px 16px;
+    padding: 12px 18px;
     border-bottom: 1px solid #e5e7eb;
     background: #fafafa;
 }
@@ -1921,7 +1921,7 @@
 }
 
 .performance-compact-header h3 {
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     color: #374151;
     margin: 0;
@@ -1950,7 +1950,7 @@
     background: #f9fafb;
     justify-content: center;
     box-sizing: border-box;
-    min-height: 80px;
+    min-height: 88px;
 }
 
 .performance-actual-compact {
@@ -1962,7 +1962,7 @@
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
-    min-width: 320px;
+    min-width: 340px;
     background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
     border-radius: 12px;
     border: 1px solid #e2e8f0;
@@ -1995,7 +1995,7 @@
 }
 
 .performance-ta-item-label {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     color: #64748b;
     text-transform: uppercase;
@@ -2004,7 +2004,7 @@
 }
 
 .performance-ta-item-value {
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 700;
     color: #0f172a;
     font-variant-numeric: tabular-nums;
@@ -2022,7 +2022,7 @@
 }
 
 .performance-ta-item-achievement .performance-ta-item-value {
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 800;
 }
 
@@ -2041,7 +2041,7 @@
 }
 
 .performance-ta-target-desc-label {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
     color: #3b82f6;
     text-transform: uppercase;
@@ -2050,7 +2050,7 @@
 }
 
 .performance-ta-target-desc {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 500;
     color: #1e293b;
     line-height: 1.6;
@@ -2150,7 +2150,7 @@
 }
 
 .performance-actual-label-compact {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     color: #6b7280;
     text-transform: uppercase;
@@ -2158,7 +2158,7 @@
 }
 
 .performance-actual-value-compact {
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 700;
     color: #1d1d1f;
     font-variant-numeric: tabular-nums;
@@ -2173,7 +2173,7 @@
 }
 
 .performance-actual-unit {
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 600;
     color: #6b7280;
     flex-shrink: 0;
@@ -2185,7 +2185,7 @@
     padding: 0;
     border: none;
     border-radius: 0;
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 700;
     color: #1d1d1f;
     background: transparent;
@@ -2284,7 +2284,7 @@
 }
 
 .performance-target-label-compact {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     color: #6b7280;
     text-transform: uppercase;
@@ -2292,7 +2292,7 @@
 }
 
 .performance-target-value-compact {
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 700;
     color: #1d1d1f;
     font-variant-numeric: tabular-nums;
@@ -2370,7 +2370,7 @@
 }
 
 .performance-achievement-label-compact {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     color: #6b7280;
     text-transform: uppercase;
@@ -2378,7 +2378,7 @@
 }
 
 .performance-achievement-value-compact {
-    font-size: 22px;
+    font-size: 24px;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     word-break: break-all;
@@ -2408,7 +2408,7 @@
     min-width: 0;
     max-width: 100%;
     flex-shrink: 1;
-    padding: 14px 16px;
+    padding: 12px 16px;
     background: linear-gradient(180deg, #fafbfc 0%, #f3f4f6 100%);
     border-radius: 10px;
     border: 1px solid #e5e7eb;
@@ -2431,18 +2431,18 @@
 }
 
 .monthly-chart-label {
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 600;
-    color: #6b7280;
+    color: #374151;
     text-align: center;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
     letter-spacing: 0.02em;
 }
 
 .monthly-chart-svg-container {
     position: relative;
     width: 100%;
-    height: 85px;
+    height: 90px;
     flex-shrink: 0;
     overflow: visible;
 }
@@ -2458,9 +2458,9 @@
     position: absolute;
     background: rgba(17, 24, 39, 0.95);
     color: white;
-    padding: 6px 10px;
+    padding: 8px 12px;
     border-radius: 6px;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
     white-space: nowrap;
     pointer-events: none;
@@ -2472,8 +2472,8 @@
 
 /* 툴팁 금액만 표시 (지점 위에 정확히) */
 .monthly-chart-tooltip-value-only {
-    padding: 5px 8px;
-    font-size: 12px;
+    padding: 6px 10px;
+    font-size: 14px;
 }
 
 .monthly-chart-tooltip::after {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Search, AlertCircle, CheckCircle, Clock, XCircle, Filter, ChevronDown, X, ArrowUpDown, Check } from 'lucide-react';
+import { Plus, Search, Filter, AlertCircle, CheckCircle, Clock, XCircle, Check, X, ArrowUpDown } from 'lucide-react';
 import useUserStore from '../store/userStore';
 import TaskRegisterModal from '../components/TaskRegisterModal';
 import TaskInputModal from '../components/TaskInputModal';
@@ -7,10 +7,11 @@ import TaskDetailModal from '../components/TaskDetailModal';
 import { getTasksByType } from '../api/taskApi';
 import { formatTableValue } from '../utils/formatValue';
 import { TableSkeleton } from '../components/Skeleton';
-import './KeyTasks.css';
+import './OITasks.css';
+import './CollabTasks.css';
 import './Dashboard.css';
 
-function KeyTasks() {
+function CollabTasks() {
     const { user } = useUserStore();
     const isAdmin = user.role === '관리자' || user.role === '매니저';
 
@@ -80,7 +81,8 @@ function KeyTasks() {
         const map = {
             'count': '건수',
             'amount': '금액',
-            'percent': '%'
+            'percent': '%',
+            'monthly_avg_count': '월 평균 건수'
         };
         return map[metric] || metric;
     };
@@ -134,34 +136,53 @@ function KeyTasks() {
         }));
     };
 
+    // 사용자 본부(topDeptName)를 과제 목록에서 찾는 헬퍼
+    const findUserTopDeptFromTaskList = (taskList) => {
+        if (!taskList || !user || isAdmin) return null;
+        const skid = user?.skid || user?.userId;
+        if (!skid) return null;
+        for (const task of taskList) {
+            if (task.managers && task.managers.length > 0) {
+                const userManager = task.managers.find(m =>
+                    (m.userId || m.mbId) === skid
+                );
+                if (userManager && userManager.topDeptName) {
+                    return userManager.topDeptName;
+                }
+            }
+        }
+        return null;
+    };
+
     // 과제 목록 조회
     const loadTasks = async () => {
         try {
             setLoading(true);
             // 관리자는 모든 과제 조회, 담당자는 본부 전체 과제 조회
             const [data] = await Promise.all([
-                getTasksByType('중점추진', null), // 모든 과제 조회
+                getTasksByType('협업', null), // 협업 과제 조회
                 new Promise(resolve => setTimeout(resolve, 300)) // 최소 300ms 딜레이
             ]);
 
-            console.log('Loaded tasks:', data.length);
+            console.log('Loaded collab tasks:', data.length);
             console.log('Current user:', user);
 
-            // 사용자의 본부 정보 찾기 (담당자인 경우)
-            let userTopDeptName = null;
-            if (!isAdmin && user) {
-                const skid = user?.skid || user?.userId;
-                // 사용자가 담당자인 과제에서 본부 정보 찾기
-                for (const task of data) {
-                    if (task.managers && task.managers.length > 0) {
-                        const userManager = task.managers.find(m =>
-                            (m.userId || m.mbId) === skid
-                        );
-                        if (userManager && userManager.topDeptName) {
-                            userTopDeptName = userManager.topDeptName;
-                            break;
-                        }
-                    }
+            // 사용자의 본부 정보 찾기 (담당자인 경우) — 협업 과제에서 먼저 찾고, 없으면 OI에서 조회
+            let userTopDeptName = findUserTopDeptFromTaskList(data);
+            if (!isAdmin && user && userTopDeptName == null) {
+                try {
+                    const oiData = await getTasksByType('OI', null);
+                    userTopDeptName = findUserTopDeptFromTaskList(oiData);
+                } catch (e) {
+                    console.warn('OI 과제로 본부 조회 실패:', e);
+                }
+            }
+            if (!isAdmin && user && userTopDeptName == null) {
+                try {
+                    const keyData = await getTasksByType('중점추진', null);
+                    userTopDeptName = findUserTopDeptFromTaskList(keyData);
+                } catch (e) {
+                    console.warn('중점추진 과제로 본부 조회 실패:', e);
                 }
             }
 
@@ -194,8 +215,6 @@ function KeyTasks() {
                 targetValue: task.targetValue || 0, // 목표값
                 actualValue: task.actualValue || 0, // 실적값
                 targetDescription: task.targetDescription || '', // 목표 설명
-                evaluationType: task.evaluationType, // 평가 유형 (정량/정성)
-                metric: task.metric, // 지표 (건수/금액/%)
                 visibleYn: task.visibleYn || 'Y', // 공개여부
                 reverseYn: task.reverseYn || 'N' // 역계산 여부
             }));
@@ -214,33 +233,29 @@ function KeyTasks() {
                 return isTaskManager(task);
             });
 
-            // 담당자인 경우 본부 기준으로 필터링
-            if (!isAdmin && userTopDeptName) {
-                formattedTasks = formattedTasks.filter(task => {
-                    // 과제의 담당자 중 사용자의 본부와 일치하는 본부가 있는지 확인
-                    if (task.managers && task.managers.length > 0) {
-                        return task.managers.some(manager =>
-                            manager.topDeptName === userTopDeptName
-                        );
-                    }
-                    // 담당자가 없으면 과제의 본부 확인
-                    return task.topDeptName === userTopDeptName;
-                });
+            // 담당자인 경우 본부 기준으로 필터링 (본부를 알 수 있으면 해당 본부 과제만, 모르면 담당자인 과제만)
+            if (!isAdmin) {
+                if (userTopDeptName) {
+                    formattedTasks = formattedTasks.filter(task => {
+                        if (task.managers && task.managers.length > 0) {
+                            return task.managers.some(manager =>
+                                manager.topDeptName === userTopDeptName
+                            );
+                        }
+                        return task.topDeptName === userTopDeptName;
+                    });
+                } else {
+                    // 본부 정보를 알 수 없는 담당자는 자신이 담당자인 과제만 표시
+                    formattedTasks = formattedTasks.filter(task => isTaskManager(task));
+                }
             }
 
-            console.log('Loaded tasks:', formattedTasks.length);
-            console.log('Tasks with isInputted status:', formattedTasks.map(t => ({
-                id: t.id,
-                name: t.name,
-                status: t.status,
-                isInputted: t.isInputted,
-                isInputtedRaw: data.find(d => d.taskId === t.id)?.isInputted
-            })));
+            console.log('Loaded collab tasks after filter:', formattedTasks.length);
 
             setTasks(formattedTasks);
         } catch (error) {
-            console.error('과제 목록 조회 실패:', error);
-            alert('과제 목록을 불러오는데 실패했습니다.');
+            console.error('협업 과제 목록 조회 실패:', error);
+            alert('협업 과제 목록을 불러오는데 실패했습니다.');
         } finally {
             setLoading(false);
         }
@@ -402,9 +417,6 @@ function KeyTasks() {
     // 활동내역 입력 모달 열기 (모든 과제 열람 가능, 담당자가 아닌 경우 읽기 전용)
     const handleInputTask = (task) => {
         // 모든 과제를 열람 가능 (TaskInputModal에서 담당자 여부에 따라 읽기 전용 모드 적용)
-        console.log('handleInputTask - task:', task);
-        console.log('handleInputTask - task.performance:', task.performance);
-        console.log('handleInputTask - task.performanceOriginal:', task.performanceOriginal);
         setInputTask(task);
         setIsInputModalOpen(true);
     };
@@ -424,7 +436,6 @@ function KeyTasks() {
         // 모든 과제를 열람 가능 (담당자가 아닌 경우 읽기 전용 모드로 열림)
         handleInputTask(task);
     };
-
 
     // 활동내역 입력 완료 후 목록 새로고침
     const handleInputModalClose = () => {
@@ -454,91 +465,6 @@ function KeyTasks() {
         });
         setIsRegisterModalOpen(true);
     };
-
-
-    // 임시 데이터 (API 연동 전 백업)
-    const sampleTasks = [
-        {
-            id: 1,
-            category1: '디지털 혁신',
-            category2: 'AI 기술',
-            name: 'AI 시스템 구축',
-            description: '업무 효율화를 위한 AI 시스템 도입 및 구축',
-            status: 'inProgress',
-            isInputted: false,
-            manager: '이은호',
-            deptName: 'AITech팀',
-            startDate: '2026-01-01',
-            endDate: '2026-12-31',
-            performance: {
-                type: '비재무',
-                evaluation: '정량',
-                metric: '건수'
-            },
-            achievement: 40,
-            months: [10, 20, 30, 40, 50, 60, 70, 75, 80, 85, 90, 100]
-        },
-        {
-            id: 2,
-            category1: '디지털 전환',
-            category2: '인프라 구축',
-            name: '디지털 전환 프로젝트',
-            description: '전사 디지털 전환 및 클라우드 마이그레이션',
-            status: 'inProgress',
-            isInputted: true,
-            manager: '정수진',
-            deptName: 'IT팀',
-            startDate: '2026-02-01',
-            endDate: '2026-11-30',
-            performance: {
-                type: '재무',
-                evaluation: '정량',
-                metric: '금액'
-            },
-            achievement: 55,
-            months: [0, 15, 25, 35, 45, 55, 65, 75, 85, 95, 100, 0]
-        },
-        {
-            id: 3,
-            category1: '업무 혁신',
-            category2: '프로세스 개선',
-            name: '업무 프로세스 개선',
-            description: '전사 업무 프로세스 표준화 및 자동화',
-            status: 'delayed',
-            isInputted: false,
-            manager: '최민호',
-            deptName: '경영지원팀',
-            startDate: '2026-01-01',
-            endDate: '2026-08-31',
-            performance: {
-                type: '비재무',
-                evaluation: '정성',
-                metric: '%'
-            },
-            achievement: 25,
-            months: [10, 15, 20, 25, 30, 25, 25, 25, 0, 0, 0, 0]
-        },
-        {
-            id: 4,
-            category1: '조직 문화',
-            category2: '협업 강화',
-            name: '협업 문화 조성',
-            description: '부서 간 협업 강화 및 소통 체계 구축',
-            status: 'inProgress',
-            isInputted: true,
-            manager: '김영희',
-            deptName: 'HR팀',
-            startDate: '2026-03-01',
-            endDate: '2026-12-31',
-            performance: {
-                type: '비재무',
-                evaluation: '정성',
-                metric: '%'
-            },
-            achievement: 60,
-            months: [0, 0, 20, 30, 40, 50, 60, 70, 80, 90, 100, 100]
-        }
-    ];
 
     // 한글 status를 영어 키로 변환
     const normalizeStatus = (status) => {
@@ -576,7 +502,6 @@ function KeyTasks() {
         return statusConfig[normalizeStatus(status)] || statusConfig.inProgress;
     };
 
-
     // 모든 담당 본부 목록 추출
     const getAllDepts = () => {
         const deptSet = new Set();
@@ -601,6 +526,7 @@ function KeyTasks() {
         tasks.map(t => t.category1).filter(c => c && c !== '-')
     )].sort((a, b) => a.localeCompare(b, 'ko'));
 
+    // 필터링된 과제 목록 (정밀하게)
     // API에서 이미 사용자별 과제만 반환하므로, 상태 및 검색어 필터링만 수행
     const filteredTasks = tasks
         .filter(task => {
@@ -737,8 +663,8 @@ function KeyTasks() {
             return nameA.localeCompare(nameB, 'ko');
         });
 
-    console.log('Filtered tasks count:', filteredTasks.length);
-    console.log('Total tasks count:', tasks.length);
+    console.log('Filtered collab tasks count:', filteredTasks.length);
+    console.log('Total collab tasks count:', tasks.length);
     console.log('Is admin:', isAdmin);
 
     // 담당자 필터링이 적용된 과제 목록 (카운트 계산용)
@@ -748,35 +674,37 @@ function KeyTasks() {
     // 현재월 기준으로 진행중인 과제 중 활동내역이 입력되지 않은 것만 카운트
     const notInputtedCount = userTasks.filter(t => {
         const normalizedStatus = normalizeStatus(t.status);
-        return normalizedStatus === 'inProgress' && !t.isInputted;
+        const isInProgress = normalizedStatus === 'inProgress';
+        const isNotInputted = !t.isInputted;
+        return isInProgress && isNotInputted;
     }).length;
 
     return (
-        <div className="key-tasks">
-            <div className="key-page-header">
+        <div className="collab-tasks">
+            <div className="oi-page-header">
                 <div>
-                    <h1>중점추진과제</h1>
-                    <p className="key-page-subtitle">전사 중점추진과제를 관리하고 진행 현황을 확인합니다</p>
+                    <h1>협업 과제</h1>
+                    <p className="oi-page-subtitle">부서 간 협업으로 수행되는 과제를 관리합니다</p>
                 </div>
-                <div className="header-actions">
+                <div style={{ display: 'flex', gap: '12px' }}>
                     {isAdmin && (
-                        <button className="key-primary-btn" onClick={() => setIsRegisterModalOpen(true)}>
+                        <button className="oi-primary-btn" onClick={() => setIsRegisterModalOpen(true)}>
                             <Plus size={18} />
-                            과제 등록
+                            협업 과제 등록
                         </button>
                     )}
                 </div>
             </div>
 
             {notInputtedCount > 0 && (
-                <div className="key-alert-banner">
+                <div className="oi-alert-banner">
                     <AlertCircle size={20} />
-                    <span>이번 달 활동내역이 입력되지 않은 과제가 <strong>{notInputtedCount}개</strong> 있습니다.</span>
+                    <span>이번 달 활동내역이 입력되지 않은 협업 과제가 <strong>{notInputtedCount}개</strong> 있습니다.</span>
                 </div>
             )}
 
-            <div className="key-filter-section">
-                <div className="key-search-box">
+            <div className="oi-filter-section">
+                <div className="oi-search-box">
                     <Search size={18} />
                     <input
                         type="text"
@@ -796,22 +724,22 @@ function KeyTasks() {
                     )}
                 </div>
 
-                <div className="key-filter-buttons">
+                <div className="oi-filter-buttons">
                     <button
-                        className={filterStatus === 'all' ? 'key-filter-btn active' : 'key-filter-btn'}
+                        className={filterStatus === 'all' ? 'oi-filter-btn active' : 'oi-filter-btn'}
                         onClick={() => setFilterStatus('all')}
                     >
                         전체 ({userTasks.length})
                     </button>
                     <button
-                        className={filterStatus === 'myTasks' ? 'key-filter-btn active' : 'key-filter-btn'}
+                        className={filterStatus === 'myTasks' ? 'oi-filter-btn active' : 'oi-filter-btn'}
                         onClick={() => setFilterStatus('myTasks')}
                     >
                         담당 과제 ({userTasks.filter(t => isTaskManager(t)).length})
                     </button>
                     {user?.deptName && (
                         <button
-                            className={filterStatus === 'myTeam' ? 'key-filter-btn active my-team' : 'key-filter-btn my-team'}
+                            className={filterStatus === 'myTeam' ? 'oi-filter-btn active my-team' : 'oi-filter-btn my-team'}
                             onClick={() => setFilterStatus('myTeam')}
                         >
                             {user.deptName} ({userTasks.filter(t => {
@@ -821,31 +749,31 @@ function KeyTasks() {
                         </button>
                     )}
                     <button
-                        className={filterStatus === 'notInputted' ? 'key-filter-btn active warning' : 'key-filter-btn warning'}
+                        className={filterStatus === 'notInputted' ? 'oi-filter-btn active warning' : 'oi-filter-btn warning'}
                         onClick={() => setFilterStatus('notInputted')}
                     >
                         미입력 ({userTasks.filter(t => normalizeStatus(t.status) === 'inProgress' && !t.isInputted).length})
                     </button>
                     <button
-                        className={filterStatus === 'inProgress' ? 'key-filter-btn active' : 'key-filter-btn'}
+                        className={filterStatus === 'inProgress' ? 'oi-filter-btn active' : 'oi-filter-btn'}
                         onClick={() => setFilterStatus('inProgress')}
                     >
                         진행중 ({userTasks.filter(t => normalizeStatus(t.status) === 'inProgress').length})
                     </button>
                     <button
-                        className={filterStatus === 'completed' ? 'key-filter-btn active' : 'key-filter-btn'}
+                        className={filterStatus === 'completed' ? 'oi-filter-btn active' : 'oi-filter-btn'}
                         onClick={() => setFilterStatus('completed')}
                     >
                         완료 ({userTasks.filter(t => normalizeStatus(t.status) === 'completed').length})
                     </button>
                     <button
-                        className={filterStatus === 'delayed' ? 'key-filter-btn active' : 'key-filter-btn'}
+                        className={filterStatus === 'delayed' ? 'oi-filter-btn active' : 'oi-filter-btn'}
                         onClick={() => setFilterStatus('delayed')}
                     >
                         지연 ({userTasks.filter(t => normalizeStatus(t.status) === 'delayed').length})
                     </button>
                     <button
-                        className={filterStatus === 'stopped' ? 'key-filter-btn active' : 'key-filter-btn'}
+                        className={filterStatus === 'stopped' ? 'oi-filter-btn active' : 'oi-filter-btn'}
                         onClick={() => setFilterStatus('stopped')}
                     >
                         중단 ({userTasks.filter(t => normalizeStatus(t.status) === 'stopped').length})
@@ -853,11 +781,11 @@ function KeyTasks() {
                 </div>
             </div>
 
-            <div className="key-tasks-table-container">
+            <div className="oi-tasks-table-container">
                 {loading ? (
                     <TableSkeleton rows={8} columns={isAdmin ? 8 : 7} />
                 ) : (
-                    <table className="key-tasks-table dashboard-table">
+                    <table className="oi-tasks-table dashboard-table">
                         <thead>
                             <tr>
                                 <th>
@@ -1172,7 +1100,7 @@ function KeyTasks() {
                                     return (
                                         <tr
                                             key={task.id}
-                                            className={`dashboard-table-row ${!task.isInputted ? 'key-not-inputted-row' : ''} ${canView ? 'key-clickable-row' : ''}`}
+                                            className={`dashboard-table-row ${!task.isInputted ? 'oi-not-inputted-row' : ''} ${canView ? 'oi-clickable-row' : ''}`}
                                             onClick={(e) => canView && handleRowClick(task, e)}
                                         >
                                             <td className="dashboard-table-status">
@@ -1313,8 +1241,8 @@ function KeyTasks() {
                                             </td>
                                             <td>
                                                 {(isAdmin || isTaskManager(task)) && (
-                                                    <div className="key-action-buttons" onClick={(e) => e.stopPropagation()}>
-                                                        <button className="key-btn-edit" onClick={() => handleEditTask(task)}>수정</button>
+                                                    <div className="oi-action-buttons" onClick={(e) => e.stopPropagation()}>
+                                                        <button className="oi-btn-edit" onClick={() => handleEditTask(task)}>수정</button>
                                                     </div>
                                                 )}
                                             </td>
@@ -1330,7 +1258,7 @@ function KeyTasks() {
             <TaskRegisterModal
                 isOpen={isRegisterModalOpen}
                 onClose={handleModalClose}
-                taskType="중점추진"
+                taskType="협업"
                 editData={editingTask}
             />
 
@@ -1352,4 +1280,5 @@ function KeyTasks() {
     );
 }
 
-export default KeyTasks;
+export default CollabTasks;
+

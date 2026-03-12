@@ -679,7 +679,7 @@
 }
 
 .average-achievement-value {
-    font-size: 52px;
+    font-size: 38px;
     font-weight: 800;
     color: #ffffff;
     line-height: 1;
@@ -703,6 +703,13 @@
     padding: 24px 28px;
     background: white;
     border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.dashboard-status-stats button.status-stat-box {
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    width: 100%;
 }
 
 .status-stat-box {
@@ -805,6 +812,27 @@
 
 .status-stat-box.stopped .status-stat-value {
     color: #6b7280;
+}
+
+/* 상태 통계 박스 필터 선택 시 강조 */
+.status-stat-box.stat-filter-active.in-progress {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+}
+
+.status-stat-box.stat-filter-active.completed {
+    border-color: #10b981;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+}
+
+.status-stat-box.stat-filter-active.delayed {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.25);
+}
+
+.status-stat-box.stat-filter-active.stopped {
+    border-color: #6b7280;
+    box-shadow: 0 0 0 2px rgba(107, 114, 128, 0.25);
 }
 
 /* ===== 뷰 선택 버튼 ===== */
@@ -1934,6 +1962,41 @@
     padding: 14px 32px 12px 32px;
     border-bottom: 1px solid rgba(0, 0, 0, 0.08);
     background: rgba(255, 255, 255, 0.6);
+}
+
+.kpi-viewer-header.kpi-viewer-header-clickable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.kpi-viewer-header.kpi-viewer-header-clickable:hover {
+    background: rgba(240, 245, 255, 0.85);
+}
+
+.kpi-viewer-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: rgba(37, 99, 235, 0.08);
+    border: 1px solid rgba(37, 99, 235, 0.2);
+    border-radius: 8px;
+    color: #2563eb;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    white-space: nowrap;
+}
+
+.kpi-viewer-toggle-btn:hover {
+    background: rgba(37, 99, 235, 0.14);
+    border-color: rgba(37, 99, 235, 0.35);
+}
+
+.kpi-viewer-toggle-btn svg {
+    flex-shrink: 0;
 }
 
 .kpi-viewer-title {

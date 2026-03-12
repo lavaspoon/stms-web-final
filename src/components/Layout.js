@@ -12,6 +12,7 @@ function Layout({ children }) {
     const { user, clearUser } = useUserStore();
     const [notInputtedCount, setNotInputtedCount] = useState({
         oi: 0,
+        collab: 0,
         key: 0,
         kpi: 0
     });
@@ -26,6 +27,7 @@ function Layout({ children }) {
             try {
                 // 모든 과제 조회 (관리자는 전체, 담당자는 본부 전체)
                 const oiTasks = await getTasksByType('OI', null);
+                const collabTasks = await getTasksByType('협업', null);
                 const keyTasks = await getTasksByType('중점추진', null);
                 const kpiTasks = await getTasksByType('KPI', null);
 
@@ -45,11 +47,15 @@ function Layout({ children }) {
                     return statusMap[status] || 'inProgress';
                 };
 
-                let oiNotInputted, keyNotInputted, kpiNotInputted;
+                let oiNotInputted, collabNotInputted, keyNotInputted, kpiNotInputted;
 
                 if (isAdmin) {
                     // 관리자: 진행중인 과제 중 미입력
                     oiNotInputted = oiTasks.filter(task => {
+                        const normalizedStatus = normalizeStatus(task.status);
+                        return normalizedStatus === 'inProgress' && task.isInputted !== 'Y';
+                    }).length;
+                    collabNotInputted = collabTasks.filter(task => {
                         const normalizedStatus = normalizeStatus(task.status);
                         return normalizedStatus === 'inProgress' && task.isInputted !== 'Y';
                     }).length;
@@ -67,7 +73,7 @@ function Layout({ children }) {
 
                     // 사용자의 본부 정보 찾기
                     let userTopDeptName = null;
-                    for (const task of [...oiTasks, ...keyTasks, ...kpiTasks]) {
+                    for (const task of [...oiTasks, ...collabTasks, ...keyTasks, ...kpiTasks]) {
                         if (task.managers && task.managers.length > 0) {
                             const userManager = task.managers.find(m =>
                                 (m.userId || m.mbId) === skid
@@ -82,6 +88,15 @@ function Layout({ children }) {
                     if (userTopDeptName) {
                         // 본부 기준으로 필터링
                         const filteredOiTasks = oiTasks.filter(task => {
+                            if (task.managers && task.managers.length > 0) {
+                                return task.managers.some(manager =>
+                                    manager.topDeptName === userTopDeptName
+                                );
+                            }
+                            return task.topDeptName === userTopDeptName;
+                        });
+
+                        const filteredCollabTasks = collabTasks.filter(task => {
                             if (task.managers && task.managers.length > 0) {
                                 return task.managers.some(manager =>
                                     manager.topDeptName === userTopDeptName
@@ -112,6 +127,10 @@ function Layout({ children }) {
                             const normalizedStatus = normalizeStatus(task.status);
                             return normalizedStatus === 'inProgress' && task.isInputted !== 'Y';
                         }).length;
+                        collabNotInputted = filteredCollabTasks.filter(task => {
+                            const normalizedStatus = normalizeStatus(task.status);
+                            return normalizedStatus === 'inProgress' && task.isInputted !== 'Y';
+                        }).length;
                         keyNotInputted = filteredKeyTasks.filter(task => {
                             const normalizedStatus = normalizeStatus(task.status);
                             return normalizedStatus === 'inProgress' && task.isInputted !== 'Y';
@@ -122,6 +141,7 @@ function Layout({ children }) {
                         }).length;
                     } else {
                         oiNotInputted = 0;
+                        collabNotInputted = 0;
                         keyNotInputted = 0;
                         kpiNotInputted = 0;
                     }
@@ -129,6 +149,7 @@ function Layout({ children }) {
 
                 setNotInputtedCount({
                     oi: oiNotInputted,
+                    collab: collabNotInputted,
                     key: keyNotInputted,
                     kpi: kpiNotInputted
                 });
@@ -161,13 +182,11 @@ function Layout({ children }) {
                 </div>
 
                 <nav className="sidebar-nav">
-                    {/* 통합 대시보드 - 관리자만 표시 */}
-                    {isAdmin && (
-                        <NavLink to="/dashboard" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-                            <LayoutDashboard size={20} />
-                            <span>통합 대시보드</span>
-                        </NavLink>
-                    )}
+                    {/* 통합 대시보드 - 모든 사용자 표시 (관리자는 전체, 구성원은 본인 본부 기준 데이터) */}
+                    <NavLink to="/dashboard" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+                        <LayoutDashboard size={20} />
+                        <span>통합 대시보드</span>
+                    </NavLink>
 
                     <NavLink to="/oi-tasks" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
                         <Target size={20} />
@@ -179,6 +198,20 @@ function Layout({ children }) {
                                 data-tooltip="미입력과제"
                             >
                                 {notInputtedCount.oi}
+                            </span>
+                        )}
+                    </NavLink>
+
+                    <NavLink to="/collab-tasks" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+                        <Target size={20} />
+                        <span>협업 과제</span>
+                        {notInputtedCount.collab > 0 && (
+                            <span
+                                className="nav-badge"
+                                title="미입력과제"
+                                data-tooltip="미입력과제"
+                            >
+                                {notInputtedCount.collab}
                             </span>
                         )}
                     </NavLink>

@@ -15,9 +15,10 @@ function AIReport() {
     const { user } = useUserStore();
     const isAdmin = user?.role === '관리자';
 
-    const [activeTab, setActiveTab] = useState('oi'); // 'oi', 'key', or 'kpi'
+    const [activeTab, setActiveTab] = useState('oi'); // 'oi', 'collab', 'key', or 'kpi'
     const [tasks, setTasks] = useState([]);
     const [oiTaskCount, setOiTaskCount] = useState(0);
+    const [collabTaskCount, setCollabTaskCount] = useState(0);
     const [keyTaskCount, setKeyTaskCount] = useState(0);
     const [kpiTaskCount, setKpiTaskCount] = useState(0);
     const [selectedTaskIds, setSelectedTaskIds] = useState(new Set());
@@ -40,7 +41,7 @@ function AIReport() {
     // 보고서 생성 시 사용한 정보 저장 (수정 프롬프트에 사용)
     const [reportGenerationInfo, setReportGenerationInfo] = useState(null);
 
-    const taskType = activeTab === 'oi' ? 'OI' : activeTab === 'key' ? '중점추진' : 'KPI';
+    const taskType = activeTab === 'oi' ? 'OI' : activeTab === 'collab' ? '협업' : activeTab === 'key' ? '중점추진' : 'KPI';
 
     // 과제 진행 상태 정규화
     const normalizeStatus = (status) => {
@@ -82,6 +83,10 @@ function AIReport() {
                 // OI 과제 수 조회
                 const oiData = await getTasksByType('OI', skid);
                 setOiTaskCount(oiData.length);
+
+                // 협업 과제 수 조회
+                const collabData = await getTasksByType('협업', skid);
+                setCollabTaskCount(collabData.length);
 
                 // 중점추진 과제 수 조회
                 const keyData = await getTasksByType('중점추진', skid);
@@ -495,6 +500,18 @@ function AIReport() {
                     <Target size={16} />
                     <span>OI 과제</span>
                     <span className="tab-count">{oiTaskCount}</span>
+                </button>
+                <button
+                    className={`tab-btn ${activeTab === 'collab' ? 'active' : ''}`}
+                    onClick={() => {
+                        setActiveTab('collab');
+                        setReport('');
+                        setError(null);
+                    }}
+                >
+                    <Target size={16} />
+                    <span>협업 과제</span>
+                    <span className="tab-count">{collabTaskCount}</span>
                 </button>
                 <button
                     className={`tab-btn ${activeTab === 'key' ? 'active' : ''}`}

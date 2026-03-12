@@ -162,7 +162,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 targetValue: formatTargetValue(editData.targetValue || editData.target),
                 status: editData.status || 'inProgress',
                 visibleYn: editData.visibleYn || 'Y', // 공개여부
-                reverseYn: editData.reverseYn || 'N', // 역계산 여부
+                reverseYn: (editData.performance?.metric || editData.metric) === 'monthly_avg_count' ? 'N' : (editData.reverseYn || 'N'), // 월 평균 건수는 역산 불가
             }));
 
             // 부서 ID가 있으면 해당 부서의 담당자 목록 로드
@@ -428,7 +428,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 targetValue: formData.evaluationType === 'quantitative' ? formData.targetValue : null, // 정량일 때만 목표값
                 status: formData.status,
                 visibleYn: formData.visibleYn || 'Y', // 공개여부
-                reverseYn: formData.evaluationType === 'quantitative' ? (formData.reverseYn || 'N') : 'N', // 역계산 여부 (정량일 때만 적용)
+                reverseYn: formData.evaluationType === 'quantitative' ? (formData.metric === 'monthly_avg_count' ? 'N' : (formData.reverseYn || 'N')) : 'N', // 역계산 여부 (정량일 때만, 월 평균 건수는 N 고정)
                 deptId: departmentToUse // 자동 설정된 부서 ID 사용
             };
 
@@ -689,37 +689,53 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                                                 />
                                                 <span>%</span>
                                             </label>
+                                            <label className="radio-label-compact">
+                                                <input
+                                                    type="radio"
+                                                    name="metric"
+                                                    value="monthly_avg_count"
+                                                    checked={formData.metric === 'monthly_avg_count'}
+                                                    onChange={(e) => setFormData(prev => ({
+                                                        ...prev,
+                                                        metric: 'monthly_avg_count',
+                                                        reverseYn: 'N' // 월 평균 건수는 역산 선택 불가
+                                                    }))}
+                                                />
+                                                <span>월 평균 건수</span>
+                                            </label>
                                         </div>
                                     </div>
                                     <div className="target-value-description-row">
                                         <div className="form-group-compact">
                                             <label>목표값 <span className="required">*</span></label>
                                             <div className="target-input-row">
-                                                <label className="reverse-checkbox-label">
-                                                    <input
-                                                        type="checkbox"
-                                                        name="reverseYn"
-                                                        checked={formData.reverseYn === 'Y'}
-                                                        onChange={(e) => setFormData(prev => ({
-                                                            ...prev,
-                                                            reverseYn: e.target.checked ? 'Y' : 'N'
-                                                        }))}
-                                                        className="reverse-checkbox"
-                                                    />
-                                                    <span className="reverse-checkbox-text">역계산</span>
-                                                </label>
+                                                {formData.metric !== 'monthly_avg_count' && (
+                                                    <label className="reverse-checkbox-label">
+                                                        <input
+                                                            type="checkbox"
+                                                            name="reverseYn"
+                                                            checked={formData.reverseYn === 'Y'}
+                                                            onChange={(e) => setFormData(prev => ({
+                                                                ...prev,
+                                                                reverseYn: e.target.checked ? 'Y' : 'N'
+                                                            }))}
+                                                            className="reverse-checkbox"
+                                                        />
+                                                        <span className="reverse-checkbox-text">역계산</span>
+                                                    </label>
+                                                )}
                                                 <div className="target-input-wrapper">
                                                     <input
                                                         type="text"
                                                         name="targetValue"
                                                         value={formData.targetValue}
                                                         onChange={handleChange}
-                                                        placeholder={formData.metric === 'count' ? '목표 건수를 입력하세요' : formData.metric === 'amount' ? '목표 금액을 입력하세요' : '목표 %를 입력하세요'}
+                                                        placeholder={formData.metric === 'count' ? '목표 건수를 입력하세요' : formData.metric === 'amount' ? '목표 금액을 입력하세요' : formData.metric === 'monthly_avg_count' ? '월 목표 건수를 입력하세요' : '목표 %를 입력하세요'}
                                                         required={formData.evaluationType === 'quantitative'}
                                                         className="target-input"
                                                     />
                                                     <span className="target-unit">
-                                                        {formData.metric === 'count' ? '건' : formData.metric === 'amount' ? '원' : '%'}
+                                                        {formData.metric === 'count' || formData.metric === 'monthly_avg_count' ? '건' : formData.metric === 'amount' ? '원' : '%'}
                                                     </span>
                                                 </div>
                                             </div>

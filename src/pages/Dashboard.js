@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Target, Briefcase, BarChart3, AlertCircle, CheckCircle, Clock, XCircle, Filter, ArrowUpDown, X, Table2, GanttChart, ImageIcon, ChevronDown, ChevronUp, Check } from 'lucide-react';
 import useUserStore from '../store/userStore';
@@ -16,25 +15,22 @@ function Dashboard() {
     const { user } = useUserStore();
     const isAdmin = user?.role === '관리자';
 
-    // 관리자만 접근 가능 (담당자 차단)
+    // 로그인 사용자만 접근 가능 (관리자는 전체, 그 외 구성원은 본인 본부 기준 데이터만)
     useEffect(() => {
         if (!user) {
             navigate('/login');
             return;
         }
-        if (!isAdmin) {
-            alert('대시보드는 관리자만 접근할 수 있습니다.');
-            navigate('/key-tasks');
-        }
-    }, [user, isAdmin, navigate]);
+    }, [user, navigate]);
 
-    const [activeTab, setActiveTab] = useState('oi'); // 'oi', 'key', or 'kpi'
+    const [activeTab, setActiveTab] = useState('oi'); // 'oi', 'collab', 'key', or 'kpi'
     const [viewMode, setViewMode] = useState('table'); // 'table' or 'milestone'
     const [kpiLatestImage, setKpiLatestImage] = useState(null);
     const [kpiImageError, setKpiImageError] = useState(false);
-    const [kpiTaskSectionOpen, setKpiTaskSectionOpen] = useState(false); // 기본 접힌 상태
-    const [kpiImageFullscreen, setKpiImageFullscreen] = useState(false);
+    const [kpiTaskSectionOpen, setKpiTaskSectionOpen] = useState(true); // KPI 과제 목록 기본 펼침
+    const [kpiImageSectionOpen, setKpiImageSectionOpen] = useState(false); // KPI 성과지표 이미지 기본 접힘
     const [oiTasks, setOiTasks] = useState([]);
+    const [collabTasks, setCollabTasks] = useState([]);
     const [keyTasks, setKeyTasks] = useState([]);
     const [kpiTasks, setKpiTasks] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -59,23 +55,17 @@ function Dashboard() {
         direction: null // 'asc' or 'desc'
     });
 
-    // 전체화면 팝업 ESC 닫기
-    useEffect(() => {
-        const handleKeyDown = (e) => {
-            if (e.key === 'Escape' && kpiImageFullscreen) {
-                setKpiImageFullscreen(false);
-            }
-        };
-        document.addEventListener('keydown', handleKeyDown);
-        return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [kpiImageFullscreen]);
+    // 상태별 통계 박스 클릭 필터 (진행중/완료/지연/중단) — 같은 박스 다시 클릭 시 해제
+    const [statStatusFilter, setStatStatusFilter] = useState(null);
+
 
     // 과제 목록 조회
     const loadTasks = async () => {
         try {
             setLoading(true);
-            const [oiData, keyData, kpiData] = await Promise.all([
+            const [oiData, collabData, keyData, kpiData] = await Promise.all([
                 getTasksByType('OI'),
+                getTasksByType('협업'),
                 getTasksByType('중점추진'),
                 getTasksByType('KPI')
             ]);
@@ -109,10 +99,12 @@ function Dashboard() {
             });
 
             const formattedOiTasks = oiData.map(formatTask);
+            const formattedCollabTasks = collabData.map(formatTask);
             const formattedKeyTasks = keyData.map(formatTask);
             const formattedKpiTasks = kpiData.map(formatTask);
 
             setOiTasks(formattedOiTasks);
+            setCollabTasks(formattedCollabTasks);
             setKeyTasks(formattedKeyTasks);
             setKpiTasks(formattedKpiTasks);
         } catch (error) {
@@ -136,11 +128,11 @@ function Dashboard() {
     };
 
     useEffect(() => {
-        if (isAdmin) {
+        if (user) {
             loadTasks();
             loadKpiLatestImage();
         }
-    }, [isAdmin]);
+    }, [user]);
 
     // 필터 드롭다운 외부 클릭 / 스크롤 감지
     useEffect(() => {
@@ -171,10 +163,6 @@ function Dashboard() {
             };
         }
     }, [activeFilterDropdown]);
-
-    if (!isAdmin) {
-        return null;
-    }
 
     // 이름의 초성 추출 함수
     const getInitial = (name) => {
@@ -217,8 +205,50 @@ function Dashboard() {
         return statusConfig[normalizeStatus(status)] || statusConfig.inProgress;
     };
 
-    const currentTasks = activeTab === 'oi' ? oiTasks : activeTab === 'key' ? keyTasks : kpiTasks;
-    const taskType = activeTab === 'oi' ? 'OI' : activeTab === 'key' ? '중점추진' : 'KPI';
+    // 현재 탭의 전체 과제 목록
+    const allTabTasks = activeTab === 'oi'
+        ? oiTasks
+        : activeTab === 'collab'
+            ? collabTasks
+            : activeTab === 'key'
+                ? keyTasks
+                : kpiTasks;
+
+    // 담당자(비관리자)의 본부(topDeptName)를 과제 목록에서 역으로 탐색 (Layout과 동일 로직)
+    const getUserTopDeptName = () => {
+        if (!user || isAdmin) return null;
+
+        const skid = user?.skid || user?.userId;
+        if (!skid) return null;
+
+        const allTasksFlat = [...oiTasks, ...collabTasks, ...keyTasks, ...kpiTasks];
+        for (const task of allTasksFlat) {
+            if (task.managers && task.managers.length > 0) {
+                const userManager = task.managers.find(m =>
+                    (m.userId || m.mbId) === skid
+                );
+                if (userManager && userManager.topDeptName) {
+                    return userManager.topDeptName;
+                }
+            }
+        }
+        return null;
+    };
+
+    const userTopDeptName = getUserTopDeptName();
+
+    // 관리자: 전체 과제, 담당자: 본인 본부 과제만
+    const currentTasks = isAdmin || !userTopDeptName
+        ? allTabTasks
+        : allTabTasks.filter(task => {
+            if (task.managers && task.managers.length > 0) {
+                return task.managers.some(manager =>
+                    manager.topDeptName === userTopDeptName
+                );
+            }
+            return task.topDeptName === userTopDeptName;
+        });
+    const taskType = activeTab === 'oi' ? 'OI' : activeTab === 'collab' ? '협업' : activeTab === 'key' ? '중점추진' : 'KPI';
 
     // 헤더 필터 토글
     const toggleFilterDropdown = (column, event) => {
@@ -284,13 +314,18 @@ function Dashboard() {
             if (task.managers && task.managers.length > 0) {
                 task.managers.forEach(manager => {
                     if (manager.topDeptName) {
-                        deptSet.add(manager.topDeptName);
+                        // 관리자: 전체, 담당자: 자신의 본부만
+                        if (isAdmin || !userTopDeptName || manager.topDeptName === userTopDeptName) {
+                            deptSet.add(manager.topDeptName);
+                        }
                     }
                 });
             }
             // 담당자가 없거나 본부 정보가 없으면 과제의 본부 사용
-            if (deptSet.size === 0 && task.topDeptName) {
-                deptSet.add(task.topDeptName);
+            if (task.topDeptName) {
+                if (isAdmin || !userTopDeptName || task.topDeptName === userTopDeptName) {
+                    deptSet.add(task.topDeptName);
+                }
             }
         });
         return Array.from(deptSet).sort();
@@ -493,7 +528,8 @@ function Dashboard() {
         const totalAchievement = quantitativeTasks.reduce((sum, task) => {
             return sum + (task.achievement || 0);
         }, 0);
-        averageAchievement = Math.round(totalAchievement / quantitativeTasks.length * 10) / 10; /* 소수 첫째자리 */
+        // 전체 평균 달성률을 정수(소수점 없음)로 표시
+        averageAchievement = Math.round(totalAchievement / quantitativeTasks.length);
     }
 
     // 최상위 본부별 통계 계산
@@ -516,13 +552,21 @@ function Dashboard() {
             topDepts.add(task.topDeptName);
         }
 
-        // 본부가 없으면 미지정
-        if (topDepts.size === 0) {
-            topDepts.add('미지정');
+        // 담당자(비관리자)는 자신의 본부만 통계에 포함
+        let targetDepts;
+        if (isAdmin || !userTopDeptName) {
+            targetDepts = topDepts.size > 0 ? topDepts : new Set(['미지정']);
+        } else {
+            targetDepts = new Set();
+            if (topDepts.has(userTopDeptName)) {
+                targetDepts.add(userTopDeptName);
+            }
         }
 
+        if (targetDepts.size === 0) return;
+
         // 각 본부에 과제 통계 추가
-        topDepts.forEach(dept => {
+        targetDepts.forEach(dept => {
             if (!deptStats[dept]) {
                 deptStats[dept] = {
                     total: 0,
@@ -557,6 +601,66 @@ function Dashboard() {
             return a.deptName.localeCompare(b.deptName);
         });
 
+    // 담당자용: 본부 하위 팀(deptName)별 통계 — 자신의 본부 소속 팀만
+    const teamStats = {};
+    if (!isAdmin && userTopDeptName) {
+        sortedTasks.forEach(task => {
+            if (!task.managers || task.managers.length === 0) {
+                const teamName = task.deptName || '미지정';
+                if (!teamStats[teamName]) {
+                    teamStats[teamName] = { total: 0, inProgress: 0, completed: 0, delayed: 0, stopped: 0 };
+                }
+                const normalizedStatus = normalizeStatus(task.status);
+                teamStats[teamName].total++;
+                if (normalizedStatus === 'inProgress') teamStats[teamName].inProgress++;
+                else if (normalizedStatus === 'completed') teamStats[teamName].completed++;
+                else if (normalizedStatus === 'delayed') teamStats[teamName].delayed++;
+                else if (normalizedStatus === 'stopped') teamStats[teamName].stopped++;
+                return;
+            }
+            const teamsInMyDept = new Set();
+            task.managers.forEach(manager => {
+                if (manager.topDeptName === userTopDeptName) {
+                    teamsInMyDept.add(manager.deptName || '미지정');
+                }
+            });
+            if (teamsInMyDept.size === 0 && task.topDeptName === userTopDeptName) {
+                teamsInMyDept.add(task.deptName || '미지정');
+            }
+            const normalizedStatus = normalizeStatus(task.status);
+            teamsInMyDept.forEach(teamName => {
+                if (!teamStats[teamName]) {
+                    teamStats[teamName] = { total: 0, inProgress: 0, completed: 0, delayed: 0, stopped: 0 };
+                }
+                teamStats[teamName].total++;
+                if (normalizedStatus === 'inProgress') teamStats[teamName].inProgress++;
+                else if (normalizedStatus === 'completed') teamStats[teamName].completed++;
+                else if (normalizedStatus === 'delayed') teamStats[teamName].delayed++;
+                else if (normalizedStatus === 'stopped') teamStats[teamName].stopped++;
+            });
+        });
+    }
+    const sortedTeamStats = Object.entries(teamStats)
+        .map(([deptName, stats]) => ({ deptName, ...stats }))
+        .sort((a, b) => {
+            if (a.deptName === '미지정') return 1;
+            if (b.deptName === '미지정') return -1;
+            return a.deptName.localeCompare(b.deptName);
+        });
+
+    // 현황표: 관리자 = 본부별, 담당자 = 팀별
+    const showDeptStats = isAdmin || !userTopDeptName;
+    const statsForTable = showDeptStats ? sortedDeptStats : sortedTeamStats;
+
+    // 상태 통계 박스 필터 적용: 목록에 표시할 과제 (같은 박스 다시 클릭 시 해제)
+    const displayedTasks = statStatusFilter
+        ? sortedTasks.filter(task => normalizeStatus(task.status) === statStatusFilter)
+        : sortedTasks;
+
+    const toggleStatStatusFilter = (status) => {
+        setStatStatusFilter(prev => prev === status ? null : status);
+    };
+
     return (
         <div className="dashboard">
             {/* 탭 네비게이션 - 브라우저 스타일 */}
@@ -567,7 +671,37 @@ function Dashboard() {
                 >
                     <Target size={16} />
                     <span>OI 과제</span>
-                    <span className="tab-count">{oiTasks.length}</span>
+                    <span className="tab-count">
+                        {isAdmin || !userTopDeptName
+                            ? oiTasks.length
+                            : oiTasks.filter(task => {
+                                if (task.managers && task.managers.length > 0) {
+                                    return task.managers.some(manager =>
+                                        manager.topDeptName === userTopDeptName
+                                    );
+                                }
+                                return task.topDeptName === userTopDeptName;
+                            }).length}
+                    </span>
+                </button>
+                <button
+                    className={`tab-btn ${activeTab === 'collab' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('collab')}
+                >
+                    <Target size={16} />
+                    <span>협업 과제</span>
+                    <span className="tab-count">
+                        {isAdmin || !userTopDeptName
+                            ? collabTasks.length
+                            : collabTasks.filter(task => {
+                                if (task.managers && task.managers.length > 0) {
+                                    return task.managers.some(manager =>
+                                        manager.topDeptName === userTopDeptName
+                                    );
+                                }
+                                return task.topDeptName === userTopDeptName;
+                            }).length}
+                    </span>
                 </button>
                 <button
                     className={`tab-btn ${activeTab === 'key' ? 'active' : ''}`}
@@ -575,7 +709,18 @@ function Dashboard() {
                 >
                     <Briefcase size={16} />
                     <span>중점추진과제</span>
-                    <span className="tab-count">{keyTasks.length}</span>
+                    <span className="tab-count">
+                        {isAdmin || !userTopDeptName
+                            ? keyTasks.length
+                            : keyTasks.filter(task => {
+                                if (task.managers && task.managers.length > 0) {
+                                    return task.managers.some(manager =>
+                                        manager.topDeptName === userTopDeptName
+                                    );
+                                }
+                                return task.topDeptName === userTopDeptName;
+                            }).length}
+                    </span>
                 </button>
                 <button
                     className={`tab-btn ${activeTab === 'kpi' ? 'active' : ''}`}
@@ -583,7 +728,18 @@ function Dashboard() {
                 >
                     <BarChart3 size={16} />
                     <span>KPI 과제</span>
-                    <span className="tab-count">{kpiTasks.length}</span>
+                    <span className="tab-count">
+                        {isAdmin || !userTopDeptName
+                            ? kpiTasks.length
+                            : kpiTasks.filter(task => {
+                                if (task.managers && task.managers.length > 0) {
+                                    return task.managers.some(manager =>
+                                        manager.topDeptName === userTopDeptName
+                                    );
+                                }
+                                return task.topDeptName === userTopDeptName;
+                            }).length}
+                    </span>
                 </button>
                 <div className="tab-spacer"></div>
             </div>
@@ -595,71 +751,53 @@ function Dashboard() {
                     /* KPI 성과지표 이미지 뷰어 */
                     <>
                         <div className="kpi-dashboard-image-viewer">
-                            <div className="kpi-viewer-header">
+                            <div
+                                className="kpi-viewer-header kpi-viewer-header-clickable"
+                                onClick={() => setKpiImageSectionOpen(prev => !prev)}
+                                role="button"
+                                tabIndex={0}
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setKpiImageSectionOpen(prev => !prev); } }}
+                                aria-expanded={kpiImageSectionOpen}
+                            >
                                 <div className="kpi-viewer-title">
-                                    <ImageIcon size={16} />
                                     <span>KPI 성과지표</span>
                                 </div>
-                                {!loading && kpiLatestImage && !kpiImageError && (
-                                    <button
-                                        className="kpi-viewer-fullscreen-btn"
-                                        onClick={() => setKpiImageFullscreen(true)}
-                                        aria-label="모아보기"
-                                    >
-                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3" /><path d="M21 8V5a2 2 0 0 0-2-2h-3" /><path d="M3 16v3a2 2 0 0 0 2 2h3" /><path d="M16 21h3a2 2 0 0 0 2-2v-3" /></svg>
-                                        <span>원본 보기</span>
-                                    </button>
-                                )}
-                            </div>
-                            <div className="kpi-viewer-body">
-                                {loading ? (
-                                    <div className="kpi-viewer-placeholder">
-                                        <div className="kpi-viewer-loading-spinner" />
-                                        <p>로딩 중...</p>
-                                    </div>
-                                ) : kpiLatestImage && !kpiImageError ? (
-                                    <div className="kpi-viewer-image-wrap">
-                                        <img
-                                            src={getKpiImageUrl(kpiLatestImage.imageId)}
-                                            alt="KPI 성과지표"
-                                            className="kpi-viewer-image"
-                                            onError={() => setKpiImageError(true)}
-                                        />
-                                    </div>
-                                ) : (
-                                    <div className="kpi-viewer-placeholder">
-                                        <ImageIcon size={48} />
-                                        <p>등록된 KPI 성과지표 이미지가 없습니다.</p>
-                                        <p className="kpi-viewer-placeholder-sub">KPI 과제 페이지에서 이미지를 업로드해주세요.</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* 모아보기 팝업 - Portal로 body에 직접 렌더링 */}
-                        {kpiImageFullscreen && kpiLatestImage && createPortal(
-                            <div
-                                className="kpi-lightbox-overlay"
-                                onClick={() => setKpiImageFullscreen(false)}
-                            >
                                 <button
-                                    className="kpi-lightbox-close"
-                                    onClick={(e) => { e.stopPropagation(); setKpiImageFullscreen(false); }}
-                                    aria-label="닫기"
+                                    type="button"
+                                    className="kpi-viewer-toggle-btn"
+                                    onClick={(e) => { e.stopPropagation(); setKpiImageSectionOpen(prev => !prev); }}
+                                    aria-label={kpiImageSectionOpen ? '접기' : '펼치기'}
                                 >
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                                    {kpiImageSectionOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                    <span>{kpiImageSectionOpen ? '접기' : '펼치기'}</span>
                                 </button>
-                                <div className="kpi-lightbox-content" onClick={(e) => e.stopPropagation()}>
-                                    <img
-                                        src={getKpiImageUrl(kpiLatestImage.imageId)}
-                                        alt="KPI 성과지표"
-                                        className="kpi-lightbox-image"
-                                    />
+                            </div>
+                            {kpiImageSectionOpen && (
+                                <div className="kpi-viewer-body">
+                                    {loading ? (
+                                        <div className="kpi-viewer-placeholder">
+                                            <div className="kpi-viewer-loading-spinner" />
+                                            <p>로딩 중...</p>
+                                        </div>
+                                    ) : kpiLatestImage && !kpiImageError ? (
+                                        <div className="kpi-viewer-image-wrap">
+                                            <img
+                                                src={getKpiImageUrl(kpiLatestImage.imageId)}
+                                                alt="KPI 성과지표"
+                                                className="kpi-viewer-image"
+                                                onError={() => setKpiImageError(true)}
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div className="kpi-viewer-placeholder">
+                                            <ImageIcon size={48} />
+                                            <p>등록된 KPI 성과지표 이미지가 없습니다.</p>
+                                            <p className="kpi-viewer-placeholder-sub">KPI 과제 페이지에서 이미지를 업로드해주세요.</p>
+                                        </div>
+                                    )}
                                 </div>
-                                <p className="kpi-lightbox-hint">ESC 또는 배경 클릭으로 닫기</p>
-                            </div>,
-                            document.body
-                        )}
+                            )}
+                        </div>
                     </>
                 ) : (
                     <>
@@ -672,25 +810,25 @@ function Dashboard() {
                                         <div className="average-achievement-card">
                                             <div className="average-achievement-content">
                                                 <div className="average-achievement-label">전체 평균 달성률</div>
-                                                <div className="average-achievement-value">{Number(averageAchievement).toFixed(1)}%</div>
+                                                <div className="average-achievement-value">{Number(averageAchievement).toFixed(0)}%</div>
                                                 <div className="average-achievement-subtext">정량 평가 기준</div>
                                             </div>
                                         </div>
                                     </div>
                                 )}
 
-                                {/* 본부별 현황표 */}
-                                {sortedDeptStats.length > 0 && (
+                                {/* 본부별 현황(관리자) / 팀별 현황(담당자) */}
+                                {statsForTable.length > 0 && (
                                     <div className="dashboard-dept-stats">
                                         <div className="dept-stats-card">
                                             <div className="dept-stats-card-header">
-                                                <span className="dept-stats-card-title">본부별 현황</span>
+                                                <span className="dept-stats-card-title">{showDeptStats ? '본부별 현황' : '팀별 현황'}</span>
                                             </div>
                                             <div className="dept-stats-table-wrapper">
                                                 <table className="dept-stats-table">
                                                     <thead>
                                                         <tr>
-                                                            <th className="th-dept">본부</th>
+                                                            <th className="th-dept">{showDeptStats ? '본부' : '팀'}</th>
                                                             <th className="th-total">전체</th>
                                                             <th className="th-inprogress">진행</th>
                                                             <th className="th-completed">완료</th>
@@ -699,7 +837,7 @@ function Dashboard() {
                                                         </tr>
                                                     </thead>
                                                     <tbody>
-                                                        {sortedDeptStats.map((dept, idx) => (
+                                                        {statsForTable.map((dept, idx) => (
                                                             <tr key={dept.deptName} className={idx % 2 === 1 ? 'row-even' : ''}>
                                                                 <td className="dept-name-cell">{dept.deptName}</td>
                                                                 <td className="dept-stat-cell total">
@@ -743,7 +881,11 @@ function Dashboard() {
                             </div>
                         ) : (
                             <div className="dashboard-status-stats">
-                                <div className="status-stat-box in-progress">
+                                <button
+                                    type="button"
+                                    className={`status-stat-box in-progress ${statStatusFilter === 'inProgress' ? 'stat-filter-active' : ''}`}
+                                    onClick={() => toggleStatStatusFilter('inProgress')}
+                                >
                                     <div className="status-stat-icon">
                                         <Clock size={24} />
                                     </div>
@@ -751,8 +893,12 @@ function Dashboard() {
                                         <div className="status-stat-label">진행중</div>
                                         <div className="status-stat-value">{statusCounts.inProgress}</div>
                                     </div>
-                                </div>
-                                <div className="status-stat-box completed">
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`status-stat-box completed ${statStatusFilter === 'completed' ? 'stat-filter-active' : ''}`}
+                                    onClick={() => toggleStatStatusFilter('completed')}
+                                >
                                     <div className="status-stat-icon">
                                         <CheckCircle size={24} />
                                     </div>
@@ -760,8 +906,12 @@ function Dashboard() {
                                         <div className="status-stat-label">완료</div>
                                         <div className="status-stat-value">{statusCounts.completed}</div>
                                     </div>
-                                </div>
-                                <div className="status-stat-box delayed">
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`status-stat-box delayed ${statStatusFilter === 'delayed' ? 'stat-filter-active' : ''}`}
+                                    onClick={() => toggleStatStatusFilter('delayed')}
+                                >
                                     <div className="status-stat-icon">
                                         <AlertCircle size={24} />
                                     </div>
@@ -769,8 +919,12 @@ function Dashboard() {
                                         <div className="status-stat-label">지연</div>
                                         <div className="status-stat-value">{statusCounts.delayed}</div>
                                     </div>
-                                </div>
-                                <div className="status-stat-box stopped">
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`status-stat-box stopped ${statStatusFilter === 'stopped' ? 'stat-filter-active' : ''}`}
+                                    onClick={() => toggleStatStatusFilter('stopped')}
+                                >
                                     <div className="status-stat-icon">
                                         <XCircle size={24} />
                                     </div>
@@ -778,32 +932,14 @@ function Dashboard() {
                                         <div className="status-stat-label">중단</div>
                                         <div className="status-stat-value">{statusCounts.stopped}</div>
                                     </div>
-                                </div>
+                                </button>
                             </div>
                         )}
                     </>
                 )}
 
-                {/* KPI 탭: 과제 목록 섹션 접기/펼치기 토글 */}
-                {activeTab === 'kpi' && !loading && (
-                    <div
-                        className="kpi-task-section-toggle"
-                        onClick={() => setKpiTaskSectionOpen(prev => !prev)}
-                    >
-                        <div className="kpi-task-section-toggle-left">
-                            <span className="kpi-task-section-toggle-label">KPI 과제 목록</span>
-                            {sortedTasks.length > 0 && (
-                                <span className="kpi-task-section-toggle-count">{sortedTasks.length}건</span>
-                            )}
-                        </div>
-                        <span className="kpi-task-section-toggle-icon">
-                            {kpiTaskSectionOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                        </span>
-                    </div>
-                )}
-
-                {/* 뷰 선택 버튼 - KPI 탭이면 접기 상태 적용 */}
-                {(!loading && sortedTasks.length > 0) && (activeTab !== 'kpi' || kpiTaskSectionOpen) && (
+                {/* 뷰 선택 버튼 */}
+                {(!loading && sortedTasks.length > 0) && (
                     <div className="dashboard-view-selector">
                         <button
                             className={`view-selector-btn ${viewMode === 'table' ? 'active' : ''}`}
@@ -842,14 +978,14 @@ function Dashboard() {
                     </div>
                 )}
 
-                {/* 컴팩트 카드 그리드 - KPI 탭이면 접기 상태 적용 */}
-                <div className={`tasks-section-in-tab${activeTab === 'kpi' && !kpiTaskSectionOpen ? ' kpi-tasks-hidden' : ''}`}>
+                {/* 컴팩트 카드 그리드 */}
+                <div className="tasks-section-in-tab">
                     {loading ? (
                         <TableSkeleton rows={8} columns={7} />
-                    ) : sortedTasks.length === 0 ? (
+                    ) : displayedTasks.length === 0 ? (
                         <div className="dashboard-empty-state">
                             <div className="dashboard-empty-icon">📭</div>
-                            <p>{taskType} 과제가 없습니다.</p>
+                            <p>{statStatusFilter ? '선택한 상태의 과제가 없습니다.' : `${taskType} 과제가 없습니다.`}</p>
                         </div>
                     ) : viewMode === 'table' ? (
                         <div className="dashboard-table-container">
@@ -1129,7 +1265,7 @@ function Dashboard() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {sortedTasks.map(task => {
+                                    {displayedTasks.map(task => {
                                         const statusInfo = getStatusInfo(task.status);
                                         const StatusIcon = statusInfo.icon;
                                         const isQualitative = task.evaluationType === 'qualitative';
@@ -1142,7 +1278,8 @@ function Dashboard() {
                                         // metric 한글 변환
                                         const metricText = task.metric === 'count' ? '건수' :
                                             task.metric === 'amount' ? '금액' :
-                                                task.metric === 'percent' ? '%' : task.metric || '-';
+                                                task.metric === 'percent' ? '%' :
+                                                    task.metric === 'monthly_avg_count' ? '월 평균 건수' : task.metric || '-';
 
                                         // 날짜를 mm.dd 형식으로 변환
                                         const formatCompactDate = (dateString) => {
@@ -1226,7 +1363,7 @@ function Dashboard() {
                                                                 {formatTableValue(task.actualValue, task.metric)}
                                                             </span>
                                                             <span className="dashboard-target-tooltip">
-                                                                {task.metric === 'percent' || task.metric === '%' ? '월 평균' : '누적 합계'}
+                                                                {task.metric === 'percent' || task.metric === '%' ? '월 평균' : task.metric === 'monthly_avg_count' ? '월 평균 건수' : '누적 합계'}
                                                             </span>
                                                         </div>
                                                     )}
@@ -1467,7 +1604,7 @@ function Dashboard() {
                                 </div>
                             </div>
                             <div className="milestone-tasks">
-                                {sortedTasks.map(task => {
+                                {displayedTasks.map(task => {
                                     const normalizedStatus = normalizeStatus(task.status);
                                     const startDate = task.startDate ? new Date(task.startDate) : null;
                                     const endDate = task.endDate ? new Date(task.endDate) : null;
@@ -1626,12 +1763,11 @@ function Dashboard() {
                 </div>
             </div>
 
-            {/* 활동내역 입력 모달 - 통합 대시보드에서는 읽기 전용 */}
+            {/* 활동내역 입력 모달 - 관리자: 전체 과제 입력 가능, 담당자: 자신이 담당자인 과제만 입력 가능 */}
             <TaskInputModal
                 isOpen={isInputModalOpen}
                 onClose={handleInputModalClose}
                 task={inputTask}
-                forceReadOnly={true}
             />
         </div>
     );

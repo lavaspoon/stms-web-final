@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import AutoLogin from './pages/AutoLogin';
 import Dashboard from './pages/Dashboard';
 import OITasks from './pages/OITasks';
+import CollabTasks from './pages/CollabTasks';
 import KeyTasks from './pages/KeyTasks';
 import KPITasks from './pages/KPITasks';
 import NotificationDashboard from './pages/NotificationDashboard';
@@ -32,6 +33,7 @@ function App() {
           <Route path="/auth" element={<AutoLogin />} />
           <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
           <Route path="/oi-tasks" element={<Layout><OITasks /></Layout>} />
+          <Route path="/collab-tasks" element={<Layout><CollabTasks /></Layout>} />
           <Route path="/key-tasks" element={<Layout><KeyTasks /></Layout>} />
           <Route path="/kpi-tasks" element={<Layout><KPITasks /></Layout>} />
           <Route path="/notifications" element={<Layout><NotificationDashboard /></Layout>} />

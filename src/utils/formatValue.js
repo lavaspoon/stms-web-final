@@ -55,13 +55,17 @@ export function formatTableValue(value, metric) {
     if (value === null || value === undefined) return '0';
     const numValue = typeof value === 'number' ? value : parseFloat(value);
     if (isNaN(numValue)) return '0';
-    const m = metric === 'count' || metric === '건수' ? 'count' :
+    const m = metric === 'count' || metric === '건수' || metric === 'monthly_avg_count' ? 'count' :
         metric === 'amount' || metric === '금액' ? 'amount' :
             metric === 'percent' || metric === '%' ? 'percent' : metric;
     if (m === 'amount') {
         return formatKoreanUnit(numValue);
     }
     if (m === 'count') {
+        if (metric === 'monthly_avg_count') {
+            const rounded = Math.round(numValue * 100) / 100;
+            return (rounded % 1 === 0 ? rounded.toLocaleString('ko-KR') : rounded.toLocaleString('ko-KR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })) + '건';
+        }
         return Math.round(numValue).toLocaleString('ko-KR') + '건';
     }
     if (m === 'percent') {

@@ -177,6 +177,19 @@ function NotificationDashboard() {
                                         <span className="radio-subtitle">Operational Innovation</span>
                                     </div>
                                 </label>
+                                <label className={`radio-label-modern ${selectedGubun === '협업' ? 'active' : ''}`}>
+                                    <input
+                                        type="radio"
+                                        name="gubun"
+                                        value="협업"
+                                        checked={selectedGubun === '협업'}
+                                        onChange={(e) => setSelectedGubun(e.target.value)}
+                                    />
+                                    <div className="radio-content">
+                                        <span className="radio-title">협업 과제</span>
+                                        <span className="radio-subtitle">Collaboration Tasks</span>
+                                    </div>
+                                </label>
                                 <label className={`radio-label-modern ${selectedGubun === '중점추진' ? 'active' : ''}`}>
                                     <input
                                         type="radio"
