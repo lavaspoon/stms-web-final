@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Target, Briefcase, BarChart3, FileText, Loader2, Download, AlertCircle, CheckSquare, Square, X, CheckCircle, Code, Edit, Copy, Check, Search } from 'lucide-react';
+import { Target, Briefcase, BarChart3, FileText, Loader2, Download, AlertCircle, CheckSquare, Square, X, CheckCircle, Code, Edit, Copy, Check, Search, Handshake } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Lottie from 'lottie-react';
@@ -509,7 +509,7 @@ function AIReport() {
                         setError(null);
                     }}
                 >
-                    <Target size={16} />
+                    <Handshake size={16} />
                     <span>협업 과제</span>
                     <span className="tab-count">{collabTaskCount}</span>
                 </button>

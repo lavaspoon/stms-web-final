@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Target, Briefcase, LogOut, User, Bell, FileText, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, Target, Briefcase, LogOut, User, Bell, FileText, TrendingUp, Handshake } from 'lucide-react';
 import Lottie from 'lottie-react';
 import aiLottieData from '../assets/lotties/ailottie.json';
 import useUserStore from '../store/userStore';
@@ -203,7 +203,7 @@ function Layout({ children }) {
                     </NavLink>
 
                     <NavLink to="/collab-tasks" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-                        <Target size={20} />
+                        <Handshake size={20} />
                         <span>협업 과제</span>
                         {notInputtedCount.collab > 0 && (
                             <span

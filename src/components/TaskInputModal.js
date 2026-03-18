@@ -354,7 +354,9 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                             setFiles([]);
                         }
                     } else {
-                        const defaultVal = (taskMetric === 'count' || taskMetric === 'amount' || taskMetric === 'monthly_avg_count') ? '0' : '';
+                        const defaultVal = (taskMetric === 'count' || taskMetric === 'amount' || taskMetric === 'monthly_avg_count'
+                            || taskMetric === 'monthly_avg_head' || taskMetric === 'monthly_avg_minutes'
+                            || taskMetric === 'headcount' || taskMetric === 'minutes') ? '0' : '';
                         const emptyFormData = {
                             activityContent: '',
                             status: task.status || 'inProgress',
@@ -369,7 +371,9 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                     }
                 } catch (error) {
                     console.error('활동내역 조회 실패:', error);
-                    const defaultVal = (taskMetric === 'count' || taskMetric === 'amount' || taskMetric === 'monthly_avg_count') ? '0' : '';
+                    const defaultVal = (taskMetric === 'count' || taskMetric === 'amount' || taskMetric === 'monthly_avg_count'
+                        || taskMetric === 'monthly_avg_head' || taskMetric === 'monthly_avg_minutes'
+                        || taskMetric === 'headcount' || taskMetric === 'minutes') ? '0' : '';
                     const emptyFormData = {
                         activityContent: '',
                         status: task.status || 'inProgress',
@@ -474,7 +478,9 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                     }
                 } catch (error) {
                     console.error('활동내역 조회 실패:', error);
-                    const defaultVal = (taskMetric === 'count' || taskMetric === 'amount' || taskMetric === 'monthly_avg_count') ? '0' : '';
+                    const defaultVal = (taskMetric === 'count' || taskMetric === 'amount' || taskMetric === 'monthly_avg_count'
+                        || taskMetric === 'monthly_avg_head' || taskMetric === 'monthly_avg_minutes'
+                        || taskMetric === 'headcount' || taskMetric === 'minutes') ? '0' : '';
                     const emptyFormData = {
                         activityContent: '',
                         status: task.status || 'inProgress',
@@ -870,7 +876,9 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
             const formDataToSend = new FormData();
             formDataToSend.append('activityContent', formData.activityContent);
             if (isQuantitative) {
-                const val = (taskMetric === 'count' || taskMetric === 'amount' || taskMetric === 'monthly_avg_count')
+                const val = (taskMetric === 'count' || taskMetric === 'amount' || taskMetric === 'monthly_avg_count'
+                    || taskMetric === 'monthly_avg_head' || taskMetric === 'monthly_avg_minutes'
+                    || taskMetric === 'headcount' || taskMetric === 'minutes')
                     ? (formData.actualValue !== '' && formData.actualValue != null ? formData.actualValue : '0')
                     : formData.actualValue;
                 if (val !== '' && val != null) formDataToSend.append('actualValue', val);
@@ -939,12 +947,23 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     const normalizeMetric = (metric) => {
         const metricMap = {
             '건수': 'count',
+            '명(인원)': 'headcount',
+            '분(시간)': 'minutes',
+            '분(min)': 'minutes',
             '금액': 'amount',
             '%': 'percent',
             'count': 'count',
+            'headcount': 'headcount',
+            'minutes': 'minutes',
             'amount': 'amount',
             'percent': 'percent',
-            'monthly_avg_count': 'monthly_avg_count'
+            'monthly_avg_count': 'monthly_avg_count',
+            '월 평균 건수': 'monthly_avg_count',
+            '월 평균 명(인원)': 'monthly_avg_head',
+            '월 평균 분(시간)': 'monthly_avg_minutes',
+            '월 평균 분(min)': 'monthly_avg_minutes',
+            'monthly_avg_head': 'monthly_avg_head',
+            'monthly_avg_minutes': 'monthly_avg_minutes'
         };
         return metricMap[metric] || 'percent';
     };
@@ -953,9 +972,13 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     const getMetricUnit = (normalizedMetric) => {
         const unitMap = {
             'count': '건',
+            'headcount': '명',
+            'minutes': '분',
             'amount': '원',
             'percent': '%',
-            'monthly_avg_count': '건'
+            'monthly_avg_count': '건',
+            'monthly_avg_head': '명',
+            'monthly_avg_minutes': '분'
         };
         return unitMap[normalizedMetric] || '%';
     };
@@ -963,9 +986,13 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     const getMetricLabel = (normalizedMetric) => {
         const labelMap = {
             'count': '건수',
+            'headcount': '명(인원)',
+            'minutes': '분(min)',
             'amount': '금액',
             'percent': '%',
-            'monthly_avg_count': '월 평균 건수'
+            'monthly_avg_count': '월 평균 건수',
+            'monthly_avg_head': '월 평균 명(인원)',
+            'monthly_avg_minutes': '월 평균 분(min)'
         };
         return labelMap[normalizedMetric] || '%';
     };
@@ -1000,8 +1027,10 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     if (taskMetric === 'percent') {
         actualValue = currentMonthActualValue || 0;
         calculatedAchievement = calcAchievementRate(targetValue, actualValue, isReverse, false);
-    } else if (taskMetric === 'monthly_avg_count') {
-        // 평균 목표(건수): 월별 달성률 = 실적/월목표*100, 과제 달성률 = 각 월 달성률의 합/월 수, 실적 표시 = 월 평균 건수
+        } else if (taskMetric === 'monthly_avg_count'
+        || taskMetric === 'monthly_avg_head'
+        || taskMetric === 'monthly_avg_minutes') {
+        // 평균 목표: 월별 달성률 = 실적/월목표*100, 과제 달성률 = 각 월 달성률의 합/월 수
         const currentInputYear = isReadOnly ? viewingYear : inputYear;
         const currentInputMonth = isReadOnly ? viewingMonth : inputMonth;
         const baseVals = monthlyActualValues.map(m => ({
@@ -1695,68 +1724,87 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                             {fileSectionOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                         </button>
                         {fileSectionOpen && (
-                        <div className="file-section-content">
-                            {!isReadOnly && (
-                                <div className="file-upload-area">
-                                    <input
-                                        type="file"
-                                        ref={fileInputRef}
-                                        onChange={handleFileSelect}
-                                        multiple
-                                        style={{ display: 'none' }}
-                                        disabled={submitting}
-                                    />
-                                    <button
-                                        type="button"
-                                        className="file-upload-btn"
-                                        onClick={() => fileInputRef.current?.click()}
-                                        disabled={submitting}
-                                    >
-                                        <Upload size={14} />
-                                        <span>파일 선택</span>
-                                    </button>
-                                    {selectedFiles.length > 0 && (
-                                        <span className="file-upload-hint">
-                                            {selectedFiles.length}개 파일이 선택되었습니다. 저장 시 함께 업로드됩니다.
-                                        </span>
-                                    )}
-                                </div>
-                            )}
-
-                            {selectedFiles.length > 0 && (
-                                <div className="file-selected-list">
-                                    {selectedFiles.map((file, idx) => (
-                                        <div key={idx} className="file-item selected">
-                                            <Paperclip size={14} />
-                                            <span>{file.name}</span>
-                                            <span className="file-size">{formatFileSize(file.size)}</span>
-                                            <button
-                                                type="button"
-                                                className="file-action-btn delete"
-                                                onClick={() => {
-                                                    setSelectedFiles(prev => prev.filter((_, i) => i !== idx));
-                                                    setUploadingFiles(prev => prev.filter((name) => name !== file.name));
-                                                }}
-                                                title="제거"
-                                            >
-                                                <X size={14} />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            {files.length > 0 && (
-                                <div className="file-list">
-                                    {files.map((file) => (
-                                        <div key={file.fileId} className="file-item">
-                                            <Paperclip size={14} />
-                                            <span className="file-name" title={file.originalFileName}>
-                                                {file.originalFileName}
+                            <div className="file-section-content">
+                                {!isReadOnly && (
+                                    <div className="file-upload-area">
+                                        <input
+                                            type="file"
+                                            ref={fileInputRef}
+                                            onChange={handleFileSelect}
+                                            multiple
+                                            style={{ display: 'none' }}
+                                            disabled={submitting}
+                                        />
+                                        <button
+                                            type="button"
+                                            className="file-upload-btn"
+                                            onClick={() => fileInputRef.current?.click()}
+                                            disabled={submitting}
+                                        >
+                                            <Upload size={14} />
+                                            <span>파일 선택</span>
+                                        </button>
+                                        {selectedFiles.length > 0 && (
+                                            <span className="file-upload-hint">
+                                                {selectedFiles.length}개 파일이 선택되었습니다. 저장 시 함께 업로드됩니다.
                                             </span>
-                                            <span className="file-size">{formatFileSize(file.fileSize)}</span>
-                                            {!isReadOnly && (
-                                                <div className="file-actions">
+                                        )}
+                                    </div>
+                                )}
+
+                                {selectedFiles.length > 0 && (
+                                    <div className="file-selected-list">
+                                        {selectedFiles.map((file, idx) => (
+                                            <div key={idx} className="file-item selected">
+                                                <Paperclip size={14} />
+                                                <span>{file.name}</span>
+                                                <span className="file-size">{formatFileSize(file.size)}</span>
+                                                <button
+                                                    type="button"
+                                                    className="file-action-btn delete"
+                                                    onClick={() => {
+                                                        setSelectedFiles(prev => prev.filter((_, i) => i !== idx));
+                                                        setUploadingFiles(prev => prev.filter((name) => name !== file.name));
+                                                    }}
+                                                    title="제거"
+                                                >
+                                                    <X size={14} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {files.length > 0 && (
+                                    <div className="file-list">
+                                        {files.map((file) => (
+                                            <div key={file.fileId} className="file-item">
+                                                <Paperclip size={14} />
+                                                <span className="file-name" title={file.originalFileName}>
+                                                    {file.originalFileName}
+                                                </span>
+                                                <span className="file-size">{formatFileSize(file.fileSize)}</span>
+                                                {!isReadOnly && (
+                                                    <div className="file-actions">
+                                                        <button
+                                                            type="button"
+                                                            className="file-action-btn download"
+                                                            onClick={() => handleFileDownload(file)}
+                                                            title="다운로드"
+                                                        >
+                                                            <Download size={14} />
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className="file-action-btn delete"
+                                                            onClick={() => handleFileDelete(file.fileId)}
+                                                            title="삭제"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                                {isReadOnly && (
                                                     <button
                                                         type="button"
                                                         className="file-action-btn download"
@@ -1765,33 +1813,14 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                                     >
                                                         <Download size={14} />
                                                     </button>
-                                                    <button
-                                                        type="button"
-                                                        className="file-action-btn delete"
-                                                        onClick={() => handleFileDelete(file.fileId)}
-                                                        title="삭제"
-                                                    >
-                                                        <Trash2 size={14} />
-                                                    </button>
-                                                </div>
-                                            )}
-                                            {isReadOnly && (
-                                                <button
-                                                    type="button"
-                                                    className="file-action-btn download"
-                                                    onClick={() => handleFileDownload(file)}
-                                                    title="다운로드"
-                                                >
-                                                    <Download size={14} />
-                                                </button>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
 
-                            {/* 첨부파일이 전혀 없을 때는 아무 표시도 하지 않아 공간을 아낀다 */}
-                        </div>
+                                {/* 첨부파일이 전혀 없을 때는 아무 표시도 하지 않아 공간을 아낀다 */}
+                            </div>
                         )}
                     </section>
 
@@ -1866,7 +1895,15 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                         </div>
                                         <div className="performance-ta-item">
                                             <span className="performance-ta-item-label">
-                                                {taskMetric === 'percent' ? '평균 실적(%)' : taskMetric === 'monthly_avg_count' ? '월 평균 건수' : '누적 합계'}
+                                                {taskMetric === 'percent'
+                                                    ? '평균 실적(%)'
+                                                    : (taskMetric === 'monthly_avg_count'
+                                                        ? '월 평균 건수'
+                                                        : taskMetric === 'monthly_avg_head'
+                                                            ? '월 평균 명(인원)'
+                                                            : taskMetric === 'monthly_avg_minutes'
+                                                                ? '월 평균 분(min)'
+                                                                : '누적 합계')}
                                             </span>
                                             <span className="performance-ta-item-value">
                                                 {formatTableValue(aggregatedTaskActualValue, taskMetric)}

@@ -79,6 +79,11 @@ function OITasks() {
     const translateMetric = (metric) => {
         const map = {
             'count': '건수',
+            'headcount': '명(인원)',
+            'minutes': '분(min)',
+            'monthly_avg_count': '월 평균 건수',
+            'monthly_avg_head': '월 평균 명(인원)',
+            'monthly_avg_minutes': '월 평균 분(min)',
             'amount': '금액',
             'percent': '%'
         };
@@ -1226,7 +1231,15 @@ function OITasks() {
                                                             {formatTableValue(task.actualValue, taskMetric)}
                                                         </span>
                                                         <span className="dashboard-target-tooltip">
-                                                            {taskMetric === 'percent' || taskMetric === '%' ? '월 평균' : taskMetric === 'monthly_avg_count' ? '월 평균 건수' : '누적 합계'}
+                                                            {taskMetric === 'percent' || taskMetric === '%'
+                                                                ? '월 평균'
+                                                                : taskMetric === 'monthly_avg_count'
+                                                                    ? '월 평균 건수'
+                                                                            : taskMetric === 'monthly_avg_head'
+                                                                        ? '월 평균 명(인원)'
+                                                                            : taskMetric === 'monthly_avg_minutes'
+                                                                                ? '월 평균 분(min)'
+                                                                            : '누적 합계'}
                                                         </span>
                                                     </div>
                                                 )}

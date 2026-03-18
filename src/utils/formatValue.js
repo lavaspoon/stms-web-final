@@ -55,20 +55,55 @@ export function formatTableValue(value, metric) {
     if (value === null || value === undefined) return '0';
     const numValue = typeof value === 'number' ? value : parseFloat(value);
     if (isNaN(numValue)) return '0';
-    const m = metric === 'count' || metric === '건수' || metric === 'monthly_avg_count' ? 'count' :
-        metric === 'amount' || metric === '금액' ? 'amount' :
-            metric === 'percent' || metric === '%' ? 'percent' : metric;
-    if (m === 'amount') {
+    const isAmount = metric === 'amount' || metric === '금액';
+    const isPercent = metric === 'percent' || metric === '%';
+    const isMonthlyAvgCount = metric === 'monthly_avg_count';
+    const isMonthlyAvgHeadcount = metric === 'monthly_avg_head';
+    const isCount = metric === 'count' || metric === '건수';
+    const isHeadcount = metric === 'headcount' || metric === '명(인원)' || metric === '명';
+    const isMinutes = metric === 'minutes'
+        || metric === '분(시간)'
+        || metric === '분(min)'
+        || metric === '분'
+        || metric === 'monthly_avg_minutes';
+
+    if (isAmount) {
         return formatKoreanUnit(numValue);
     }
-    if (m === 'count') {
-        if (metric === 'monthly_avg_count') {
+    if (isCount || isHeadcount || isMinutes || isMonthlyAvgCount || isMonthlyAvgHeadcount) {
+        if (isMonthlyAvgCount) {
             const rounded = Math.round(numValue * 100) / 100;
-            return (rounded % 1 === 0 ? rounded.toLocaleString('ko-KR') : rounded.toLocaleString('ko-KR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })) + '건';
+            return (rounded % 1 === 0
+                ? rounded.toLocaleString('ko-KR')
+                : rounded.toLocaleString('ko-KR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })) + '건';
         }
-        return Math.round(numValue).toLocaleString('ko-KR') + '건';
+        if (isMonthlyAvgHeadcount) {
+            const rounded = Math.round(numValue * 100) / 100;
+            return (rounded % 1 === 0
+                ? rounded.toLocaleString('ko-KR')
+                : rounded.toLocaleString('ko-KR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })) + '명';
+        }
+        if (isMinutes) {
+            const totalMinutes = Math.round(numValue);
+            if (totalMinutes < 60) {
+                return totalMinutes.toLocaleString('ko-KR') + '분';
+            }
+
+            const hours = Math.floor(totalMinutes / 60);
+            const remainingMinutes = totalMinutes - (hours * 60);
+
+            if (remainingMinutes === 0) {
+                return hours.toLocaleString('ko-KR') + '시간';
+            }
+
+            return `${hours.toLocaleString('ko-KR')}시간 ${remainingMinutes.toLocaleString('ko-KR')}분`;
+        }
+
+        const suffix = isHeadcount ? '명' : '건';
+        return Math.round(numValue).toLocaleString('ko-KR') + suffix;
     }
-    if (m === 'percent') {
+
+    if (isPercent) {
         const rounded = Math.round(numValue * 10) / 10;
         return (rounded % 1 === 0 ? String(Math.round(rounded)) : rounded.toFixed(1)) + '%';
     }

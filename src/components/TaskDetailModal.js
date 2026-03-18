@@ -3,6 +3,7 @@ import { X, TrendingUp, Calendar, ChevronDown, ChevronUp, User, Building, Clock,
 import { getTask, getAllPreviousActivities, getYearlyGoals } from '../api/taskApi';
 import { formatDate } from '../utils/dateUtils';
 import { calcAchievementRate } from '../utils/achievementRate';
+import { formatTableValue } from '../utils/formatValue';
 import { ModalContentSkeleton, TableSkeleton } from './Skeleton';
 import './TaskDetailModal.css';
 
@@ -110,11 +111,23 @@ function TaskDetailModal({ isOpen, onClose, taskId }) {
     const normalizeMetric = (metric) => {
         const metricMap = {
             '건수': 'count',
+            '명(인원)': 'headcount',
+            '분(시간)': 'minutes',
+            '분(min)': 'minutes',
             '금액': 'amount',
             '%': 'percent',
             'count': 'count',
+            'headcount': 'headcount',
+            'minutes': 'minutes',
             'amount': 'amount',
-            'percent': 'percent'
+            'percent': 'percent',
+            'monthly_avg_count': 'monthly_avg_count',
+            '월 평균 건수': 'monthly_avg_count',
+            'monthly_avg_head': 'monthly_avg_head',
+            '월 평균 명(인원)': 'monthly_avg_head',
+            'monthly_avg_minutes': 'monthly_avg_minutes',
+            '월 평균 분(시간)': 'monthly_avg_minutes',
+            '월 평균 분(min)': 'monthly_avg_minutes'
         };
         return metricMap[metric] || 'percent';
     };
@@ -123,6 +136,11 @@ function TaskDetailModal({ isOpen, onClose, taskId }) {
     const getMetricUnit = (normalizedMetric) => {
         const unitMap = {
             'count': '건',
+            'monthly_avg_count': '건',
+            'headcount': '명',
+            'monthly_avg_head': '명',
+            'minutes': '분(min)',
+            'monthly_avg_minutes': '분(min)',
             'amount': '원',
             'percent': '%'
         };
@@ -132,6 +150,11 @@ function TaskDetailModal({ isOpen, onClose, taskId }) {
     const getMetricLabel = (normalizedMetric) => {
         const labelMap = {
             'count': '건수',
+            'monthly_avg_count': '월 평균 건수',
+            'headcount': '명(인원)',
+            'monthly_avg_head': '월 평균 명(인원)',
+            'minutes': '분(min)',
+            'monthly_avg_minutes': '월 평균 분(min)',
             'amount': '금액',
             'percent': '%'
         };
@@ -158,6 +181,11 @@ function TaskDetailModal({ isOpen, onClose, taskId }) {
     const translateMetric = (metric) => {
         const map = {
             'count': '건수',
+            'monthly_avg_count': '월 평균 건수',
+            'headcount': '명(인원)',
+            'monthly_avg_head': '월 평균 명(인원)',
+            'minutes': '분(min)',
+            'monthly_avg_minutes': '월 평균 분(min)',
             'amount': '금액',
             'percent': '%'
         };
@@ -432,22 +460,22 @@ function TaskDetailModal({ isOpen, onClose, taskId }) {
                                                     <td className="row-header">목표({metricUnit})</td>
                                                     {yearlyGoals.map((goal) => (
                                                         <td key={`target-${goal.month}`} className={goal.month === currentMonth ? 'current-month' : ''}>
-                                                            {goal.targetValue.toLocaleString()}{metricUnit}
+                                                            {formatTableValue(goal.targetValue, taskMetric)}
                                                         </td>
                                                     ))}
                                                     <td className="total-cell">
-                                                        <span className="total-value">{totalTarget.toLocaleString()}{metricUnit}</span>
+                                                        <span className="total-value">{formatTableValue(totalTarget, taskMetric)}</span>
                                                     </td>
                                                 </tr>
                                                 <tr>
                                                     <td className="row-header">실적({metricUnit})</td>
                                                     {yearlyGoals.map((goal) => (
                                                         <td key={`actual-${goal.month}`} className={goal.month === currentMonth ? 'current-month' : ''}>
-                                                            {goal.actualValue.toLocaleString()}{metricUnit}
+                                                            {formatTableValue(goal.actualValue, taskMetric)}
                                                         </td>
                                                     ))}
                                                     <td className="total-cell">
-                                                        <span className="total-value">{totalActual.toLocaleString()}{metricUnit}</span>
+                                                        <span className="total-value">{formatTableValue(totalActual, taskMetric)}</span>
                                                     </td>
                                                 </tr>
                                                 <tr>

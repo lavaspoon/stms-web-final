@@ -33,6 +33,113 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
     const [deleting, setDeleting] = useState(false);
     const [expandedDepts, setExpandedDepts] = useState(new Set());
 
+    const getMetricLabel = (metric) => {
+        const map = {
+            'count': '건수',
+            'headcount': '명(인원)',
+            'minutes': '분(min)',
+            'amount': '금액',
+            'percent': '%',
+            'monthly_avg_count': '월 평균 건수',
+            'monthly_avg_head': '월 평균 명(인원)',
+            'monthly_avg_minutes': '월 평균 분(min)',
+        };
+        return map[metric] || metric || '';
+    };
+
+    const getFormulaPopoverContent = () => {
+        const metric = formData.metric;
+        const reverse = formData.reverseYn === 'Y';
+
+        const isMonthlyAvg = metric === 'monthly_avg_count' || metric === 'monthly_avg_head' || metric === 'monthly_avg_minutes';
+
+        // 월 평균(건수/인원/시간)은 역계산이 불가한 케이스
+        if (isMonthlyAvg) {
+            return (
+                <>
+                    <div className="formula-section-title">산식</div>
+                    <div className="formula-text">
+                        <div>월별 달성률(%) = 월 실적 / 목표값 × 100</div>
+                        <div>과제 달성률(%) = (월별 달성률 합) / 월 수</div>
+                    </div>
+                    <div className="formula-example-title">예시</div>
+                    <div className="formula-text">
+                        목표값 = 100, 월 실적 = 80(1월), 120(2월) <br />
+                        월별 달성률 = 80%, 120% <br />
+                        달성률 = (80% + 120%) / 2 = 100%
+                    </div>
+                </>
+            );
+        }
+
+        if (metric === 'percent') {
+            if (reverse) {
+                return (
+                    <>
+                        <div className="formula-section-title">산식(역계산)</div>
+                        <div className="formula-text">
+                            <div>월별 달성률(%) = 목표값 / 월 실적 × 100</div>
+                            <div>과제 달성률(%) = (월별 달성률 합) / 월 수</div>
+                        </div>
+                        <div className="formula-example-title">예시</div>
+                        <div className="formula-text">
+                            목표값(%) = 10, 월 실적(%) = 8(1월), 12(2월) <br />
+                            월별 달성률 = 125%, 83.33% <br />
+                            달성률 = (125% + 83.33%) / 2 = 104.17%
+                        </div>
+                    </>
+                );
+            }
+
+            return (
+                <>
+                    <div className="formula-section-title">산식(일반)</div>
+                    <div className="formula-text">
+                        <div>월별 달성률(%) = 월 실적 / 목표값 × 100</div>
+                        <div>과제 달성률(%) = (월별 달성률 합) / 월 수</div>
+                    </div>
+                    <div className="formula-example-title">예시</div>
+                    <div className="formula-text">
+                        목표값(%) = 10, 월 실적(%) = 9(1월), 11(2월) <br />
+                        월별 달성률 = 90%, 110% <br />
+                        달성률 = (90% + 110%) / 2 = 100%
+                    </div>
+                </>
+            );
+        }
+
+        // 건수/인원/시간/금액: 합산 기반 산식
+        if (reverse) {
+            return (
+                <>
+                    <div className="formula-section-title">산식(역계산)</div>
+                    <div className="formula-text">
+                        <div>달성률(%) = 목표값 / (월 실적 합) × 100</div>
+                    </div>
+                    <div className="formula-example-title">예시</div>
+                    <div className="formula-text">
+                        목표값 = 100, 월 실적 합 = 80 <br />
+                        달성률 = 100 / 80 × 100 = 125%
+                    </div>
+                </>
+            );
+        }
+
+        return (
+            <>
+                <div className="formula-section-title">산식(일반)</div>
+                <div className="formula-text">
+                    <div>달성률(%) = (월 실적 합) / 목표값 × 100</div>
+                </div>
+                <div className="formula-example-title">예시</div>
+                <div className="formula-text">
+                    목표값 = 100, 월 실적 합 = 80 <br />
+                    달성률 = 80 / 100 × 100 = 80%
+                </div>
+            </>
+        );
+    };
+
     // 부서 목록 조회
     useEffect(() => {
         if (isOpen) {
@@ -162,7 +269,11 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 targetValue: formatTargetValue(editData.targetValue || editData.target),
                 status: editData.status || 'inProgress',
                 visibleYn: editData.visibleYn || 'Y', // 공개여부
-                reverseYn: (editData.performance?.metric || editData.metric) === 'monthly_avg_count' ? 'N' : (editData.reverseYn || 'N'), // 월 평균 건수는 역산 불가
+                reverseYn: (editData.performance?.metric || editData.metric) === 'monthly_avg_count' ||
+                    (editData.performance?.metric || editData.metric) === 'monthly_avg_head' ||
+                    (editData.performance?.metric || editData.metric) === 'monthly_avg_minutes'
+                    ? 'N'
+                    : (editData.reverseYn || 'N'), // 월 평균(건수/인원/시간)은 역산 불가
             }));
 
             // 부서 ID가 있으면 해당 부서의 담당자 목록 로드
@@ -428,7 +539,11 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 targetValue: formData.evaluationType === 'quantitative' ? formData.targetValue : null, // 정량일 때만 목표값
                 status: formData.status,
                 visibleYn: formData.visibleYn || 'Y', // 공개여부
-                reverseYn: formData.evaluationType === 'quantitative' ? (formData.metric === 'monthly_avg_count' ? 'N' : (formData.reverseYn || 'N')) : 'N', // 역계산 여부 (정량일 때만, 월 평균 건수는 N 고정)
+                reverseYn: formData.evaluationType === 'quantitative'
+                    ? (formData.metric === 'monthly_avg_count' || formData.metric === 'monthly_avg_head' || formData.metric === 'monthly_avg_minutes'
+                        ? 'N'
+                        : (formData.reverseYn || 'N'))
+                    : 'N', // 역계산 여부 (정량일 때만, 월 평균은 N 고정)
                 deptId: departmentToUse // 자동 설정된 부서 ID 사용
             };
 
@@ -601,141 +716,212 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                             <h3>성과 기준</h3>
                         </div>
 
-                        <div className="performance-criteria-compact">
-                            <div className="form-group-compact">
-                                <label>성과 분류 <span className="required">*</span></label>
-                                <div className="radio-group-compact">
-                                    <label className="radio-label-compact">
-                                        <input
-                                            type="radio"
-                                            name="performanceType"
-                                            value="financial"
-                                            checked={formData.performanceType === 'financial'}
-                                            onChange={handleChange}
-                                        />
-                                        <span>재무</span>
-                                    </label>
-                                    <label className="radio-label-compact">
-                                        <input
-                                            type="radio"
-                                            name="performanceType"
-                                            value="nonFinancial"
-                                            checked={formData.performanceType === 'nonFinancial'}
-                                            onChange={handleChange}
-                                        />
-                                        <span>비재무</span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div className="form-group-compact">
-                                <label>평가 방법 <span className="required">*</span></label>
-                                <div className="radio-group-compact">
-                                    <label className="radio-label-compact">
-                                        <input
-                                            type="radio"
-                                            name="evaluationType"
-                                            value="quantitative"
-                                            checked={formData.evaluationType === 'quantitative'}
-                                            onChange={handleChange}
-                                        />
-                                        <span>정량</span>
-                                    </label>
-                                    <label className="radio-label-compact">
-                                        <input
-                                            type="radio"
-                                            name="evaluationType"
-                                            value="qualitative"
-                                            checked={formData.evaluationType === 'qualitative'}
-                                            onChange={handleChange}
-                                        />
-                                        <span>정성</span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            {formData.evaluationType === 'quantitative' && (
-                                <>
-                                    <div className="form-group-compact">
-                                        <label>성과 지표 <span className="required">*</span></label>
-                                        <div className="radio-group-compact">
-                                            <label className="radio-label-compact">
-                                                <input
-                                                    type="radio"
-                                                    name="metric"
-                                                    value="count"
-                                                    checked={formData.metric === 'count'}
-                                                    onChange={handleChange}
-                                                />
-                                                <span>건수</span>
-                                            </label>
-                                            <label className="radio-label-compact">
-                                                <input
-                                                    type="radio"
-                                                    name="metric"
-                                                    value="amount"
-                                                    checked={formData.metric === 'amount'}
-                                                    onChange={handleChange}
-                                                />
-                                                <span>금액</span>
-                                            </label>
-                                            <label className="radio-label-compact">
-                                                <input
-                                                    type="radio"
-                                                    name="metric"
-                                                    value="percent"
-                                                    checked={formData.metric === 'percent'}
-                                                    onChange={handleChange}
-                                                />
-                                                <span>%</span>
-                                            </label>
-                                            <label className="radio-label-compact">
-                                                <input
-                                                    type="radio"
-                                                    name="metric"
-                                                    value="monthly_avg_count"
-                                                    checked={formData.metric === 'monthly_avg_count'}
-                                                    onChange={(e) => setFormData(prev => ({
-                                                        ...prev,
-                                                        metric: 'monthly_avg_count',
-                                                        reverseYn: 'N' // 월 평균 건수는 역산 선택 불가
-                                                    }))}
-                                                />
-                                                <span>월 평균 건수</span>
-                                            </label>
-                                        </div>
+                        <div className="performance-criteria-layout">
+                            <div className="performance-criteria-left">
+                                <div className="criteria-card">
+                                    <div className="criteria-card-title">
+                                        성과 분류 <span className="required">*</span>
                                     </div>
-                                    <div className="target-value-description-row">
-                                        <div className="form-group-compact">
-                                            <label>목표값 <span className="required">*</span></label>
+                                    <div className="radio-group-compact">
+                                        <label className="radio-label-compact">
+                                            <input
+                                                type="radio"
+                                                name="performanceType"
+                                                value="financial"
+                                                checked={formData.performanceType === 'financial'}
+                                                onChange={handleChange}
+                                            />
+                                            <span>재무</span>
+                                        </label>
+                                        <label className="radio-label-compact">
+                                            <input
+                                                type="radio"
+                                                name="performanceType"
+                                                value="nonFinancial"
+                                                checked={formData.performanceType === 'nonFinancial'}
+                                                onChange={handleChange}
+                                            />
+                                            <span>비재무</span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div className="criteria-card">
+                                    <div className="criteria-card-title">
+                                        평가 방법 <span className="required">*</span>
+                                    </div>
+                                    <div className="radio-group-compact">
+                                        <label className="radio-label-compact">
+                                            <input
+                                                type="radio"
+                                                name="evaluationType"
+                                                value="quantitative"
+                                                checked={formData.evaluationType === 'quantitative'}
+                                                onChange={handleChange}
+                                            />
+                                            <span>정량</span>
+                                        </label>
+                                        <label className="radio-label-compact">
+                                            <input
+                                                type="radio"
+                                                name="evaluationType"
+                                                value="qualitative"
+                                                checked={formData.evaluationType === 'qualitative'}
+                                                onChange={handleChange}
+                                            />
+                                            <span>정성</span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                {formData.evaluationType === 'quantitative' && (
+                                    <>
+                                        <div className="criteria-card">
+                                            <div className="criteria-card-title">
+                                                성과 지표 <span className="required">*</span>
+                                            </div>
+                                            <div className="radio-group-compact">
+                                                <label className="radio-label-compact">
+                                                    <input
+                                                        type="radio"
+                                                        name="metric"
+                                                        value="count"
+                                                        checked={formData.metric === 'count'}
+                                                        onChange={handleChange}
+                                                    />
+                                                    <span>건수</span>
+                                                </label>
+                                                <label className="radio-label-compact">
+                                                    <input
+                                                        type="radio"
+                                                        name="metric"
+                                                        value="headcount"
+                                                        checked={formData.metric === 'headcount'}
+                                                        onChange={handleChange}
+                                                    />
+                                                    <span>명(인원)</span>
+                                                </label>
+                                                <label className="radio-label-compact">
+                                                    <input
+                                                        type="radio"
+                                                        name="metric"
+                                                        value="minutes"
+                                                        checked={formData.metric === 'minutes'}
+                                                        onChange={handleChange}
+                                                    />
+                                                    <span>분(min)</span>
+                                                </label>
+                                                <label className="radio-label-compact">
+                                                    <input
+                                                        type="radio"
+                                                        name="metric"
+                                                        value="amount"
+                                                        checked={formData.metric === 'amount'}
+                                                        onChange={handleChange}
+                                                    />
+                                                    <span>금액</span>
+                                                </label>
+                                                <label className="radio-label-compact">
+                                                    <input
+                                                        type="radio"
+                                                        name="metric"
+                                                        value="percent"
+                                                        checked={formData.metric === 'percent'}
+                                                        onChange={handleChange}
+                                                    />
+                                                    <span>%</span>
+                                                </label>
+                                                <div className="metric-radio-break" />
+                                                <label className="radio-label-compact">
+                                                    <input
+                                                        type="radio"
+                                                        name="metric"
+                                                        value="monthly_avg_count"
+                                                        checked={formData.metric === 'monthly_avg_count'}
+                                                        onChange={() => setFormData(prev => ({
+                                                            ...prev,
+                                                            metric: 'monthly_avg_count',
+                                                            reverseYn: 'N'
+                                                        }))}
+                                                    />
+                                                    <span>월 평균 건수</span>
+                                                </label>
+                                                <label className="radio-label-compact">
+                                                    <input
+                                                        type="radio"
+                                                        name="metric"
+                                                        value="monthly_avg_head"
+                                                        checked={formData.metric === 'monthly_avg_head'}
+                                                        onChange={() => setFormData(prev => ({
+                                                            ...prev,
+                                                            metric: 'monthly_avg_head',
+                                                            reverseYn: 'N'
+                                                        }))}
+                                                    />
+                                                    <span>월 평균 명(인원)</span>
+                                                </label>
+                                                <label className="radio-label-compact">
+                                                    <input
+                                                        type="radio"
+                                                        name="metric"
+                                                        value="monthly_avg_minutes"
+                                                        checked={formData.metric === 'monthly_avg_minutes'}
+                                                        onChange={() => setFormData(prev => ({
+                                                            ...prev,
+                                                            metric: 'monthly_avg_minutes',
+                                                            reverseYn: 'N'
+                                                        }))}
+                                                    />
+                                                    <span>월 평균 분(min)</span>
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        <div className="criteria-card">
+                                            <div className="criteria-sub-title">목표값 <span className="required">*</span></div>
                                             <div className="target-input-row">
-                                                {formData.metric !== 'monthly_avg_count' && (
-                                                    <label className="reverse-checkbox-label">
-                                                        <input
-                                                            type="checkbox"
-                                                            name="reverseYn"
-                                                            checked={formData.reverseYn === 'Y'}
-                                                            onChange={(e) => setFormData(prev => ({
-                                                                ...prev,
-                                                                reverseYn: e.target.checked ? 'Y' : 'N'
-                                                            }))}
-                                                            className="reverse-checkbox"
-                                                        />
-                                                        <span className="reverse-checkbox-text">역계산</span>
-                                                    </label>
-                                                )}
+                                                {formData.metric !== 'monthly_avg_count' &&
+                                                    formData.metric !== 'monthly_avg_head' &&
+                                                    formData.metric !== 'monthly_avg_minutes' && (
+                                                        <label className="reverse-checkbox-label">
+                                                            <input
+                                                                type="checkbox"
+                                                                name="reverseYn"
+                                                                checked={formData.reverseYn === 'Y'}
+                                                                onChange={(e) => setFormData(prev => ({
+                                                                    ...prev,
+                                                                    reverseYn: e.target.checked ? 'Y' : 'N'
+                                                                }))}
+                                                                className="reverse-checkbox"
+                                                            />
+                                                            <span className="reverse-checkbox-text">역계산</span>
+                                                        </label>
+                                                    )}
                                                 <div className="target-input-wrapper">
                                                     <input
                                                         type="text"
                                                         name="targetValue"
                                                         value={formData.targetValue}
                                                         onChange={handleChange}
-                                                        placeholder={formData.metric === 'count' ? '목표 건수를 입력하세요' : formData.metric === 'amount' ? '목표 금액을 입력하세요' : formData.metric === 'monthly_avg_count' ? '월 목표 건수를 입력하세요' : '목표 %를 입력하세요'}
+                                                        placeholder={
+                                                            formData.metric === 'count' ? '목표 건수를 입력하세요'
+                                                                : formData.metric === 'headcount' ? '목표 인원을 입력하세요'
+                                                                    : formData.metric === 'minutes' ? '목표 분(min)을 입력하세요'
+                                                                        : formData.metric === 'amount' ? '목표 금액을 입력하세요'
+                                                                            : formData.metric === 'monthly_avg_count' ? '월 목표 건수를 입력하세요'
+                                                                                : formData.metric === 'monthly_avg_head' ? '월 목표 인원을 입력하세요'
+                                                                                    : formData.metric === 'monthly_avg_minutes' ? '월 목표 분(min)을 입력하세요'
+                                                                                        : '목표 %를 입력하세요'
+                                                        }
                                                         required={formData.evaluationType === 'quantitative'}
                                                         className="target-input"
                                                     />
                                                     <span className="target-unit">
-                                                        {formData.metric === 'count' || formData.metric === 'monthly_avg_count' ? '건' : formData.metric === 'amount' ? '원' : '%'}
+                                                        {formData.metric === 'count' || formData.metric === 'monthly_avg_count' ? '건'
+                                                            : formData.metric === 'headcount' || formData.metric === 'monthly_avg_head' ? '명'
+                                                                : formData.metric === 'minutes' || formData.metric === 'monthly_avg_minutes' ? '분'
+                                                                    : formData.metric === 'amount' ? '원'
+                                                                        : '%'}
                                                     </span>
                                                 </div>
                                             </div>
@@ -744,9 +930,10 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                                                     ↓ 실적이 목표보다 낮을수록 달성률이 높아집니다
                                                 </div>
                                             )}
-                                        </div>
-                                        <div className="form-group-compact">
-                                            <label>목표 설명 (선택)</label>
+
+                                            <div className="criteria-sub-title criteria-sub-title-mt">
+                                                목표 설명 <span style={{ fontWeight: 600, color: '#6b7280' }}>(선택)</span>
+                                            </div>
                                             <input
                                                 type="text"
                                                 name="targetDescription"
@@ -756,9 +943,31 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                                                 className="target-description-input"
                                             />
                                         </div>
+                                    </>
+                                )}
+                            </div>
+
+                            <div className="performance-criteria-right">
+                                {formData.evaluationType === 'quantitative' ? (
+                                    <div className="metric-formula-inline">
+                                        <div className="metric-formula-inline-title">
+                                            {getMetricLabel(formData.metric)} · {
+                                            formData.reverseYn === 'Y' &&
+                                            formData.metric !== 'monthly_avg_count' &&
+                                            formData.metric !== 'monthly_avg_head' &&
+                                            formData.metric !== 'monthly_avg_minutes'
+                                                ? '역계산'
+                                                : '일반 계산'
+                                            }
+                                        </div>
+                                        {getFormulaPopoverContent()}
                                     </div>
-                                </>
-                            )}
+                                ) : (
+                                    <div className="metric-formula-inline metric-formula-inline-blank">
+                                        정성 평가의 경우 산식/예시가 제공되지 않습니다.
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </section>
 

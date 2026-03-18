@@ -265,7 +265,7 @@
 }
 
 /* 성과 지표/목표값 블록은 한 줄 전체를 사용하여 정렬감을 높임 */
-.performance-criteria-compact > .form-group-compact:nth-child(3) {
+.performance-criteria-compact>.form-group-compact:nth-child(3) {
     grid-column: 1 / -1;
 }
 
@@ -426,9 +426,11 @@
 .reverse-checkbox-label.disabled {
     opacity: 0.85;
 }
+
 .reverse-checkbox-label.disabled .reverse-checkbox {
     cursor: not-allowed;
 }
+
 .reverse-disabled-hint {
     font-size: 11px;
     color: #6b7280;
@@ -860,4 +862,163 @@
     .radio-label {
         width: 100%;
     }
+}
+
+/* 성과 산식/예시 팝오버 */
+.metric-label-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 4px;
+}
+
+.metric-formula-inline {
+    width: 100%;
+    max-width: none;
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 1.5px solid rgba(0, 0, 0, 0.08);
+    border-radius: 12px;
+    padding: 12px 12px 14px;
+    box-sizing: border-box;
+    overflow: auto;
+    max-height: 320px;
+}
+
+.metric-formula-inline-title {
+    font-size: 12px;
+    font-weight: 950;
+    color: #0f172a;
+    letter-spacing: -0.01em;
+    margin-bottom: 10px;
+    line-height: 1.35;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(37, 99, 235, 0.12);
+}
+
+.formula-section-title {
+    font-size: 12px;
+    font-weight: 950;
+    color: #0f172a;
+    margin: 12px 0 8px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(59, 130, 246, 0.10);
+    border: 1px solid rgba(59, 130, 246, 0.20);
+}
+
+.formula-example-title {
+    font-size: 12px;
+    font-weight: 950;
+    color: #92400e;
+    margin: 14px 0 8px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.22);
+}
+
+.formula-text {
+    font-size: 12px;
+    color: #111827;
+    line-height: 1.55;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    background: rgba(255, 255, 255, 0.78);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 10px;
+    padding: 10px 10px;
+    box-sizing: border-box;
+}
+
+.formula-text > div {
+    margin: 2px 0;
+}
+
+.formula-example-title + .formula-text {
+    background: rgba(255, 255, 255, 0.85);
+    border-color: rgba(245, 158, 11, 0.20);
+}
+
+.metric-formula-inline-blank .formula-text {
+    font-family: inherit;
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: #6b7280;
+}
+
+@media (max-width: 900px) {
+    .performance-criteria-layout {
+        flex-direction: column;
+    }
+
+    .performance-criteria-right {
+        width: 100%;
+    }
+}
+
+/* 성과 기준 좌/우 레이아웃 */
+.performance-criteria-layout {
+    display: flex;
+    gap: 18px;
+    align-items: flex-start;
+}
+
+.performance-criteria-left {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.performance-criteria-right {
+    width: 420px;
+    max-width: 42%;
+    flex-shrink: 0;
+}
+
+/* 카드 UI */
+.criteria-card {
+    background: #ffffff;
+    border: 1.5px solid rgba(0, 0, 0, 0.05);
+    border-radius: 10px;
+    padding: 12px 12px 14px;
+    box-sizing: border-box;
+}
+
+.criteria-card-title {
+    font-size: 12px;
+    font-weight: 900;
+    color: #1d1d1f;
+    letter-spacing: -0.01em;
+    margin-bottom: 10px;
+    line-height: 1.35;
+}
+
+.criteria-sub-title {
+    font-size: 12px;
+    font-weight: 800;
+    color: #374151;
+    margin-bottom: 8px;
+}
+
+.criteria-sub-title-mt {
+    margin-top: 14px;
+}
+
+.metric-formula-inline-blank {
+    background: #f3f4f6;
+    color: #6b7280;
+    font-weight: 700;
+}
+
+/* 월 평균(건수/인원/시간) 옵션만 아래 행으로 분리 */
+.metric-radio-break {
+    flex-basis: 100%;
+    height: 0;
+    margin: 0;
+    padding: 0;
 }

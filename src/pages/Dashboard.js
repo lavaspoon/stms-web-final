@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Target, Briefcase, BarChart3, AlertCircle, CheckCircle, Clock, XCircle, Filter, ArrowUpDown, X, Table2, GanttChart, ImageIcon, ChevronDown, ChevronUp, Check } from 'lucide-react';
+import { Target, Briefcase, BarChart3, AlertCircle, CheckCircle, Clock, XCircle, Filter, ArrowUpDown, X, Table2, GanttChart, ImageIcon, ChevronDown, ChevronUp, Check, Handshake } from 'lucide-react';
 import useUserStore from '../store/userStore';
 import TaskInputModal from '../components/TaskInputModal';
 import { getTasksByType } from '../api/taskApi';
@@ -688,7 +688,7 @@ function Dashboard() {
                     className={`tab-btn ${activeTab === 'collab' ? 'active' : ''}`}
                     onClick={() => setActiveTab('collab')}
                 >
-                    <Target size={16} />
+                    <Handshake size={16} />
                     <span>협업 과제</span>
                     <span className="tab-count">
                         {isAdmin || !userTopDeptName
@@ -1277,9 +1277,13 @@ function Dashboard() {
 
                                         // metric 한글 변환
                                         const metricText = task.metric === 'count' ? '건수' :
-                                            task.metric === 'amount' ? '금액' :
-                                                task.metric === 'percent' ? '%' :
-                                                    task.metric === 'monthly_avg_count' ? '월 평균 건수' : task.metric || '-';
+                                            task.metric === 'headcount' ? '명(인원)' :
+                                                        task.metric === 'minutes' ? '분(min)' :
+                                                    task.metric === 'amount' ? '금액' :
+                                                        task.metric === 'percent' ? '%' :
+                                                            task.metric === 'monthly_avg_count' ? '월 평균 건수' :
+                                                            task.metric === 'monthly_avg_head' ? '월 평균 명(인원)' :
+                                                                            task.metric === 'monthly_avg_minutes' ? '월 평균 분(min)' : task.metric || '-';
 
                                         // 날짜를 mm.dd 형식으로 변환
                                         const formatCompactDate = (dateString) => {
@@ -1363,7 +1367,15 @@ function Dashboard() {
                                                                 {formatTableValue(task.actualValue, task.metric)}
                                                             </span>
                                                             <span className="dashboard-target-tooltip">
-                                                                {task.metric === 'percent' || task.metric === '%' ? '월 평균' : task.metric === 'monthly_avg_count' ? '월 평균 건수' : '누적 합계'}
+                                                                {task.metric === 'percent' || task.metric === '%'
+                                                                    ? '월 평균'
+                                                                    : task.metric === 'monthly_avg_count'
+                                                                        ? '월 평균 건수'
+                                                                            : task.metric === 'monthly_avg_head'
+                                                                            ? '월 평균 명(인원)'
+                                                                            : task.metric === 'monthly_avg_minutes'
+                                                                                ? '월 평균 분(min)'
+                                                                                : '누적 합계'}
                                                             </span>
                                                         </div>
                                                     )}
