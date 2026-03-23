@@ -55,7 +55,7 @@ export function formatTableValue(value, metric) {
     if (value === null || value === undefined) return '0';
     const numValue = typeof value === 'number' ? value : parseFloat(value);
     if (isNaN(numValue)) return '0';
-    const isAmount = metric === 'amount' || metric === '금액';
+    const isAmount = metric === 'amount' || metric === '금액' || metric === 'monthly_avg_amount' || metric === '월 평균 금액';
     const isPercent = metric === 'percent' || metric === '%';
     const isMonthlyAvgCount = metric === 'monthly_avg_count';
     const isMonthlyAvgHeadcount = metric === 'monthly_avg_head';

@@ -127,7 +127,9 @@ function TaskDetailModal({ isOpen, onClose, taskId }) {
             '월 평균 명(인원)': 'monthly_avg_head',
             'monthly_avg_minutes': 'monthly_avg_minutes',
             '월 평균 분(시간)': 'monthly_avg_minutes',
-            '월 평균 분(min)': 'monthly_avg_minutes'
+            '월 평균 분(min)': 'monthly_avg_minutes',
+            'monthly_avg_amount': 'monthly_avg_amount',
+            '월 평균 금액': 'monthly_avg_amount'
         };
         return metricMap[metric] || 'percent';
     };
@@ -142,6 +144,7 @@ function TaskDetailModal({ isOpen, onClose, taskId }) {
             'minutes': '분(min)',
             'monthly_avg_minutes': '분(min)',
             'amount': '원',
+            'monthly_avg_amount': '원',
             'percent': '%'
         };
         return unitMap[normalizedMetric] || '%';
@@ -156,6 +159,7 @@ function TaskDetailModal({ isOpen, onClose, taskId }) {
             'minutes': '분(min)',
             'monthly_avg_minutes': '월 평균 분(min)',
             'amount': '금액',
+            'monthly_avg_amount': '월 평균 금액',
             'percent': '%'
         };
         return labelMap[normalizedMetric] || '%';
@@ -187,6 +191,7 @@ function TaskDetailModal({ isOpen, onClose, taskId }) {
             'minutes': '분(min)',
             'monthly_avg_minutes': '월 평균 분(min)',
             'amount': '금액',
+            'monthly_avg_amount': '월 평균 금액',
             'percent': '%'
         };
         return map[metric] || metric;

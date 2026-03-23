@@ -43,6 +43,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
             'monthly_avg_count': '월 평균 건수',
             'monthly_avg_head': '월 평균 명(인원)',
             'monthly_avg_minutes': '월 평균 분(min)',
+            'monthly_avg_amount': '월 평균 금액',
         };
         return map[metric] || metric || '';
     };
@@ -51,15 +52,45 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
         const metric = formData.metric;
         const reverse = formData.reverseYn === 'Y';
 
-        const isMonthlyAvg = metric === 'monthly_avg_count' || metric === 'monthly_avg_head' || metric === 'monthly_avg_minutes';
+        const isMonthlyAvgCountLike = metric === 'monthly_avg_count' || metric === 'monthly_avg_head' || metric === 'monthly_avg_minutes';
+        const isMonthlyAvgAmount = metric === 'monthly_avg_amount';
 
         // 월 평균(건수/인원/시간)은 역계산이 불가한 케이스
-        if (isMonthlyAvg) {
+        if (isMonthlyAvgCountLike) {
             return (
                 <>
                     <div className="formula-section-title">산식</div>
                     <div className="formula-text">
                         <div>월별 달성률(%) = 월 실적 / 목표값 × 100</div>
+                        <div>과제 달성률(%) = (월별 달성률 합) / 월 수</div>
+                    </div>
+                    <div className="formula-example-title">예시</div>
+                    <div className="formula-text">
+                        목표값 = 100, 월 실적 = 80(1월), 120(2월) <br />
+                        {reverse ? (
+                            <>
+                                월별 달성률 = 125%, 83.33% <br />
+                                달성률 = (125% + 83.33%) / 2 = 104.17%
+                            </>
+                        ) : (
+                            <>
+                                월별 달성률 = 80%, 120% <br />
+                                달성률 = (80% + 120%) / 2 = 100%
+                            </>
+                        )}
+                    </div>
+                </>
+            );
+        }
+
+        if (isMonthlyAvgAmount) {
+            return (
+                <>
+                    <div className="formula-section-title">{reverse ? '산식(역계산)' : '산식(일반)'}</div>
+                    <div className="formula-text">
+                        <div>
+                            {reverse ? '월별 달성률(%) = 목표값 / 월 실적 × 100' : '월별 달성률(%) = 월 실적 / 목표값 × 100'}
+                        </div>
                         <div>과제 달성률(%) = (월별 달성률 합) / 월 수</div>
                     </div>
                     <div className="formula-example-title">예시</div>
@@ -874,6 +905,19 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                                                     />
                                                     <span>월 평균 분(min)</span>
                                                 </label>
+                                                <label className="radio-label-compact">
+                                                    <input
+                                                        type="radio"
+                                                        name="metric"
+                                                        value="monthly_avg_amount"
+                                                        checked={formData.metric === 'monthly_avg_amount'}
+                                                        onChange={() => setFormData(prev => ({
+                                                            ...prev,
+                                                            metric: 'monthly_avg_amount'
+                                                        }))}
+                                                    />
+                                                    <span>월 평균 금액</span>
+                                                </label>
                                             </div>
                                         </div>
 
@@ -911,6 +955,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                                                                             : formData.metric === 'monthly_avg_count' ? '월 목표 건수를 입력하세요'
                                                                                 : formData.metric === 'monthly_avg_head' ? '월 목표 인원을 입력하세요'
                                                                                     : formData.metric === 'monthly_avg_minutes' ? '월 목표 분(min)을 입력하세요'
+                                                                                        : formData.metric === 'monthly_avg_amount' ? '월 목표 금액을 입력하세요'
                                                                                         : '목표 %를 입력하세요'
                                                         }
                                                         required={formData.evaluationType === 'quantitative'}
@@ -920,7 +965,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                                                         {formData.metric === 'count' || formData.metric === 'monthly_avg_count' ? '건'
                                                             : formData.metric === 'headcount' || formData.metric === 'monthly_avg_head' ? '명'
                                                                 : formData.metric === 'minutes' || formData.metric === 'monthly_avg_minutes' ? '분'
-                                                                    : formData.metric === 'amount' ? '원'
+                                                                    : formData.metric === 'amount' || formData.metric === 'monthly_avg_amount' ? '원'
                                                                         : '%'}
                                                     </span>
                                                 </div>

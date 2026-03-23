@@ -355,7 +355,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                         }
                     } else {
                         const defaultVal = (taskMetric === 'count' || taskMetric === 'amount' || taskMetric === 'monthly_avg_count'
-                            || taskMetric === 'monthly_avg_head' || taskMetric === 'monthly_avg_minutes'
+                            || taskMetric === 'monthly_avg_head' || taskMetric === 'monthly_avg_minutes' || taskMetric === 'monthly_avg_amount'
                             || taskMetric === 'headcount' || taskMetric === 'minutes') ? '0' : '';
                         const emptyFormData = {
                             activityContent: '',
@@ -372,7 +372,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                 } catch (error) {
                     console.error('활동내역 조회 실패:', error);
                     const defaultVal = (taskMetric === 'count' || taskMetric === 'amount' || taskMetric === 'monthly_avg_count'
-                        || taskMetric === 'monthly_avg_head' || taskMetric === 'monthly_avg_minutes'
+                        || taskMetric === 'monthly_avg_head' || taskMetric === 'monthly_avg_minutes' || taskMetric === 'monthly_avg_amount'
                         || taskMetric === 'headcount' || taskMetric === 'minutes') ? '0' : '';
                     const emptyFormData = {
                         activityContent: '',
@@ -479,7 +479,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                 } catch (error) {
                     console.error('활동내역 조회 실패:', error);
                     const defaultVal = (taskMetric === 'count' || taskMetric === 'amount' || taskMetric === 'monthly_avg_count'
-                        || taskMetric === 'monthly_avg_head' || taskMetric === 'monthly_avg_minutes'
+                        || taskMetric === 'monthly_avg_head' || taskMetric === 'monthly_avg_minutes' || taskMetric === 'monthly_avg_amount'
                         || taskMetric === 'headcount' || taskMetric === 'minutes') ? '0' : '';
                     const emptyFormData = {
                         activityContent: '',
@@ -877,7 +877,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
             formDataToSend.append('activityContent', formData.activityContent);
             if (isQuantitative) {
                 const val = (taskMetric === 'count' || taskMetric === 'amount' || taskMetric === 'monthly_avg_count'
-                    || taskMetric === 'monthly_avg_head' || taskMetric === 'monthly_avg_minutes'
+                    || taskMetric === 'monthly_avg_head' || taskMetric === 'monthly_avg_minutes' || taskMetric === 'monthly_avg_amount'
                     || taskMetric === 'headcount' || taskMetric === 'minutes')
                     ? (formData.actualValue !== '' && formData.actualValue != null ? formData.actualValue : '0')
                     : formData.actualValue;
@@ -963,7 +963,9 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
             '월 평균 분(시간)': 'monthly_avg_minutes',
             '월 평균 분(min)': 'monthly_avg_minutes',
             'monthly_avg_head': 'monthly_avg_head',
-            'monthly_avg_minutes': 'monthly_avg_minutes'
+            'monthly_avg_minutes': 'monthly_avg_minutes',
+            'monthly_avg_amount': 'monthly_avg_amount',
+            '월 평균 금액': 'monthly_avg_amount'
         };
         return metricMap[metric] || 'percent';
     };
@@ -978,7 +980,8 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
             'percent': '%',
             'monthly_avg_count': '건',
             'monthly_avg_head': '명',
-            'monthly_avg_minutes': '분'
+            'monthly_avg_minutes': '분',
+            'monthly_avg_amount': '원'
         };
         return unitMap[normalizedMetric] || '%';
     };
@@ -992,7 +995,8 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
             'percent': '%',
             'monthly_avg_count': '월 평균 건수',
             'monthly_avg_head': '월 평균 명(인원)',
-            'monthly_avg_minutes': '월 평균 분(min)'
+            'monthly_avg_minutes': '월 평균 분(min)',
+            'monthly_avg_amount': '월 평균 금액'
         };
         return labelMap[normalizedMetric] || '%';
     };
@@ -1027,7 +1031,29 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     if (taskMetric === 'percent') {
         actualValue = currentMonthActualValue || 0;
         calculatedAchievement = calcAchievementRate(targetValue, actualValue, isReverse, false);
-        } else if (taskMetric === 'monthly_avg_count'
+    } else if (taskMetric === 'monthly_avg_amount') {
+        // 평균 목표(금액): 월별 달성률의 평균(역계산 가능)
+        const currentInputYear = isReadOnly ? viewingYear : inputYear;
+        const currentInputMonth = isReadOnly ? viewingMonth : inputMonth;
+        const baseVals = monthlyActualValues.map(m => ({
+            year: m.year != null ? m.year : currentInputYear,
+            month: m.month,
+            val: Number(m.actualValue || 0)
+        }));
+        const currIdx = baseVals.findIndex(b => b.year === currentInputYear && b.month === currentInputMonth);
+        if (currIdx >= 0) {
+            baseVals[currIdx].val = currentMonthActualValue;
+        } else {
+            baseVals.push({ year: currentInputYear, month: currentInputMonth, val: currentMonthActualValue });
+        }
+        const allVals = baseVals.map(b => b.val);
+        actualValue = allVals.length ? allVals.reduce((a, b) => a + b, 0) / allVals.length : 0;
+
+        calculatedAchievement = allVals.length && targetValue
+            ? allVals.map(v => calcAchievementRate(targetValue, v, isReverse, false))
+                .reduce((a, b) => a + b, 0) / allVals.length
+            : 0;
+    } else if (taskMetric === 'monthly_avg_count'
         || taskMetric === 'monthly_avg_head'
         || taskMetric === 'monthly_avg_minutes') {
         // 평균 목표: 월별 달성률 = 실적/월목표*100, 과제 달성률 = 각 월 달성률의 합/월 수
@@ -1903,6 +1929,8 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                                             ? '월 평균 명(인원)'
                                                             : taskMetric === 'monthly_avg_minutes'
                                                                 ? '월 평균 분(min)'
+                                                                : taskMetric === 'monthly_avg_amount'
+                                                                    ? '월 평균 금액'
                                                                 : '누적 합계')}
                                             </span>
                                             <span className="performance-ta-item-value">

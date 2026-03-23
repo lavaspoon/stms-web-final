@@ -84,6 +84,7 @@ function KeyTasks() {
             'monthly_avg_count': '월 평균 건수',
             'monthly_avg_head': '월 평균 명(인원)',
             'monthly_avg_minutes': '월 평균 분(min)',
+            'monthly_avg_amount': '월 평균 금액',
             'amount': '금액',
             'percent': '%'
         };
@@ -1243,6 +1244,8 @@ function KeyTasks() {
                                                                         ? '월 평균 명(인원)'
                                                                     : taskMetric === 'monthly_avg_minutes'
                                                                         ? '월 평균 분(min)'
+                                                                        : taskMetric === 'monthly_avg_amount'
+                                                                            ? '월 평균 금액'
                                                                             : '누적 합계'}
                                                         </span>
                                                     </div>

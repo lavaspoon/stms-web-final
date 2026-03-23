@@ -1283,7 +1283,8 @@ function Dashboard() {
                                                         task.metric === 'percent' ? '%' :
                                                             task.metric === 'monthly_avg_count' ? '월 평균 건수' :
                                                             task.metric === 'monthly_avg_head' ? '월 평균 명(인원)' :
-                                                                            task.metric === 'monthly_avg_minutes' ? '월 평균 분(min)' : task.metric || '-';
+                                                                            task.metric === 'monthly_avg_minutes' ? '월 평균 분(min)' :
+                                                                                task.metric === 'monthly_avg_amount' ? '월 평균 금액' : task.metric || '-';
 
                                         // 날짜를 mm.dd 형식으로 변환
                                         const formatCompactDate = (dateString) => {
@@ -1375,6 +1376,8 @@ function Dashboard() {
                                                                             ? '월 평균 명(인원)'
                                                                             : task.metric === 'monthly_avg_minutes'
                                                                                 ? '월 평균 분(min)'
+                                                                                : task.metric === 'monthly_avg_amount'
+                                                                                    ? '월 평균 금액'
                                                                                 : '누적 합계'}
                                                             </span>
                                                         </div>
