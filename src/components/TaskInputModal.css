@@ -71,41 +71,120 @@
 /* 1행: 과제명 + 설명 */
 .task-input-modal .modal-header-title-row {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 10px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
 }
 
 /* 과제명 */
 .task-input-modal .task-name-header {
-    font-size: 16px;
+    font-size: 17px;
     font-weight: 700;
     color: #111827;
     margin: 0;
     letter-spacing: -0.022em;
     line-height: 1.35;
-    flex-shrink: 0;
+    min-width: 0;
 }
 
-/* 과제 설명 - 과제명 옆에 인라인으로 */
-.task-input-modal .task-description-header {
-    font-size: 12px;
-    color: #9ca3af;
-    margin: 0;
-    line-height: 1.4;
-    letter-spacing: -0.01em;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 400px;
-}
-
-/* 2행: 뱃지 + 기간 + 부서/담당자 */
-.task-input-modal .modal-header-meta-row {
+.task-input-modal .task-title-path {
     display: flex;
     align-items: center;
     gap: 6px;
     flex-wrap: wrap;
+    min-width: 0;
+}
+
+.task-input-modal .task-title-part {
+    font-size: 14px;
+    font-weight: 600;
+    color: #4b5563;
+    line-height: 1.35;
+}
+
+.task-input-modal .task-title-sep {
+    color: #9ca3af;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.task-input-modal .task-title-main {
+    font-size: 17px;
+    font-weight: 800;
+    color: #111827;
+    line-height: 1.35;
+}
+
+/* 과제 개요 - 가독성 강조(2줄) */
+.task-input-modal .task-description-header {
+    margin: 2px 0 0 0;
+    padding: 8px 10px;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #374151;
+    font-weight: 500;
+    line-height: 1.45;
+    letter-spacing: -0.01em;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* 2행: 기간 + 부서/담당자 */
+.task-input-modal .modal-header-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding-top: 2px;
+}
+
+.task-input-modal .task-type-badges {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+}
+
+.task-input-modal .task-type-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 7px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    border: 1px solid transparent;
+    white-space: nowrap;
+    line-height: 1.2;
+}
+
+.task-input-modal .task-type-badge.oi {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-color: #bfdbfe;
+}
+
+.task-input-modal .task-type-badge.kpi {
+    background: #f5f3ff;
+    color: #6d28d9;
+    border-color: #ddd6fe;
+}
+
+.task-input-modal .task-type-badge.collab {
+    background: #ecfdf5;
+    color: #047857;
+    border-color: #a7f3d0;
+}
+
+.task-input-modal .task-type-badge.key {
+    background: #fff7ed;
+    color: #c2410c;
+    border-color: #fdba74;
 }
 
 /* 구분선 */
@@ -284,12 +363,13 @@
 }
 
 .task-input-modal .task-name-header {
-    font-size: 16px;
-    font-weight: 600;
-    color: #1d1d1f;
+    font-size: 17px;
+    font-weight: 700;
+    color: #111827;
     margin: 0;
     letter-spacing: -0.022em;
-    line-height: 1.4;
+    line-height: 1.35;
+    min-width: 0;
 }
 
 /* 상태 뱃지 스타일 */

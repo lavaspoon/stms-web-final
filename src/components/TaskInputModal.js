@@ -1154,6 +1154,21 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
         }).join('\n');
     };
 
+    const getTaskTypeBadges = (taskTypeValue) => {
+        if (!taskTypeValue) return [];
+        return String(taskTypeValue)
+            .split(',')
+            .map(v => v.trim())
+            .filter(v => v !== '');
+    };
+
+    const getTaskTypeBadgeClass = (type) => {
+        if (type === 'OI') return 'oi';
+        if (type === 'KPI') return 'kpi';
+        if (type === '협업') return 'collab';
+        return 'key';
+    };
+
     // 상태 정규화 함수
     const normalizeStatus = (status) => {
         if (!status) return 'inProgress';
@@ -1401,21 +1416,11 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     // 평가기준 확인
     const evaluationType = task?.performance?.evaluation || task?.performanceOriginal?.evaluation || task?.evaluationType || '';
     const isQuantitative = evaluationType === 'quantitative' || evaluationType === '정량';
-    // 평가기준 텍스트 변환 (영어 -> 한글)
-    let evaluationText = '-';
-    if (task?.performance?.evaluation) {
-        evaluationText = task.performance.evaluation === 'quantitative' ? '정량' :
-            task.performance.evaluation === 'qualitative' ? '정성' :
-                task.performance.evaluation;
-    } else if (task?.performanceOriginal?.evaluation) {
-        evaluationText = task.performanceOriginal.evaluation === 'quantitative' ? '정량' :
-            task.performanceOriginal.evaluation === 'qualitative' ? '정성' :
-                task.performanceOriginal.evaluation;
-    } else if (task?.evaluationType) {
-        evaluationText = task.evaluationType === 'quantitative' ? '정량' :
-            task.evaluationType === 'qualitative' ? '정성' :
-                task.evaluationType;
-    }
+    const taskTypeBadges = getTaskTypeBadges(task?.taskType);
+    const categoryPathParts = [task?.category1, task?.category2, task?.category3]
+        .filter(v => v && String(v).trim() && String(v).trim() !== '-')
+        .map(v => String(v).trim());
+    const taskTitle = task.name || task.taskName || '-';
 
     return (
         <div className="task-input-modal-overlay">
@@ -1426,20 +1431,35 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                         <X size={18} />
                     </button>
 
-                    {/* 1행: 과제명 + 설명 */}
+                    {/* 1행: 과제 구분 뱃지 + 과제명 */}
                     <div className="modal-header-title-row">
-                        <h2 className="task-name-header">{task.name || task.taskName}</h2>
-                        {task.description && task.description.trim() && (
-                            <p className="task-description-header">{task.description}</p>
+                        {taskTypeBadges.length > 0 && (
+                            <div className="task-type-badges">
+                                {taskTypeBadges.map((type) => (
+                                    <span key={type} className={`task-type-badge ${getTaskTypeBadgeClass(type)}`}>
+                                        {type}
+                                    </span>
+                                ))}
+                            </div>
                         )}
+                        <h2 className="task-name-header">
+                            <span className="task-title-path">
+                                {categoryPathParts.map((part, idx) => (
+                                    <React.Fragment key={`${part}-${idx}`}>
+                                        <span className="task-title-part">{part}</span>
+                                        <span className="task-title-sep">&gt;</span>
+                                    </React.Fragment>
+                                ))}
+                                <strong className="task-title-main">{taskTitle}</strong>
+                            </span>
+                        </h2>
                     </div>
+                    {task.description && task.description.trim() && (
+                        <p className="task-description-header">{task.description}</p>
+                    )}
 
-                    {/* 2행: 뱃지 + 기간 + 부서/담당자 */}
+                    {/* 2행: 기간 + 부서/담당자 */}
                     <div className="modal-header-meta-row">
-                        {getStatusBadge(task.status)}
-                        <span className={`task-input-evaluation-badge ${isQuantitative ? 'quantitative' : 'qualitative'}`}>
-                            {evaluationText}
-                        </span>
                         {task.startDate && task.endDate && (
                             <div className="task-period-info">
                                 <Calendar size={13} />

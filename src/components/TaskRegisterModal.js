@@ -5,7 +5,18 @@ import { createTask, updateTask, deleteTask } from '../api/taskApi';
 import './TaskRegisterModal.css';
 
 function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
+    const TASK_TYPE_OPTIONS = ['중점추진', 'OI', '협업', 'KPI'];
+    const parseTaskTypes = (value) => {
+        if (!value) return [];
+        return String(value)
+            .split(',')
+            .map(v => v.trim())
+            .filter(v => TASK_TYPE_OPTIONS.includes(v));
+    };
+    const getDefaultTaskTypes = () => (TASK_TYPE_OPTIONS.includes(taskType) ? [taskType] : ['중점추진']);
+
     const [formData, setFormData] = useState({
+        taskTypes: getDefaultTaskTypes(),
         category1: '',
         category2: '',
         taskName: '',
@@ -285,6 +296,10 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
 
             setFormData(prev => ({
                 ...prev,
+                taskTypes: (() => {
+                    const fromEdit = parseTaskTypes(editData.taskType);
+                    return fromEdit.length > 0 ? fromEdit : getDefaultTaskTypes();
+                })(),
                 category1: editData.category1 || '',
                 category2: editData.category2 || '',
                 taskName: editData.name || editData.taskName || '',
@@ -314,6 +329,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
         } else if (isOpen && !editData) {
             // 등록 모드일 때 폼 초기화
             setFormData({
+                taskTypes: getDefaultTaskTypes(),
                 category1: '',
                 category2: '',
                 taskName: '',
@@ -336,6 +352,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
         } else if (!isOpen) {
             // 모달이 닫힐 때 폼 초기화
             setFormData({
+                taskTypes: getDefaultTaskTypes(),
                 category1: '',
                 category2: '',
                 taskName: '',
@@ -517,10 +534,28 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
         }
     };
 
+    const handleTaskTypeToggle = (selectedType) => {
+        setFormData(prev => {
+            const exists = prev.taskTypes.includes(selectedType);
+            const nextTaskTypes = exists
+                ? prev.taskTypes.filter(t => t !== selectedType)
+                : [...prev.taskTypes, selectedType];
+            return {
+                ...prev,
+                taskTypes: nextTaskTypes
+            };
+        });
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
 
         // 유효성 검사
+        if (!formData.taskTypes || formData.taskTypes.length === 0) {
+            alert('과제 구분을 최소 1개 이상 선택해주세요.');
+            return;
+        }
+
         if (formData.managers.length === 0) {
             alert('담당자를 최소 1명 이상 선택해주세요.');
             return;
@@ -556,6 +591,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
 
             // 백엔드 API 형식에 맞게 데이터 변환
             const taskData = {
+                taskType: formData.taskTypes.join(','),
                 category1: formData.category1,
                 category2: formData.category2,
                 taskName: formData.taskName,
@@ -587,8 +623,6 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 alert('과제가 성공적으로 수정되었습니다.');
             } else {
                 // 등록 모드
-                // taskType이 전달된 그대로 사용 (OI, 중점추진, KPI)
-                taskData.taskType = taskType || '중점추진';
                 console.log('등록 요청 - taskData:', taskData);
                 const result = await createTask(taskData);
                 console.log('등록 응답:', result);
@@ -597,6 +631,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
 
             // 폼 초기화
             setFormData({
+                taskTypes: getDefaultTaskTypes(),
                 category1: '',
                 category2: '',
                 taskName: '',
@@ -634,8 +669,8 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 <div className="modal-header">
                     <h2>
                         {editData
-                            ? `${taskType === 'OI' ? 'OI 과제' : taskType === 'KPI' ? 'KPI 과제' : '중점추진과제'} 수정`
-                            : `${taskType === 'OI' ? 'OI 과제' : taskType === 'KPI' ? 'KPI 과제' : '중점추진과제'} 등록`
+                            ? `${taskType === 'OI' ? 'OI 과제' : taskType === 'KPI' ? 'KPI 과제' : taskType === '협업' ? '협업 과제' : '중점추진과제'} 수정`
+                            : `${taskType === 'OI' ? 'OI 과제' : taskType === 'KPI' ? 'KPI 과제' : taskType === '협업' ? '협업 과제' : '중점추진과제'} 등록`
                         }
                     </h2>
                     <button className="close-btn" onClick={onClose}>
@@ -673,6 +708,22 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                                     placeholder="예: AI 기술"
                                     required
                                 />
+                            </div>
+                        </div>
+
+                        <div className="form-group">
+                            <label>과제 구분 <span className="required">*</span></label>
+                            <div className="radio-group-compact">
+                                {TASK_TYPE_OPTIONS.map(typeOption => (
+                                    <label className="radio-label-compact" key={typeOption}>
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.taskTypes.includes(typeOption)}
+                                            onChange={() => handleTaskTypeToggle(typeOption)}
+                                        />
+                                        <span>{typeOption}과제</span>
+                                    </label>
+                                ))}
                             </div>
                         </div>
 

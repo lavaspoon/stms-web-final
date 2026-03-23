@@ -223,11 +223,27 @@ function TaskDetailModal({ isOpen, onClose, taskId }) {
         return statusMap[normalizeStatus(status)] || '진행중';
     };
 
+    const getTaskTypeBadges = (taskTypeValue) => {
+        if (!taskTypeValue) return [];
+        return String(taskTypeValue)
+            .split(',')
+            .map(v => v.trim())
+            .filter(v => v !== '');
+    };
+
+    const getTaskTypeBadgeClass = (type) => {
+        if (type === 'OI') return 'oi';
+        if (type === 'KPI') return 'kpi';
+        if (type === '협업') return 'collab';
+        return 'key';
+    };
+
     // task의 metric 확인
     const rawMetric = task?.metric || 'percent';
     const taskMetric = normalizeMetric(rawMetric);
     const metricUnit = getMetricUnit(taskMetric);
     const metricLabel = getMetricLabel(taskMetric);
+    const taskTypeBadges = getTaskTypeBadges(task?.taskType);
 
     // 총합 계산
     const totalTarget = yearlyGoals.reduce((sum, goal) => sum + goal.targetValue, 0);
@@ -295,6 +311,15 @@ function TaskDetailModal({ isOpen, onClose, taskId }) {
                                     </span>
                                 )}
                             </div>
+                            {taskTypeBadges.length > 0 && (
+                                <div className="task-type-badges">
+                                    {taskTypeBadges.map((type) => (
+                                        <span key={type} className={`task-type-badge ${getTaskTypeBadgeClass(type)}`}>
+                                            {type} 과제
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
                             <h2 className="task-path-header">
                                 {task.category1} &gt; {task.category2} &gt; <strong>{task.taskName}</strong>
                             </h2>

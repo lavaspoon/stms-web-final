@@ -194,6 +194,7 @@ function CollabTasks() {
             // 백엔드 데이터를 화면 포맷으로 변환
             let formattedTasks = data.map(task => ({
                 id: task.taskId,
+                taskType: task.taskType,
                 category1: task.category1,
                 category2: task.category2,
                 name: task.taskName,
@@ -465,6 +466,7 @@ function CollabTasks() {
             targetDescription: task.targetDescription || '', // 목표 설명 추가
             visibleYn: task.visibleYn || 'Y', // 공개여부
             reverseYn: task.reverseYn || 'N', // 역계산 여부
+            taskType: task.taskType,
             // 수정 모드에서는 원본 영어 값 사용
             performance: task.performanceOriginal || task.performance
         });
