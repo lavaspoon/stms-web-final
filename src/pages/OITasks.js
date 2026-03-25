@@ -31,7 +31,7 @@ function OITasks() {
     };
 
     const [searchTerm, setSearchTerm] = useState('');
-    const [filterStatus, setFilterStatus] = useState('all');
+    const [filterStatus, setFilterStatus] = useState(isAdmin ? 'all' : 'myTasks');
     const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -805,12 +805,18 @@ function OITasks() {
                         className={filterStatus === 'all' ? 'oi-filter-btn active' : 'oi-filter-btn'}
                         onClick={() => setFilterStatus('all')}
                     >
+                        <span className="filter-btn-check" aria-hidden="true">
+                            <Check size={16} />
+                        </span>
                         전체 ({userTasks.length})
                     </button>
                     <button
-                        className={filterStatus === 'myTasks' ? 'oi-filter-btn active' : 'oi-filter-btn'}
+                        className={filterStatus === 'myTasks' ? 'oi-filter-btn active my-tasks' : 'oi-filter-btn my-tasks'}
                         onClick={() => setFilterStatus('myTasks')}
                     >
+                        <span className="filter-btn-check" aria-hidden="true">
+                            <Check size={16} />
+                        </span>
                         담당 과제 ({userTasks.filter(t => isTaskManager(t)).length})
                     </button>
                     {user?.deptName && (
@@ -818,6 +824,9 @@ function OITasks() {
                             className={filterStatus === 'myTeam' ? 'oi-filter-btn active my-team' : 'oi-filter-btn my-team'}
                             onClick={() => setFilterStatus('myTeam')}
                         >
+                            <span className="filter-btn-check" aria-hidden="true">
+                                <Check size={16} />
+                            </span>
                             {user.deptName} ({userTasks.filter(t => {
                                 if (!t.managers || t.managers.length === 0) return false;
                                 return t.managers.some(manager => manager.deptName === user.deptName);
@@ -828,30 +837,45 @@ function OITasks() {
                         className={filterStatus === 'notInputted' ? 'oi-filter-btn active warning' : 'oi-filter-btn warning'}
                         onClick={() => setFilterStatus('notInputted')}
                     >
+                        <span className="filter-btn-check" aria-hidden="true">
+                            <Check size={16} />
+                        </span>
                         미입력 ({userTasks.filter(t => normalizeStatus(t.status) === 'inProgress' && !t.isInputted).length})
                     </button>
                     <button
                         className={filterStatus === 'inProgress' ? 'oi-filter-btn active' : 'oi-filter-btn'}
                         onClick={() => setFilterStatus('inProgress')}
                     >
+                        <span className="filter-btn-check" aria-hidden="true">
+                            <Check size={16} />
+                        </span>
                         진행중 ({userTasks.filter(t => normalizeStatus(t.status) === 'inProgress').length})
                     </button>
                     <button
                         className={filterStatus === 'completed' ? 'oi-filter-btn active' : 'oi-filter-btn'}
                         onClick={() => setFilterStatus('completed')}
                     >
+                        <span className="filter-btn-check" aria-hidden="true">
+                            <Check size={16} />
+                        </span>
                         완료 ({userTasks.filter(t => normalizeStatus(t.status) === 'completed').length})
                     </button>
                     <button
                         className={filterStatus === 'delayed' ? 'oi-filter-btn active' : 'oi-filter-btn'}
                         onClick={() => setFilterStatus('delayed')}
                     >
+                        <span className="filter-btn-check" aria-hidden="true">
+                            <Check size={16} />
+                        </span>
                         지연 ({userTasks.filter(t => normalizeStatus(t.status) === 'delayed').length})
                     </button>
                     <button
                         className={filterStatus === 'stopped' ? 'oi-filter-btn active' : 'oi-filter-btn'}
                         onClick={() => setFilterStatus('stopped')}
                     >
+                        <span className="filter-btn-check" aria-hidden="true">
+                            <Check size={16} />
+                        </span>
                         중단 ({userTasks.filter(t => normalizeStatus(t.status) === 'stopped').length})
                     </button>
                 </div>

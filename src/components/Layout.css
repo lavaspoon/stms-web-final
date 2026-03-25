@@ -212,26 +212,8 @@
 .sidebar-footer {
     padding: 16px;
     border-top: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-.user-logout-btn {
-    width: 100%;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 12px;
-    background: rgba(0, 0, 0, 0.03);
-    border: none;
-    border-radius: 12px;
-    color: #86868b;
-    cursor: pointer;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.user-logout-btn:hover {
-    background: rgba(0, 0, 0, 0.06);
-    color: #1d1d1f;
 }
 
 .user-info-section {
@@ -247,13 +229,12 @@
     flex-shrink: 0;
 }
 
-.user-logout-btn:hover .user-info-section svg {
-    color: #1d1d1f;
-}
-
 .user-details {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
 }
 
 .user-name {
@@ -271,14 +252,43 @@
     text-overflow: ellipsis;
 }
 
-.user-logout-btn svg:last-child {
-    color: #86868b;
-    flex-shrink: 0;
-    transition: color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+.user-meta-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
 }
 
-.user-logout-btn:hover svg:last-child {
-    color: #1d1d1f;
+.sidebar-user-info {
+    width: 100%;
+}
+
+.user-task-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    border: 1px solid transparent;
+    background: rgba(0, 122, 255, 0.08);
+    color: #0b5bd3;
+    white-space: nowrap;
+}
+
+.user-task-count.my {
+    background: rgba(0, 122, 255, 0.08);
+    border-color: rgba(0, 122, 255, 0.18);
+    color: #0b5bd3;
+}
+
+.user-task-count.admin {
+    background: rgba(16, 185, 129, 0.1);
+    border-color: rgba(16, 185, 129, 0.22);
+    color: #0f766e;
 }
 
 .main-content {

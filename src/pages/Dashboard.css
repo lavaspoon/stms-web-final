@@ -7,6 +7,33 @@
     min-height: 100vh;
 }
 
+/* ===== OITasks.js 헤더와 동일한 타이포그래피 ===== */
+.oi-page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 28px;
+}
+
+.oi-page-header h1 {
+    font-size: 32px;
+    font-weight: 600;
+    color: #1d1d1f;
+    margin: 0 0 8px 0;
+    letter-spacing: -0.022em;
+}
+
+.oi-page-dept-highlight {
+    color: #007aff;
+}
+
+.oi-page-subtitle {
+    font-size: 15px;
+    color: #86868b;
+    margin: 0;
+    letter-spacing: -0.016em;
+}
+
 /* ===== AI 브리핑 섹션 ===== */
 .briefing-section {
     margin: 0 0 32px 0;

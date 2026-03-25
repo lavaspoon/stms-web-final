@@ -41,6 +41,11 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
         setTaskData(task || null);
     }, [task]);
 
+    useEffect(() => {
+        // 과제/모달이 바뀌면 펼친 툴팁을 접어두기
+        setIsDescriptionTooltipOpen(false);
+    }, [isOpen, task?.id]);
+
     // 담당자 여부 확인
     const isTaskManager = () => {
         if (!task?.managers || task.managers.length === 0) return false;
@@ -74,6 +79,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     const [aiSuggestionType, setAiSuggestionType] = useState(null);
     const [customPrompt, setCustomPrompt] = useState('');
     const [showCustomPrompt, setShowCustomPrompt] = useState(false);
+    const [isDescriptionTooltipOpen, setIsDescriptionTooltipOpen] = useState(false);
     const [originalText, setOriginalText] = useState(''); // diff 비교를 위한 원본 텍스트
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth() + 1;
@@ -1454,20 +1460,62 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                             </span>
                         </h2>
                     </div>
-                    {task.description && task.description.trim() && (
-                        <p className="task-description-header">{task.description}</p>
-                    )}
 
                     {/* 2행: 기간 + 부서/담당자 */}
                     <div className="modal-header-meta-row">
-                        {task.startDate && task.endDate && (
-                            <div className="task-period-info">
-                                <Calendar size={13} />
-                                <span className="task-period-text">
-                                    {formatDate(task.startDate)} ~ {formatDate(task.endDate)}
-                                </span>
-                            </div>
-                        )}
+                        <div className="task-meta-left">
+                            {task.description && task.description.trim() && (
+                                <div className="task-description-tooltip-wrap">
+                                    <button
+                                        type="button"
+                                        className="task-description-tooltip-btn"
+                                        aria-label="과제 개요 토글"
+                                        aria-expanded={isDescriptionTooltipOpen}
+                                        aria-controls="task-description-tooltip"
+                                        title={task.description}
+                                        onClick={() => setIsDescriptionTooltipOpen(prev => !prev)}
+                                    >
+                                        {isDescriptionTooltipOpen ? '과제 개요 접기' : '과제 개요 보기'}
+                                        {isDescriptionTooltipOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                    </button>
+
+                                    {isDescriptionTooltipOpen && (
+                                        <div
+                                            id="task-description-tooltip"
+                                            className="task-description-tooltip"
+                                            role="tooltip"
+                                        >
+                                            <div className="task-description-tooltip-header">
+                                                <span className="task-description-tooltip-header-title">과제 개요</span>
+                                                <button
+                                                    type="button"
+                                                    className="task-description-tooltip-close-btn"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setIsDescriptionTooltipOpen(false);
+                                                    }}
+                                                >
+                                                    접기
+                                                </button>
+                                            </div>
+                                            <div className="task-description-tooltip-content">
+                                                {task.description}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {task.startDate && task.endDate && (
+                                <div className="task-period-info">
+                                    <Calendar size={13} />
+                                    <span className="task-period-text">
+                                        {formatDate(task.startDate)} ~ {formatDate(task.endDate)}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+
                         {task.managers && task.managers.length > 0 && (
                             <>
                                 <span className="meta-divider" />

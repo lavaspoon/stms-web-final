@@ -96,26 +96,34 @@
 }
 
 .task-input-modal .task-title-part {
-    font-size: 14px;
-    font-weight: 600;
-    color: #4b5563;
-    line-height: 1.35;
+    font-size: 12px;
+    font-weight: 800;
+    color: #1d4ed8;
+    line-height: 1.2;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(29, 78, 216, 0.07);
+    border: 1px solid rgba(29, 78, 216, 0.18);
+    letter-spacing: -0.01em;
 }
 
 .task-input-modal .task-title-sep {
-    color: #9ca3af;
-    font-size: 13px;
-    font-weight: 600;
+    color: #cbd5e1;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: -0.02em;
 }
 
 .task-input-modal .task-title-main {
     font-size: 17px;
-    font-weight: 800;
-    color: #111827;
-    line-height: 1.35;
+    font-weight: 900;
+    color: #0f172a;
+    line-height: 1.25;
+    letter-spacing: -0.03em;
+    padding: 2px 0;
 }
 
-/* 과제 개요 - 가독성 강조(2줄) */
+/* 과제 개요 (기존: 2줄 clamp) */
 .task-input-modal .task-description-header {
     margin: 2px 0 0 0;
     padding: 8px 10px;
@@ -131,6 +139,126 @@
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+}
+
+/* 헤더 2행 좌측(기간 + 과제 개요) 세로 정렬 */
+.task-input-modal .task-meta-left {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+/* 과제 개요 - 버튼 + 툴팁(전체 보기) */
+.task-input-modal .task-description-tooltip-wrap {
+    margin: 0;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: auto;
+}
+
+.task-input-modal .task-description-tooltip-btn {
+    padding: 4px 10px;
+    border: 1px solid rgba(59, 130, 246, 0.18);
+    background: rgba(59, 130, 246, 0.07);
+    border-radius: 20px;
+    font-size: 11px;
+    color: #3b82f6;
+    font-weight: 500;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+    min-height: 24px;
+}
+
+.task-input-modal .task-description-tooltip-btn:hover:not(:disabled) {
+    border-color: rgba(59, 130, 246, 0.35);
+    box-shadow: 0 2px 10px rgba(0, 122, 255, 0.08);
+    transform: translateY(-1px);
+}
+
+.task-input-modal .task-description-tooltip-btn svg {
+    flex-shrink: 0;
+    color: #3b82f6;
+}
+
+.task-input-modal .task-description-tooltip {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 20000;
+    width: min(560px, calc(100vw - 80px));
+    background: rgba(17, 24, 39, 0.96);
+    color: #ffffff;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(10px);
+    max-height: 280px;
+    overflow: auto;
+    font-size: 13px;
+    line-height: 1.65;
+}
+
+.task-input-modal .task-description-tooltip::after {
+    content: '';
+    position: absolute;
+    top: -7px;
+    left: 22px;
+    width: 0;
+    height: 0;
+    border-left: 7px solid transparent;
+    border-right: 7px solid transparent;
+    border-bottom: 7px solid rgba(17, 24, 39, 0.96);
+}
+
+.task-input-modal .task-description-tooltip-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.task-input-modal .task-description-tooltip-header-title {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.task-input-modal .task-description-tooltip-close-btn {
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.9);
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+}
+
+.task-input-modal .task-description-tooltip-close-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.28);
+    transform: translateY(-1px);
+}
+
+.task-input-modal .task-description-tooltip-content {
+    white-space: pre-wrap;
+    word-break: break-word;
 }
 
 /* 2행: 기간 + 부서/담당자 */

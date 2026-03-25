@@ -31,7 +31,7 @@ function KeyTasks() {
     };
 
     const [searchTerm, setSearchTerm] = useState('');
-    const [filterStatus, setFilterStatus] = useState('all');
+    const [filterStatus, setFilterStatus] = useState(isAdmin ? 'all' : 'myTasks');
     const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -809,12 +809,18 @@ function KeyTasks() {
                         className={filterStatus === 'all' ? 'key-filter-btn active' : 'key-filter-btn'}
                         onClick={() => setFilterStatus('all')}
                     >
+                        <span className="filter-btn-check" aria-hidden="true">
+                            <Check size={16} />
+                        </span>
                         전체 ({userTasks.length})
                     </button>
                     <button
-                        className={filterStatus === 'myTasks' ? 'key-filter-btn active' : 'key-filter-btn'}
+                        className={filterStatus === 'myTasks' ? 'key-filter-btn active my-tasks' : 'key-filter-btn my-tasks'}
                         onClick={() => setFilterStatus('myTasks')}
                     >
+                        <span className="filter-btn-check" aria-hidden="true">
+                            <Check size={16} />
+                        </span>
                         담당 과제 ({userTasks.filter(t => isTaskManager(t)).length})
                     </button>
                     {user?.deptName && (
@@ -822,6 +828,9 @@ function KeyTasks() {
                             className={filterStatus === 'myTeam' ? 'key-filter-btn active my-team' : 'key-filter-btn my-team'}
                             onClick={() => setFilterStatus('myTeam')}
                         >
+                            <span className="filter-btn-check" aria-hidden="true">
+                                <Check size={16} />
+                            </span>
                             {user.deptName} ({userTasks.filter(t => {
                                 if (!t.managers || t.managers.length === 0) return false;
                                 return t.managers.some(manager => manager.deptName === user.deptName);
@@ -832,30 +841,45 @@ function KeyTasks() {
                         className={filterStatus === 'notInputted' ? 'key-filter-btn active warning' : 'key-filter-btn warning'}
                         onClick={() => setFilterStatus('notInputted')}
                     >
+                        <span className="filter-btn-check" aria-hidden="true">
+                            <Check size={16} />
+                        </span>
                         미입력 ({userTasks.filter(t => normalizeStatus(t.status) === 'inProgress' && !t.isInputted).length})
                     </button>
                     <button
                         className={filterStatus === 'inProgress' ? 'key-filter-btn active' : 'key-filter-btn'}
                         onClick={() => setFilterStatus('inProgress')}
                     >
+                        <span className="filter-btn-check" aria-hidden="true">
+                            <Check size={16} />
+                        </span>
                         진행중 ({userTasks.filter(t => normalizeStatus(t.status) === 'inProgress').length})
                     </button>
                     <button
                         className={filterStatus === 'completed' ? 'key-filter-btn active' : 'key-filter-btn'}
                         onClick={() => setFilterStatus('completed')}
                     >
+                        <span className="filter-btn-check" aria-hidden="true">
+                            <Check size={16} />
+                        </span>
                         완료 ({userTasks.filter(t => normalizeStatus(t.status) === 'completed').length})
                     </button>
                     <button
                         className={filterStatus === 'delayed' ? 'key-filter-btn active' : 'key-filter-btn'}
                         onClick={() => setFilterStatus('delayed')}
                     >
+                        <span className="filter-btn-check" aria-hidden="true">
+                            <Check size={16} />
+                        </span>
                         지연 ({userTasks.filter(t => normalizeStatus(t.status) === 'delayed').length})
                     </button>
                     <button
                         className={filterStatus === 'stopped' ? 'key-filter-btn active' : 'key-filter-btn'}
                         onClick={() => setFilterStatus('stopped')}
                     >
+                        <span className="filter-btn-check" aria-hidden="true">
+                            <Check size={16} />
+                        </span>
                         중단 ({userTasks.filter(t => normalizeStatus(t.status) === 'stopped').length})
                     </button>
                 </div>

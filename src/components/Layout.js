@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Target, Briefcase, LogOut, User, Bell, FileText, TrendingUp, Handshake } from 'lucide-react';
+import { LayoutDashboard, Target, Briefcase, Bell, FileText, TrendingUp, Handshake } from 'lucide-react';
 import Lottie from 'lottie-react';
 import aiLottieData from '../assets/lotties/ailottie.json';
 import useUserStore from '../store/userStore';
@@ -9,170 +9,136 @@ import './Layout.css';
 
 function Layout({ children }) {
     const navigate = useNavigate();
-    const { user, clearUser } = useUserStore();
-    const [notInputtedCount, setNotInputtedCount] = useState({
+    const { user } = useUserStore();
+    const [totalTasksCount, setTotalTasksCount] = useState({
         oi: 0,
         collab: 0,
         key: 0,
         kpi: 0
     });
+    // 담당자(=비관리자) 프로필/사이드바에 표시할 "내 담당 과제" 카운트
+    const [assignedTasksCount, setAssignedTasksCount] = useState({
+        oi: 0,
+        collab: 0,
+        key: 0,
+        kpi: 0
+    });
+    const [myTasksCount, setMyTasksCount] = useState(0);
+    const [allTasksCount, setAllTasksCount] = useState(0);
 
     const isAdmin = user?.role === '관리자';
 
-    // 미입력 과제 수 조회
+    // 대시보드 탭에 표시되는 “전체 과제 수” 조회
     useEffect(() => {
         if (!user) return;
 
-        const loadNotInputtedCounts = async () => {
+        const loadTotalTaskCounts = async () => {
             try {
-                // 모든 과제 조회 (관리자는 전체, 담당자는 본부 전체)
                 const oiTasks = await getTasksByType('OI', null);
                 const collabTasks = await getTasksByType('협업', null);
                 const keyTasks = await getTasksByType('중점추진', null);
                 const kpiTasks = await getTasksByType('KPI', null);
 
-                // 상태 정규화 함수
-                const normalizeStatus = (status) => {
-                    if (!status) return 'inProgress';
-                    const statusMap = {
-                        '진행중': 'inProgress',
-                        '완료': 'completed',
-                        '지연': 'delayed',
-                        '중단': 'stopped',
-                        'inProgress': 'inProgress',
-                        'completed': 'completed',
-                        'delayed': 'delayed',
-                        'stopped': 'stopped'
-                    };
-                    return statusMap[status] || 'inProgress';
-                };
-
-                let oiNotInputted, collabNotInputted, keyNotInputted, kpiNotInputted;
-
-                if (isAdmin) {
-                    // 관리자: 진행중인 과제 중 미입력
-                    oiNotInputted = oiTasks.filter(task => {
-                        const normalizedStatus = normalizeStatus(task.status);
-                        return normalizedStatus === 'inProgress' && task.isInputted !== 'Y';
-                    }).length;
-                    collabNotInputted = collabTasks.filter(task => {
-                        const normalizedStatus = normalizeStatus(task.status);
-                        return normalizedStatus === 'inProgress' && task.isInputted !== 'Y';
-                    }).length;
-                    keyNotInputted = keyTasks.filter(task => {
-                        const normalizedStatus = normalizeStatus(task.status);
-                        return normalizedStatus === 'inProgress' && task.isInputted !== 'Y';
-                    }).length;
-                    kpiNotInputted = kpiTasks.filter(task => {
-                        const normalizedStatus = normalizeStatus(task.status);
-                        return normalizedStatus === 'inProgress' && task.isInputted !== 'Y';
-                    }).length;
-                } else {
-                    // 담당자: 본부 기준으로 필터링
+                // Dashboard.js와 동일하게 “담당자의 topDeptName”을 역탐색합니다.
+                let userTopDeptName = null;
+                if (!isAdmin) {
                     const skid = user?.skid || user?.userId;
-
-                    // 사용자의 본부 정보 찾기
-                    let userTopDeptName = null;
-                    for (const task of [...oiTasks, ...collabTasks, ...keyTasks, ...kpiTasks]) {
-                        if (task.managers && task.managers.length > 0) {
-                            const userManager = task.managers.find(m =>
-                                (m.userId || m.mbId) === skid
-                            );
-                            if (userManager && userManager.topDeptName) {
-                                userTopDeptName = userManager.topDeptName;
-                                break;
+                    if (skid) {
+                        for (const task of [...oiTasks, ...collabTasks, ...keyTasks, ...kpiTasks]) {
+                            if (task.managers && task.managers.length > 0) {
+                                const userManager = task.managers.find(m =>
+                                    (m.userId || m.mbId) === skid
+                                );
+                                if (userManager && userManager.topDeptName) {
+                                    userTopDeptName = userManager.topDeptName;
+                                    break;
+                                }
                             }
                         }
                     }
+                }
 
-                    if (userTopDeptName) {
-                        // 본부 기준으로 필터링
-                        const filteredOiTasks = oiTasks.filter(task => {
-                            if (task.managers && task.managers.length > 0) {
-                                return task.managers.some(manager =>
-                                    manager.topDeptName === userTopDeptName
-                                );
-                            }
-                            return task.topDeptName === userTopDeptName;
-                        });
+                // 관리자/담당자 역할에 따라 프로필에 보여줄 과제 개수 계산
+                const allTasks = [...oiTasks, ...collabTasks, ...keyTasks, ...kpiTasks];
+                setAllTasksCount(allTasks.length);
 
-                        const filteredCollabTasks = collabTasks.filter(task => {
-                            if (task.managers && task.managers.length > 0) {
-                                return task.managers.some(manager =>
-                                    manager.topDeptName === userTopDeptName
-                                );
-                            }
-                            return task.topDeptName === userTopDeptName;
-                        });
-
-                        const filteredKeyTasks = keyTasks.filter(task => {
-                            if (task.managers && task.managers.length > 0) {
-                                return task.managers.some(manager =>
-                                    manager.topDeptName === userTopDeptName
-                                );
-                            }
-                            return task.topDeptName === userTopDeptName;
-                        });
-
-                        const filteredKpiTasks = kpiTasks.filter(task => {
-                            if (task.managers && task.managers.length > 0) {
-                                return task.managers.some(manager =>
-                                    manager.topDeptName === userTopDeptName
-                                );
-                            }
-                            return task.topDeptName === userTopDeptName;
-                        });
-
-                        oiNotInputted = filteredOiTasks.filter(task => {
-                            const normalizedStatus = normalizeStatus(task.status);
-                            return normalizedStatus === 'inProgress' && task.isInputted !== 'Y';
-                        }).length;
-                        collabNotInputted = filteredCollabTasks.filter(task => {
-                            const normalizedStatus = normalizeStatus(task.status);
-                            return normalizedStatus === 'inProgress' && task.isInputted !== 'Y';
-                        }).length;
-                        keyNotInputted = filteredKeyTasks.filter(task => {
-                            const normalizedStatus = normalizeStatus(task.status);
-                            return normalizedStatus === 'inProgress' && task.isInputted !== 'Y';
-                        }).length;
-                        kpiNotInputted = filteredKpiTasks.filter(task => {
-                            const normalizedStatus = normalizeStatus(task.status);
-                            return normalizedStatus === 'inProgress' && task.isInputted !== 'Y';
-                        }).length;
+                if (isAdmin) {
+                    setMyTasksCount(0);
+                } else {
+                    const currentUserId = user?.userId || user?.skid;
+                    if (!currentUserId) {
+                        setMyTasksCount(0);
                     } else {
-                        oiNotInputted = 0;
-                        collabNotInputted = 0;
-                        keyNotInputted = 0;
-                        kpiNotInputted = 0;
+                        const countMyTasks = (tasks) => {
+                            return tasks.filter(task =>
+                                task.managers && task.managers.some(m => (m.userId || m.mbId) === currentUserId)
+                            ).length;
+                        };
+
+                        setMyTasksCount(
+                            countMyTasks(oiTasks) +
+                            countMyTasks(collabTasks) +
+                            countMyTasks(keyTasks) +
+                            countMyTasks(kpiTasks)
+                        );
                     }
                 }
 
-                setNotInputtedCount({
-                    oi: oiNotInputted,
-                    collab: collabNotInputted,
-                    key: keyNotInputted,
-                    kpi: kpiNotInputted
+                // "내 담당 과제" 카운트(사이드바 배지용)
+                const currentUserId = user?.userId || user?.skid;
+                const countAssignedTasks = (tasks) => {
+                    if (!currentUserId) return 0;
+                    return tasks.filter(task =>
+                        task.managers && task.managers.some(m => (m.userId || m.mbId) === currentUserId)
+                    ).length;
+                };
+
+                setAssignedTasksCount({
+                    oi: countAssignedTasks(oiTasks),
+                    collab: countAssignedTasks(collabTasks),
+                    key: countAssignedTasks(keyTasks),
+                    kpi: countAssignedTasks(kpiTasks)
+                });
+
+                const countVisibleTasks = (tasks) => {
+                    // Dashboard.js: userTopDeptName이 없으면(못 찾으면) 전체를 보여줍니다.
+                    if (isAdmin || !userTopDeptName) return tasks.length;
+
+                    return tasks.filter(task => {
+                        if (task.managers && task.managers.length > 0) {
+                            return task.managers.some(manager =>
+                                manager.topDeptName === userTopDeptName
+                            );
+                        }
+                        return task.topDeptName === userTopDeptName;
+                    }).length;
+                }
+
+                setTotalTasksCount({
+                    oi: countVisibleTasks(oiTasks),
+                    collab: countVisibleTasks(collabTasks),
+                    key: countVisibleTasks(keyTasks),
+                    kpi: countVisibleTasks(kpiTasks)
                 });
             } catch (error) {
-                console.error('미입력 과제 수 조회 실패:', error);
+                console.error('대시보드 전체 과제 수 조회 실패:', error);
             }
         };
 
-        loadNotInputtedCounts();
+        loadTotalTaskCounts();
         // 5분마다 자동 갱신
-        const interval = setInterval(loadNotInputtedCounts, 5 * 60 * 1000);
+        const interval = setInterval(loadTotalTaskCounts, 5 * 60 * 1000);
         return () => clearInterval(interval);
     }, [user, isAdmin]);
-
-    const handleLogout = () => {
-        clearUser();
-        navigate('/');
-    };
 
     if (!user) {
         navigate('/');
         return null;
     }
+
+    const isAssigneeRole = user?.role === '담당자';
+    const sidebarTaskCounts = isAssigneeRole ? assignedTasksCount : totalTasksCount;
+    const sidebarBadgeLabel = isAssigneeRole ? '담당과제수' : '전체과제수';
 
     return (
         <div className="layout">
@@ -191,13 +157,13 @@ function Layout({ children }) {
                     <NavLink to="/oi-tasks" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
                         <Target size={20} />
                         <span>OI 과제</span>
-                        {notInputtedCount.oi > 0 && (
+                        {sidebarTaskCounts.oi >= 0 && (
                             <span
                                 className="nav-badge"
-                                title="미입력과제"
-                                data-tooltip="미입력과제"
+                                title={sidebarBadgeLabel}
+                                data-tooltip={sidebarBadgeLabel}
                             >
-                                {notInputtedCount.oi}
+                                {sidebarTaskCounts.oi}
                             </span>
                         )}
                     </NavLink>
@@ -205,13 +171,13 @@ function Layout({ children }) {
                     <NavLink to="/collab-tasks" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
                         <Handshake size={20} />
                         <span>협업 과제</span>
-                        {notInputtedCount.collab > 0 && (
+                        {sidebarTaskCounts.collab >= 0 && (
                             <span
                                 className="nav-badge"
-                                title="미입력과제"
-                                data-tooltip="미입력과제"
+                                title={sidebarBadgeLabel}
+                                data-tooltip={sidebarBadgeLabel}
                             >
-                                {notInputtedCount.collab}
+                                {sidebarTaskCounts.collab}
                             </span>
                         )}
                     </NavLink>
@@ -219,13 +185,13 @@ function Layout({ children }) {
                     <NavLink to="/key-tasks" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
                         <Briefcase size={20} />
                         <span>중점추진과제</span>
-                        {notInputtedCount.key > 0 && (
+                        {sidebarTaskCounts.key >= 0 && (
                             <span
                                 className="nav-badge"
-                                title="미입력과제"
-                                data-tooltip="미입력과제"
+                                title={sidebarBadgeLabel}
+                                data-tooltip={sidebarBadgeLabel}
                             >
-                                {notInputtedCount.key}
+                                {sidebarTaskCounts.key}
                             </span>
                         )}
                     </NavLink>
@@ -233,13 +199,13 @@ function Layout({ children }) {
                     <NavLink to="/kpi-tasks" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
                         <TrendingUp size={20} />
                         <span>KPI 과제</span>
-                        {notInputtedCount.kpi > 0 && (
+                        {sidebarTaskCounts.kpi >= 0 && (
                             <span
                                 className="nav-badge"
-                                title="미입력과제"
-                                data-tooltip="미입력과제"
+                                title={sidebarBadgeLabel}
+                                data-tooltip={sidebarBadgeLabel}
                             >
-                                {notInputtedCount.kpi}
+                                {sidebarTaskCounts.kpi}
                             </span>
                         )}
                     </NavLink>
@@ -273,16 +239,22 @@ function Layout({ children }) {
                 </div>
 
                 <div className="sidebar-footer">
-                    <button onClick={handleLogout} className="user-logout-btn">
-                        <div className="user-info-section">
-                            <User size={18} />
-                            <div className="user-details">
-                                <div className="user-name">{user.userName}</div>
-                                <div className="user-role">{user.role} · {user.deptName}</div>
+                    <div className="user-info-section sidebar-user-info">
+                        <div className="user-details">
+                            <div className="user-name">{user.userName}</div>
+                            <div className="user-meta-row">
+                                <div className="user-role">
+                                    {user.deptName}
+                                </div>
+                                <div
+                                    className={`user-task-count ${isAdmin ? 'admin' : 'my'}`}
+                                    aria-live="polite"
+                                >
+                                    {isAdmin ? `현재 모든 과제: ${allTasksCount}건` : `현재 담당 과제: ${myTasksCount}건`}
+                                </div>
                             </div>
                         </div>
-                        <LogOut size={18} />
-                    </button>
+                    </div>
                 </div>
             </aside>
 
