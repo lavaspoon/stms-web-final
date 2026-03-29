@@ -17,9 +17,7 @@ export const uploadKpiImage = async (file, userId, description = '') => {
         formData.append('description', description);
     }
 
-    const response = await axios.post(`${API_BASE_URL}/kpi-images`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    const response = await axios.post(`${API_BASE_URL}/kpi-images`, formData);
     return response.data;
 };
 

@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { X, FileText, TrendingUp, Calendar, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Sparkles, CheckCircle, Wand2, Clock, AlertCircle, XCircle, Upload, Download, Trash2, Paperclip } from 'lucide-react';
-import { getTask, getTaskActivity, getAllPreviousActivities, uploadActivityFile, getActivityFiles, downloadActivityFile, deleteActivityFile, getMonthlyActualValues } from '../api/taskApi';
-import { checkSpelling, improveContext, generateCustomReport } from '../api/aiApi';
+import { getTask, getTaskActivity, getAllPreviousActivities, getTaskActivityFilesAll, downloadActivityFile, deleteActivityFile, getMonthlyActualValues } from '../api/taskApi';
+import { checkSpelling, improveContext, runDirectPrompt } from '../api/aiApi';
 import { formatDate } from '../utils/dateUtils';
-import { calcAchievementRate } from '../utils/achievementRate';
+import { calcAchievementRate, isMeaningfulActual } from '../utils/achievementRate';
 import { formatKoreanUnit, formatTableValue } from '../utils/formatValue';
 import useUserStore from '../store/userStore';
 import './TaskInputModal.css';
@@ -221,6 +221,20 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
         }
     }, [isOpen, task]);
 
+    const loadAllTaskFiles = async () => {
+        if (!task?.id) {
+            setFiles([]);
+            return;
+        }
+        try {
+            const fileList = await getTaskActivityFilesAll(task.id);
+            setFiles(Array.isArray(fileList) ? fileList : []);
+        } catch (error) {
+            console.error('파일 목록 조회 실패:', error);
+            setFiles([]);
+        }
+    };
+
     const loadExistingData = async (overrideYear, overrideMonth) => {
         try {
             setLoading(true);
@@ -254,12 +268,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                 currentActivityIdRef.current = data.activityId; // ref 업데이트
                 // 활동내역 입력 시간 저장 (updatedAt 우선, 없으면 createdAt)
                 setActivityUpdatedAt(data.updatedAt || data.createdAt || null);
-                // 파일 목록 로드
-                if (data.activityId) {
-                    loadFiles(data.activityId);
-                } else {
-                    setFiles([]);
-                }
+                loadAllTaskFiles();
             } else {
                 // 데이터 없음 - % 기준인 경우 이전 달 실적을 기본값으로 설정
                 let defaultActualValue = '';
@@ -294,22 +303,12 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                 setCurrentActivityId(null);
                 currentActivityIdRef.current = null; // ref 업데이트
                 setActivityUpdatedAt(null);
-                setFiles([]);
+                loadAllTaskFiles();
             }
         } catch (error) {
             console.error('활동내역 조회 실패:', error);
         } finally {
             setLoading(false);
-        }
-    };
-
-    const loadFiles = async (activityId) => {
-        try {
-            const fileList = await getActivityFiles(activityId);
-            setFiles(fileList || []);
-        } catch (error) {
-            console.error('파일 목록 조회 실패:', error);
-            setFiles([]);
         }
     };
 
@@ -353,12 +352,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                         currentActivityIdRef.current = data.activityId; // ref 업데이트
                         // 활동내역 입력 시간 저장 (updatedAt 우선, 없으면 createdAt)
                         setActivityUpdatedAt(data.updatedAt || data.createdAt || null);
-                        // 파일 목록 로드
-                        if (data.activityId) {
-                            await loadFiles(data.activityId);
-                        } else {
-                            setFiles([]);
-                        }
+                        await loadAllTaskFiles();
                     } else {
                         const defaultVal = (taskMetric === 'count' || taskMetric === 'amount' || taskMetric === 'monthly_avg_count'
                             || taskMetric === 'monthly_avg_head' || taskMetric === 'monthly_avg_minutes' || taskMetric === 'monthly_avg_amount'
@@ -373,7 +367,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                         setCurrentActivityId(null);
                         currentActivityIdRef.current = null; // ref 업데이트
                         setActivityUpdatedAt(null);
-                        setFiles([]);
+                        await loadAllTaskFiles();
                     }
                 } catch (error) {
                     console.error('활동내역 조회 실패:', error);
@@ -390,7 +384,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                     setCurrentActivityId(null);
                     currentActivityIdRef.current = null; // ref 업데이트
                     setActivityUpdatedAt(null);
-                    setFiles([]);
+                    await loadAllTaskFiles();
                 } finally {
                     setLoading(false);
                 }
@@ -442,12 +436,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                         currentActivityIdRef.current = data.activityId; // ref 업데이트
                         // 활동내역 입력 시간 저장 (updatedAt 우선, 없으면 createdAt)
                         setActivityUpdatedAt(data.updatedAt || data.createdAt || null);
-                        // 파일 목록 로드
-                        if (data.activityId) {
-                            await loadFiles(data.activityId);
-                        } else {
-                            setFiles([]);
-                        }
+                        await loadAllTaskFiles();
                     } else {
                         // 데이터 없음 - % 기준인 경우 이전 달 실적을 기본값으로 설정
                         let defaultActualValue = '';
@@ -480,7 +469,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                         setCurrentActivityId(null);
                         currentActivityIdRef.current = null; // ref 업데이트
                         setActivityUpdatedAt(null);
-                        setFiles([]);
+                        await loadAllTaskFiles();
                     }
                 } catch (error) {
                     console.error('활동내역 조회 실패:', error);
@@ -497,7 +486,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                     setCurrentActivityId(null);
                     currentActivityIdRef.current = null; // ref 업데이트
                     setActivityUpdatedAt(null);
-                    setFiles([]);
+                    await loadAllTaskFiles();
                 } finally {
                     setLoading(false);
                 }
@@ -715,18 +704,11 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
             return;
         }
 
-        if (!formData.activityContent.trim()) {
-            alert('활동내역을 먼저 입력해주세요.');
-            return;
-        }
-
         try {
             setAiProcessing(true);
             setAiSuggestion(null);
-            setOriginalText(formData.activityContent); // 원본 저장
-            // 사용자 프롬프트와 현재 활동내역을 결합하여 AI에 전달
-            const promptWithContent = `${customPrompt}\n\n현재 활동내역:\n${formData.activityContent}`;
-            const result = await generateCustomReport(null, null, promptWithContent);
+            setOriginalText('');
+            const result = await runDirectPrompt(customPrompt);
             setAiSuggestion(result);
             setAiSuggestionType('custom');
         } catch (error) {
@@ -823,7 +805,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
 
         try {
             await deleteActivityFile(fileId);
-            await loadFiles(currentActivityId);
+            await loadAllTaskFiles();
         } catch (error) {
             console.error('파일 삭제 실패:', error);
             alert('파일 삭제 중 오류가 발생했습니다.');
@@ -901,14 +883,10 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
             });
 
             // 활동내역 저장 (파일 포함)
+            // FormData 전송 시 Content-Type을 직접 넣지 않음 — boundary 없이 고정하면 서버가 파일 파트를 못 읽음
             const response = await axios.post(
                 `http://localhost:8080/api/tasks/${task.id}/activity?userId=${user.skid}`,
-                formDataToSend,
-                {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
-                    },
-                }
+                formDataToSend
             );
 
             // 저장 후 activityId가 있으면 파일 목록 다시 로드
@@ -917,7 +895,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                 currentActivityIdRef.current = response.data.activityId; // ref 업데이트
                 // 저장 후 시간 정보 업데이트 (updatedAt 우선, 없으면 createdAt)
                 setActivityUpdatedAt(response.data.updatedAt || response.data.createdAt || new Date().toISOString());
-                await loadFiles(response.data.activityId);
+                await loadAllTaskFiles();
             }
 
             // 저장 직후 반영: 과제 최신 정보 + 월별 실적 (누적/달성률 표시 갱신)
@@ -944,6 +922,18 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
             setSubmitting(false);
         }
     };
+
+    const sortedTaskFiles = useMemo(() => {
+        return [...(files || [])].sort((a, b) => {
+            const ay = a.activityYear ?? 0;
+            const am = a.activityMonth ?? 0;
+            const by = b.activityYear ?? 0;
+            const bm = b.activityMonth ?? 0;
+            if (by !== ay) return by - ay;
+            if (bm !== am) return bm - am;
+            return (b.fileId || 0) - (a.fileId || 0);
+        });
+    }, [files]);
 
     if (!isOpen || !task) return null;
 
@@ -1027,7 +1017,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     // 목표값과 실적값 (백엔드 기준 집계값)
     const targetValue = effectiveTask?.targetValue != null && effectiveTask.targetValue !== 0 ? parseFloat(effectiveTask.targetValue) : 0;
     const aggregatedTaskActualValue = effectiveTask?.actualValue != null ? Number(effectiveTask.actualValue) : 0; // 건수/금액: 누적 합계, %: 평균 실적(%)
-    const currentMonthActualValue = formData.actualValue ? parseFloat(formData.actualValue) : 0;
+    const currentMonthActualValue = isMeaningfulActual(formData.actualValue) ? parseFloat(formData.actualValue) : 0;
 
     // 평가 기준에 따라 실적값과 달성률 계산 (실시간 반영)
     let actualValue = 0;
@@ -1035,24 +1025,25 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     const isReverse = task?.reverseYn === 'Y';
 
     if (taskMetric === 'percent') {
-        actualValue = currentMonthActualValue || 0;
+        actualValue = isMeaningfulActual(formData.actualValue) ? currentMonthActualValue : 0;
         calculatedAchievement = calcAchievementRate(targetValue, actualValue, isReverse, false);
     } else if (taskMetric === 'monthly_avg_amount') {
-        // 평균 목표(금액): 월별 달성률의 평균(역계산 가능)
+        // 평균 목표(금액): 월별 달성률의 평균(역계산 가능) — 실적 0·공란·null 달은 산식에서 제외
         const currentInputYear = isReadOnly ? viewingYear : inputYear;
         const currentInputMonth = isReadOnly ? viewingMonth : inputMonth;
         const baseVals = monthlyActualValues.map(m => ({
             year: m.year != null ? m.year : currentInputYear,
             month: m.month,
-            val: Number(m.actualValue || 0)
+            val: isMeaningfulActual(m.actualValue) ? Number(m.actualValue) : null
         }));
         const currIdx = baseVals.findIndex(b => b.year === currentInputYear && b.month === currentInputMonth);
+        const currMeaningful = isMeaningfulActual(formData.actualValue);
         if (currIdx >= 0) {
-            baseVals[currIdx].val = currentMonthActualValue;
-        } else {
+            baseVals[currIdx].val = currMeaningful ? currentMonthActualValue : null;
+        } else if (currMeaningful) {
             baseVals.push({ year: currentInputYear, month: currentInputMonth, val: currentMonthActualValue });
         }
-        const allVals = baseVals.map(b => b.val);
+        const allVals = baseVals.map(b => b.val).filter(v => v != null && !Number.isNaN(v));
         actualValue = allVals.length ? allVals.reduce((a, b) => a + b, 0) / allVals.length : 0;
 
         calculatedAchievement = allVals.length && targetValue
@@ -1062,21 +1053,22 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     } else if (taskMetric === 'monthly_avg_count'
         || taskMetric === 'monthly_avg_head'
         || taskMetric === 'monthly_avg_minutes') {
-        // 평균 목표: 월별 달성률 = 실적/월목표*100, 과제 달성률 = 각 월 달성률의 합/월 수
+        // 평균 목표: 월별 달성률 = 실적/월목표*100, 과제 달성률 = 실적이 있는 달만 평균
         const currentInputYear = isReadOnly ? viewingYear : inputYear;
         const currentInputMonth = isReadOnly ? viewingMonth : inputMonth;
         const baseVals = monthlyActualValues.map(m => ({
             year: m.year != null ? m.year : currentInputYear,
             month: m.month,
-            val: Number(m.actualValue || 0)
+            val: isMeaningfulActual(m.actualValue) ? Number(m.actualValue) : null
         }));
         const currIdx = baseVals.findIndex(b => b.year === currentInputYear && b.month === currentInputMonth);
+        const currMeaningful = isMeaningfulActual(formData.actualValue);
         if (currIdx >= 0) {
-            baseVals[currIdx].val = currentMonthActualValue;
-        } else {
+            baseVals[currIdx].val = currMeaningful ? currentMonthActualValue : null;
+        } else if (currMeaningful) {
             baseVals.push({ year: currentInputYear, month: currentInputMonth, val: currentMonthActualValue });
         }
-        const allVals = baseVals.map(b => b.val);
+        const allVals = baseVals.map(b => b.val).filter(v => v != null && !Number.isNaN(v));
         actualValue = allVals.length ? allVals.reduce((a, b) => a + b, 0) / allVals.length : 0;
         const monthlyTarget = targetValue || 1;
         calculatedAchievement = allVals.length
@@ -1087,8 +1079,8 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
         const currentInputMonth = isReadOnly ? viewingMonth : inputMonth;
         const otherMonthsSum = monthlyActualValues
             .filter(item => (item.year != null ? item.year : currentInputYear) !== currentInputYear || item.month !== currentInputMonth)
-            .reduce((sum, item) => sum + (item.actualValue || 0), 0);
-        actualValue = currentMonthActualValue + otherMonthsSum;
+            .reduce((sum, item) => sum + (isMeaningfulActual(item.actualValue) ? Number(item.actualValue) : 0), 0);
+        actualValue = (isMeaningfulActual(formData.actualValue) ? currentMonthActualValue : 0) + otherMonthsSum;
         calculatedAchievement = calcAchievementRate(targetValue, actualValue, isReverse, false);
     }
 
@@ -1220,13 +1212,13 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     const chartYear = isReadOnly ? viewingYear : inputYear;
     const MonthlyLineChart = ({ data, color, targetValue: chartTargetValue, metricUnit: chartMetricUnit, isPercent, currentInputMonth, currentInputValue, year: chartYearProp }) => {
         const dataWithCurrent = [...(data || [])];
-        if (currentInputValue != null && currentInputValue !== '' && !isReadOnly) {
+        if (isMeaningfulActual(currentInputValue) && !isReadOnly) {
             const currentValue = parseFloat(currentInputValue) || 0;
             const y = chartYearProp != null ? chartYearProp : chartYear;
             const existingIndex = dataWithCurrent.findIndex(d => d.month === currentInputMonth && d.year === y);
             if (existingIndex >= 0) {
                 dataWithCurrent[existingIndex] = { ...dataWithCurrent[existingIndex], actualValue: currentValue };
-            } else if (currentValue > 0) {
+            } else {
                 dataWithCurrent.push({ month: currentInputMonth, year: y, actualValue: currentValue });
             }
         }
@@ -1246,9 +1238,9 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
 
         const processedData = periodMonths.map(({ year: yr, month: mo }) => {
             const monthData = dataWithCurrent.find(d => d.month === mo && d.year === yr);
-            const hasSavedData = !!(data || []).find(d => d.month === mo && d.year === yr);
-            if (monthData && monthData.actualValue != null) {
-                return { ...monthData, actualValue: monthData.actualValue, hasSavedData };
+            const hasSavedData = isMeaningfulActual(monthData?.actualValue);
+            if (monthData && hasSavedData) {
+                return { ...monthData, actualValue: monthData.actualValue, hasSavedData: true };
             }
             return { month: mo, year: yr, actualValue: 0, hasSavedData: false };
         });
@@ -1428,6 +1420,19 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
         .map(v => String(v).trim());
     const taskTitle = task.name || task.taskName || '-';
 
+    const canDeleteAttachment = (file) => {
+        if (isReadOnly) return false;
+        if (currentActivityId == null) return false;
+        return Number(file.activityId) === Number(currentActivityId);
+    };
+
+    const isFileInViewingMonth = (file) => {
+        const y = isReadOnly ? viewingYear : inputYear;
+        const m = isReadOnly ? viewingMonth : inputMonth;
+        if (file.activityYear == null || file.activityMonth == null) return false;
+        return file.activityYear === y && file.activityMonth === m;
+    };
+
     return (
         <div className="task-input-modal-overlay">
             <div className="task-input-modal" onClick={(e) => e.stopPropagation()}>
@@ -1540,383 +1545,395 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                 </div>
 
                 <form onSubmit={handleSubmit} className="input-form">
-                    {/* 이달 활동내역 입력 */}
-                    <section className="form-section activity-main-section">
-                        <div className="activity-main-header">
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <FileText size={18} />
-                                {isReadOnly ? (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                        <h3>활동내역 (읽기 전용)</h3>
-                                        <div className="month-navigation-inline">
-                                            <button
-                                                type="button"
-                                                className="month-nav-btn-inline"
-                                                onClick={() => handleViewingMonthChange('prev')}
-                                                disabled={!canMoveToPrevViewingMonth()}
-                                                title={canMoveToPrevViewingMonth() ? '이전 월' : '과제 시작일 이전입니다'}
-                                            >
-                                                <ChevronLeft size={18} />
-                                            </button>
-                                            <span className="month-display-inline">
-                                                {viewingYear}년 {viewingMonth}월
-                                            </span>
-                                            <button
-                                                type="button"
-                                                className="month-nav-btn-inline"
-                                                onClick={() => handleViewingMonthChange('next')}
-                                                disabled={!canMoveToNextViewingMonth()}
-                                                title={canMoveToNextViewingMonth() ? '다음 월' : '과제 종료일 이후입니다'}
-                                            >
-                                                <ChevronRight size={18} />
-                                            </button>
+                    {/* 활동내역(좌) + 첨부파일(우) — 세로 스크롤을 줄여 목표 대비 실적을 한눈에 */}
+                    <div className="activity-file-split-row">
+                        {/* 이달 활동내역 입력 */}
+                        <section className="form-section activity-main-section">
+                            <div className="activity-main-header">
+                                <div className="activity-main-header-left">
+                                    <FileText size={16} className="activity-main-header-icon" />
+                                    {isReadOnly ? (
+                                        <div className="activity-main-header-title-nav">
+                                            <h3>활동내역 (읽기 전용)</h3>
+                                            <div className="month-navigation-inline">
+                                                <button
+                                                    type="button"
+                                                    className="month-nav-btn-inline"
+                                                    onClick={() => handleViewingMonthChange('prev')}
+                                                    disabled={!canMoveToPrevViewingMonth()}
+                                                    title={canMoveToPrevViewingMonth() ? '이전 월' : '과제 시작일 이전입니다'}
+                                                >
+                                                    <ChevronLeft size={16} />
+                                                </button>
+                                                <span className="month-display-inline">
+                                                    {viewingYear}년 {viewingMonth}월
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    className="month-nav-btn-inline"
+                                                    onClick={() => handleViewingMonthChange('next')}
+                                                    disabled={!canMoveToNextViewingMonth()}
+                                                    title={canMoveToNextViewingMonth() ? '다음 월' : '과제 종료일 이후입니다'}
+                                                >
+                                                    <ChevronRight size={16} />
+                                                </button>
+                                            </div>
+                                            <span className="read-only-badge">읽기 전용</span>
                                         </div>
-                                        <span className="read-only-badge">읽기 전용</span>
-                                    </div>
-                                ) : (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                        <h3>활동내역 입력</h3>
-                                        <div className="month-navigation-inline">
-                                            <button
-                                                type="button"
-                                                className="month-nav-btn-inline"
-                                                onClick={() => handleInputMonthChange('prev')}
-                                                disabled={!canMoveToPrevInputMonth()}
-                                                title={canMoveToPrevInputMonth() ? '이전 월' : '과제 시작일 이전입니다'}
-                                            >
-                                                <ChevronLeft size={18} />
-                                            </button>
-                                            <span className="month-display-inline">
-                                                {inputYear}년 {inputMonth}월
-                                            </span>
-                                            <button
-                                                type="button"
-                                                className="month-nav-btn-inline"
-                                                onClick={() => handleInputMonthChange('next')}
-                                                disabled={!canMoveToNextMonth()}
-                                                title={canMoveToNextMonth() ? "다음 월" : "미래 달은 입력할 수 없습니다"}
-                                            >
-                                                <ChevronRight size={18} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                            {/* 활동내역 입력 시간 표시 */}
-                            {activityUpdatedAt && (
-                                <div style={{
-                                    fontSize: '12px',
-                                    color: '#6b7280',
-                                    marginTop: '4px',
-                                    marginLeft: '26px'
-                                }}>
-                                    입력 시간: {formatDateTime(activityUpdatedAt)}
-                                </div>
-                            )}
-                        </div>
-                        <div className="activity-main-container">
-                            <div className="form-group activity-main-group">
-                                <textarea
-                                    name="activityContent"
-                                    value={formData.activityContent}
-                                    onChange={handleChange}
-                                    placeholder={isReadOnly ? "활동내역이 없습니다" : `${inputMonth}월 진행한 활동내역을 입력하세요`}
-                                    rows="10"
-                                    disabled={isReadOnly}
-                                    readOnly={isReadOnly}
-                                    className="activity-main-textarea"
-                                />
-                            </div>
-
-                            {/* AI 기능 버튼 - 읽기 전용일 때 숨김 */}
-                            {!isReadOnly && (
-                                <div className="ai-actions">
-                                    <div className="ai-quick-actions">
-                                        <button
-                                            type="button"
-                                            className="ai-btn"
-                                            onClick={handleSpellingCheck}
-                                            disabled={aiProcessing || !formData.activityContent.trim()}
-                                        >
-                                            <CheckCircle size={16} />
-                                            <span>AI 맞춤법·띄어쓰기 교정</span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="ai-btn"
-                                            onClick={handleImproveContext}
-                                            disabled={aiProcessing || !formData.activityContent.trim()}
-                                        >
-                                            <Wand2 size={16} />
-                                            <span>AI 문맥·표현 개선</span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="ai-btn ai-custom-toggle-btn"
-                                            onClick={() => setShowCustomPrompt(!showCustomPrompt)}
-                                            disabled={aiProcessing}
-                                        >
-                                            <Sparkles size={16} />
-                                            <span>프롬프트 직접 입력</span>
-                                            {showCustomPrompt ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                                        </button>
-                                    </div>
-                                    {showCustomPrompt && (
-                                        <div className="ai-custom-prompt-section">
-                                            <input
-                                                type="text"
-                                                className="ai-custom-prompt-input"
-                                                placeholder="프롬프트를 입력하세요 (예: 더 간결하게 작성해줘, 전문적인 표현으로 바꿔줘)"
-                                                value={customPrompt}
-                                                onChange={(e) => setCustomPrompt(e.target.value)}
-                                                disabled={aiProcessing}
-                                                onKeyPress={(e) => {
-                                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                                        e.preventDefault();
-                                                        handleCustomPrompt();
-                                                    }
-                                                }}
-                                            />
-                                            <button
-                                                type="button"
-                                                className="ai-btn ai-custom-btn"
-                                                onClick={handleCustomPrompt}
-                                                disabled={aiProcessing || !customPrompt.trim() || !formData.activityContent.trim()}
-                                            >
-                                                <Sparkles size={16} />
-                                                <span>AI 실행</span>
-                                            </button>
+                                    ) : (
+                                        <div className="activity-main-header-title-nav">
+                                            <h3>활동내역 입력</h3>
+                                            <div className="month-navigation-inline">
+                                                <button
+                                                    type="button"
+                                                    className="month-nav-btn-inline"
+                                                    onClick={() => handleInputMonthChange('prev')}
+                                                    disabled={!canMoveToPrevInputMonth()}
+                                                    title={canMoveToPrevInputMonth() ? '이전 월' : '과제 시작일 이전입니다'}
+                                                >
+                                                    <ChevronLeft size={16} />
+                                                </button>
+                                                <span className="month-display-inline">
+                                                    {inputYear}년 {inputMonth}월
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    className="month-nav-btn-inline"
+                                                    onClick={() => handleInputMonthChange('next')}
+                                                    disabled={!canMoveToNextMonth()}
+                                                    title={canMoveToNextMonth() ? "다음 월" : "미래 달은 입력할 수 없습니다"}
+                                                >
+                                                    <ChevronRight size={16} />
+                                                </button>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
-                            )}
-
-                            {aiProcessing && (
-                                <div className="ai-processing">
-                                    <Sparkles size={16} className="ai-icon-spin" />
-                                    <span>AI가 처리 중입니다...</span>
-                                </div>
-                            )}
-
-                            {/* AI 제안 표시 */}
-                            {aiSuggestion && !aiProcessing && (
-                                <div className="ai-suggestion-panel">
-                                    <div className="ai-suggestion-header">
-                                        <Sparkles size={16} />
-                                        <span>
-                                            {aiSuggestionType === 'spelling' && 'AI 맞춤법 검사 결과'}
-                                            {aiSuggestionType === 'custom' && 'AI 커스텀 결과'}
-                                            {aiSuggestionType === 'improve' && 'AI 문맥 교정 결과'}
-                                        </span>
-                                    </div>
-                                    <div className="ai-suggestion-content">
-                                        {/* Diff 표시 - 맞춤법/문맥 교정일 때만 */}
-                                        {(aiSuggestionType === 'spelling' || aiSuggestionType === 'improve') && originalText ? (
-                                            <div className="ai-diff-container">
-                                                <div className="ai-diff-original">
-                                                    <div className="ai-diff-label">원본</div>
-                                                    <div className="ai-diff-text removed">
-                                                        {(() => {
-                                                            const diff = getWordLevelDiff(originalText, aiSuggestion);
-                                                            return diff.map((item, idx) => {
-                                                                if (item.type === 'removed') {
-                                                                    return (
-                                                                        <span key={idx} className="diff-word removed">
-                                                                            {item.text}
-                                                                        </span>
-                                                                    );
-                                                                } else if (item.type === 'unchanged') {
-                                                                    return (
-                                                                        <span key={idx} className="diff-word unchanged">
-                                                                            {item.text}
-                                                                        </span>
-                                                                    );
-                                                                } else if (item.type === 'added') {
-                                                                    // 원본에서는 추가된 단어는 표시하지 않음
-                                                                    return null;
-                                                                }
-                                                                return null;
-                                                            });
-                                                        })()}
-                                                    </div>
-                                                </div>
-                                                <div className="ai-diff-modified">
-                                                    <div className="ai-diff-label">수정본</div>
-                                                    <div className="ai-diff-text added">
-                                                        {(() => {
-                                                            const diff = getWordLevelDiff(originalText, aiSuggestion);
-                                                            return diff.map((item, idx) => {
-                                                                if (item.type === 'added') {
-                                                                    return (
-                                                                        <span key={idx} className="diff-word added">
-                                                                            {item.text}
-                                                                        </span>
-                                                                    );
-                                                                } else if (item.type === 'unchanged') {
-                                                                    return (
-                                                                        <span key={idx} className="diff-word unchanged">
-                                                                            {item.text}
-                                                                        </span>
-                                                                    );
-                                                                } else if (item.type === 'removed') {
-                                                                    // 수정본에서는 삭제된 단어는 표시하지 않음
-                                                                    return null;
-                                                                }
-                                                                return null;
-                                                            });
-                                                        })()}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div className="suggestion-text suggested">
-                                                {aiSuggestion}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="ai-suggestion-actions">
-                                        <button
-                                            type="button"
-                                            className="suggestion-btn accept"
-                                            onClick={handleAcceptSuggestion}
-                                        >
-                                            <CheckCircle size={16} />
-                                            <span>수락</span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="suggestion-btn regenerate"
-                                            onClick={handleRegenerateSuggestion}
-                                        >
-                                            <Sparkles size={16} />
-                                            <span>재생성</span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="suggestion-btn reject"
-                                            onClick={handleRejectSuggestion}
-                                        >
-                                            <X size={16} />
-                                            <span>거부</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </section>
-
-                    {/* 첨부파일 섹션 (접기/펼치기) */}
-                    <section className="form-section file-section">
-                        <button
-                            type="button"
-                            className="file-section-header file-section-header-toggle"
-                            onClick={() => setFileSectionOpen(prev => !prev)}
-                            aria-expanded={fileSectionOpen}
-                        >
-                            <Paperclip size={14} />
-                            <h3>첨부파일</h3>
-                            {fileSectionOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                        </button>
-                        {fileSectionOpen && (
-                            <div className="file-section-content">
-                                {!isReadOnly && (
-                                    <div className="file-upload-area">
-                                        <input
-                                            type="file"
-                                            ref={fileInputRef}
-                                            onChange={handleFileSelect}
-                                            multiple
-                                            style={{ display: 'none' }}
-                                            disabled={submitting}
-                                        />
-                                        <button
-                                            type="button"
-                                            className="file-upload-btn"
-                                            onClick={() => fileInputRef.current?.click()}
-                                            disabled={submitting}
-                                        >
-                                            <Upload size={14} />
-                                            <span>파일 선택</span>
-                                        </button>
-                                        {selectedFiles.length > 0 && (
-                                            <span className="file-upload-hint">
-                                                {selectedFiles.length}개 파일이 선택되었습니다. 저장 시 함께 업로드됩니다.
-                                            </span>
-                                        )}
+                                {activityUpdatedAt && (
+                                    <div
+                                        className="activity-updated-meta"
+                                        title={`입력 시간 ${formatDateTime(activityUpdatedAt)}`}
+                                        aria-label={`입력 시간 ${formatDateTime(activityUpdatedAt)}`}
+                                    >
+                                        <span className="activity-updated-meta-label">입력</span>
+                                        {formatDateTime(activityUpdatedAt)}
                                     </div>
                                 )}
+                            </div>
+                            <div className="activity-main-container">
+                                <div className="form-group activity-main-group">
+                                    <textarea
+                                        name="activityContent"
+                                        value={formData.activityContent}
+                                        onChange={handleChange}
+                                        placeholder={isReadOnly ? "활동내역이 없습니다" : `${inputMonth}월 진행한 활동내역을 입력하세요`}
+                                        rows="6"
+                                        disabled={isReadOnly}
+                                        readOnly={isReadOnly}
+                                        className="activity-main-textarea"
+                                    />
+                                </div>
 
-                                {selectedFiles.length > 0 && (
-                                    <div className="file-selected-list">
-                                        {selectedFiles.map((file, idx) => (
-                                            <div key={idx} className="file-item selected">
-                                                <Paperclip size={14} />
-                                                <span>{file.name}</span>
-                                                <span className="file-size">{formatFileSize(file.size)}</span>
+                                {/* AI 기능 버튼 - 읽기 전용일 때 숨김 */}
+                                {!isReadOnly && (
+                                    <div className="ai-actions">
+                                        <div className="ai-quick-actions">
+                                            <button
+                                                type="button"
+                                                className="ai-btn"
+                                                onClick={handleSpellingCheck}
+                                                disabled={aiProcessing || !formData.activityContent.trim()}
+                                            >
+                                                <CheckCircle size={16} />
+                                                <span>AI 맞춤법·띄어쓰기 교정</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="ai-btn"
+                                                onClick={handleImproveContext}
+                                                disabled={aiProcessing || !formData.activityContent.trim()}
+                                            >
+                                                <Wand2 size={16} />
+                                                <span>AI 문맥·표현 개선</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="ai-btn ai-custom-toggle-btn"
+                                                onClick={() => setShowCustomPrompt(!showCustomPrompt)}
+                                                disabled={aiProcessing}
+                                            >
+                                                <Sparkles size={16} />
+                                                <span>프롬프트 직접 입력</span>
+                                                {showCustomPrompt ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                            </button>
+                                        </div>
+                                        {showCustomPrompt && (
+                                            <div className="ai-custom-prompt-section">
+                                                <input
+                                                    type="text"
+                                                    className="ai-custom-prompt-input"
+                                                    placeholder="원하는 질문이나 지시를 입력하세요. 입력한 내용만 AI에 전달됩니다."
+                                                    value={customPrompt}
+                                                    onChange={(e) => setCustomPrompt(e.target.value)}
+                                                    disabled={aiProcessing}
+                                                    onKeyPress={(e) => {
+                                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                                            e.preventDefault();
+                                                            handleCustomPrompt();
+                                                        }
+                                                    }}
+                                                />
                                                 <button
                                                     type="button"
-                                                    className="file-action-btn delete"
-                                                    onClick={() => {
-                                                        setSelectedFiles(prev => prev.filter((_, i) => i !== idx));
-                                                        setUploadingFiles(prev => prev.filter((name) => name !== file.name));
-                                                    }}
-                                                    title="제거"
+                                                    className="ai-btn ai-custom-btn"
+                                                    onClick={handleCustomPrompt}
+                                                    disabled={aiProcessing || !customPrompt.trim()}
                                                 >
-                                                    <X size={14} />
+                                                    <Sparkles size={16} />
+                                                    <span>AI 실행</span>
                                                 </button>
                                             </div>
-                                        ))}
+                                        )}
                                     </div>
                                 )}
 
-                                {files.length > 0 && (
-                                    <div className="file-list">
-                                        {files.map((file) => (
-                                            <div key={file.fileId} className="file-item">
-                                                <Paperclip size={14} />
-                                                <span className="file-name" title={file.originalFileName}>
-                                                    {file.originalFileName}
-                                                </span>
-                                                <span className="file-size">{formatFileSize(file.fileSize)}</span>
-                                                {!isReadOnly && (
-                                                    <div className="file-actions">
-                                                        <button
-                                                            type="button"
-                                                            className="file-action-btn download"
-                                                            onClick={() => handleFileDownload(file)}
-                                                            title="다운로드"
-                                                        >
-                                                            <Download size={14} />
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            className="file-action-btn delete"
-                                                            onClick={() => handleFileDelete(file.fileId)}
-                                                            title="삭제"
-                                                        >
-                                                            <Trash2 size={14} />
-                                                        </button>
+                                {aiProcessing && (
+                                    <div className="ai-processing">
+                                        <Sparkles size={16} className="ai-icon-spin" />
+                                        <span>AI가 처리 중입니다...</span>
+                                    </div>
+                                )}
+
+                                {/* AI 제안 표시 */}
+                                {aiSuggestion && !aiProcessing && (
+                                    <div className="ai-suggestion-panel">
+                                        <div className="ai-suggestion-header">
+                                            <Sparkles size={16} />
+                                            <span>
+                                                {aiSuggestionType === 'spelling' && 'AI 맞춤법 검사 결과'}
+                                                {aiSuggestionType === 'custom' && 'AI 커스텀 결과'}
+                                                {aiSuggestionType === 'improve' && 'AI 문맥 교정 결과'}
+                                            </span>
+                                        </div>
+                                        <div className="ai-suggestion-content">
+                                            {/* Diff 표시 - 맞춤법/문맥 교정일 때만 */}
+                                            {(aiSuggestionType === 'spelling' || aiSuggestionType === 'improve') && originalText ? (
+                                                <div className="ai-diff-container">
+                                                    <div className="ai-diff-original">
+                                                        <div className="ai-diff-label">원본</div>
+                                                        <div className="ai-diff-text removed">
+                                                            {(() => {
+                                                                const diff = getWordLevelDiff(originalText, aiSuggestion);
+                                                                return diff.map((item, idx) => {
+                                                                    if (item.type === 'removed') {
+                                                                        return (
+                                                                            <span key={idx} className="diff-word removed">
+                                                                                {item.text}
+                                                                            </span>
+                                                                        );
+                                                                    } else if (item.type === 'unchanged') {
+                                                                        return (
+                                                                            <span key={idx} className="diff-word unchanged">
+                                                                                {item.text}
+                                                                            </span>
+                                                                        );
+                                                                    } else if (item.type === 'added') {
+                                                                        // 원본에서는 추가된 단어는 표시하지 않음
+                                                                        return null;
+                                                                    }
+                                                                    return null;
+                                                                });
+                                                            })()}
+                                                        </div>
                                                     </div>
-                                                )}
-                                                {isReadOnly && (
-                                                    <button
-                                                        type="button"
-                                                        className="file-action-btn download"
-                                                        onClick={() => handleFileDownload(file)}
-                                                        title="다운로드"
-                                                    >
-                                                        <Download size={14} />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        ))}
+                                                    <div className="ai-diff-modified">
+                                                        <div className="ai-diff-label">수정본</div>
+                                                        <div className="ai-diff-text added">
+                                                            {(() => {
+                                                                const diff = getWordLevelDiff(originalText, aiSuggestion);
+                                                                return diff.map((item, idx) => {
+                                                                    if (item.type === 'added') {
+                                                                        return (
+                                                                            <span key={idx} className="diff-word added">
+                                                                                {item.text}
+                                                                            </span>
+                                                                        );
+                                                                    } else if (item.type === 'unchanged') {
+                                                                        return (
+                                                                            <span key={idx} className="diff-word unchanged">
+                                                                                {item.text}
+                                                                            </span>
+                                                                        );
+                                                                    } else if (item.type === 'removed') {
+                                                                        // 수정본에서는 삭제된 단어는 표시하지 않음
+                                                                        return null;
+                                                                    }
+                                                                    return null;
+                                                                });
+                                                            })()}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="suggestion-text suggested">
+                                                    {aiSuggestion}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="ai-suggestion-actions">
+                                            <button
+                                                type="button"
+                                                className="suggestion-btn accept"
+                                                onClick={handleAcceptSuggestion}
+                                            >
+                                                <CheckCircle size={16} />
+                                                <span>수락</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="suggestion-btn regenerate"
+                                                onClick={handleRegenerateSuggestion}
+                                            >
+                                                <Sparkles size={16} />
+                                                <span>재생성</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="suggestion-btn reject"
+                                                onClick={handleRejectSuggestion}
+                                            >
+                                                <X size={16} />
+                                                <span>거부</span>
+                                            </button>
+                                        </div>
                                     </div>
                                 )}
-
-                                {/* 첨부파일이 전혀 없을 때는 아무 표시도 하지 않아 공간을 아낀다 */}
                             </div>
-                        )}
-                    </section>
+                        </section>
+
+                        {/* 첨부파일 섹션 (접기/펼치기) — 활동내역 우측 */}
+                        <section className="form-section file-section file-section-aside">
+                            <button
+                                type="button"
+                                className="file-section-header file-section-header-toggle"
+                                onClick={() => setFileSectionOpen(prev => !prev)}
+                                aria-expanded={fileSectionOpen}
+                            >
+                                <Paperclip size={14} />
+                                <h3>첨부파일</h3>
+                                {fileSectionOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                            </button>
+                            {fileSectionOpen && (
+                                <div className="file-section-content">
+                                    {!isReadOnly && (
+                                        <div className="file-upload-area">
+                                            <input
+                                                type="file"
+                                                ref={fileInputRef}
+                                                onChange={handleFileSelect}
+                                                multiple
+                                                style={{ display: 'none' }}
+                                                disabled={submitting}
+                                            />
+                                            <button
+                                                type="button"
+                                                className="file-upload-btn"
+                                                onClick={() => fileInputRef.current?.click()}
+                                                disabled={submitting}
+                                            >
+                                                <Upload size={14} />
+                                                <span>파일 선택</span>
+                                            </button>
+                                            {selectedFiles.length > 0 && (
+                                                <span className="file-upload-hint">
+                                                    {selectedFiles.length}개 파일이 선택되었습니다. 저장 시 함께 업로드됩니다.
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {(selectedFiles.length > 0 || sortedTaskFiles.length > 0) && (
+                                        <div className="file-list-scroll">
+                                            {selectedFiles.length > 0 && (
+                                                <div className="file-selected-list">
+                                                    {selectedFiles.map((file, idx) => (
+                                                        <div key={idx} className="file-item selected">
+                                                            <Paperclip size={14} />
+                                                            <span>{file.name}</span>
+                                                            <span className="file-size">{formatFileSize(file.size)}</span>
+                                                            <button
+                                                                type="button"
+                                                                className="file-action-btn delete"
+                                                                onClick={() => {
+                                                                    setSelectedFiles(prev => prev.filter((_, i) => i !== idx));
+                                                                    setUploadingFiles(prev => prev.filter((name) => name !== file.name));
+                                                                }}
+                                                                title="제거"
+                                                            >
+                                                                <X size={14} />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {sortedTaskFiles.length > 0 && (
+                                                <div className="file-list file-list-by-month">
+                                                    {sortedTaskFiles.map((file, idx) => {
+                                                        const prev = sortedTaskFiles[idx - 1];
+                                                        const showMonthLabel = !prev
+                                                            || prev.activityYear !== file.activityYear
+                                                            || prev.activityMonth !== file.activityMonth;
+                                                        const monthLabel = file.activityYear != null && file.activityMonth != null
+                                                            ? `${file.activityYear}년 ${file.activityMonth}월`
+                                                            : '첨부';
+                                                        const inViewMonth = isFileInViewingMonth(file);
+                                                        const rowClass = `file-item${inViewMonth ? ' file-item-current-month' : ''}`;
+                                                        return (
+                                                            <React.Fragment key={file.fileId}>
+                                                                {showMonthLabel && (
+                                                                    <div className={`file-month-group-label${inViewMonth ? ' is-viewing-month' : ''}`}>
+                                                                        <span className="file-month-group-title">{monthLabel}</span>
+                                                                    </div>
+                                                                )}
+                                                                <div className={rowClass}>
+                                                                    <Paperclip size={14} />
+                                                                    <span className="file-name" title={file.originalFileName}>
+                                                                        {file.originalFileName}
+                                                                    </span>
+                                                                    <span className="file-size">{formatFileSize(file.fileSize)}</span>
+                                                                    <button
+                                                                        type="button"
+                                                                        className="file-action-btn download"
+                                                                        onClick={() => handleFileDownload(file)}
+                                                                        title="다운로드"
+                                                                    >
+                                                                        <Download size={14} />
+                                                                    </button>
+                                                                    {!isReadOnly && canDeleteAttachment(file) && (
+                                                                        <button
+                                                                            type="button"
+                                                                            className="file-action-btn delete"
+                                                                            onClick={() => handleFileDelete(file.fileId)}
+                                                                            title="삭제"
+                                                                        >
+                                                                            <Trash2 size={14} />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </React.Fragment>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* 첨부파일이 전혀 없을 때는 아무 표시도 하지 않아 공간을 아낀다 */}
+                                </div>
+                            )}
+                        </section>
+                    </div>
 
                     {/* 목표 대비 실적 - 정량 평가일 때만 표시 */}
                     {isQuantitative && (
@@ -1999,7 +2016,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                                                 ? '월 평균 분(min)'
                                                                 : taskMetric === 'monthly_avg_amount'
                                                                     ? '월 평균 금액'
-                                                                : '누적 합계')}
+                                                                    : '누적 합계')}
                                             </span>
                                             <span className="performance-ta-item-value">
                                                 {formatTableValue(aggregatedTaskActualValue, taskMetric)}

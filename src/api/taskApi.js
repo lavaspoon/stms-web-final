@@ -205,12 +205,7 @@ export const uploadActivityFile = async (activityId, file, userId) => {
 
     const response = await axios.post(
         `${API_BASE_URL}/tasks/activity/${activityId}/files`,
-        formData,
-        {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
-        }
+        formData
     );
     return response.data;
 };
@@ -222,6 +217,15 @@ export const uploadActivityFile = async (activityId, file, userId) => {
  */
 export const getActivityFiles = async (activityId) => {
     const response = await axios.get(`${API_BASE_URL}/tasks/activity/${activityId}/files`);
+    return response.data;
+};
+
+/**
+ * 과제 전체 첨부파일 (모든 월, activityYear·activityMonth 포함)
+ * @param {Number} taskId - 과제 ID
+ */
+export const getTaskActivityFilesAll = async (taskId) => {
+    const response = await axios.get(`${API_BASE_URL}/tasks/${taskId}/activity-files`);
     return response.data;
 };
 

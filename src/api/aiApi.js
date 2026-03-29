@@ -49,6 +49,19 @@ const callAI = async (prompt, stream = false) => {
 };
 
 /**
+ * 사용자가 입력한 문장만 그대로 LM Studio에 전달 (서버 조합 프롬프트·과제 맥락 없음)
+ * @param {string} userPrompt - 프롬프트 직접 입력란 내용
+ * @returns {Promise<string>} AI 응답
+ */
+export const runDirectPrompt = async (userPrompt) => {
+    const text = userPrompt != null ? String(userPrompt).trim() : '';
+    if (!text) {
+        throw new Error('프롬프트가 비어 있습니다.');
+    }
+    return await callAI(text);
+};
+
+/**
  * 맞춤법 검사
  * @param {String} text - 검사할 텍스트
  * @returns {Promise<String>} 맞춤법이 교정된 텍스트

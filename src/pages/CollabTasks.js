@@ -6,6 +6,7 @@ import TaskInputModal from '../components/TaskInputModal';
 import TaskDetailModal from '../components/TaskDetailModal';
 import { getTasksByType } from '../api/taskApi';
 import { formatTableValue } from '../utils/formatValue';
+import { needsMonthlyActivityInput } from '../utils/taskActivityHelpers';
 import { TableSkeleton } from '../components/Skeleton';
 import './OITasks.css';
 import './CollabTasks.css';
@@ -575,9 +576,7 @@ function CollabTasks() {
 
             // 상태 필터링 (기존 필터 버튼)
             if (filterStatus === 'notInputted') {
-                const normalizedTaskStatus = normalizeStatus(task.status);
-                // 진행중인 과제 중 미입력인 것만 표시
-                if (normalizedTaskStatus !== 'inProgress' || task.isInputted) return false;
+                if (!needsMonthlyActivityInput(task, normalizeStatus)) return false;
             } else if (filterStatus === 'myTasks') {
                 // 담당 과제: 현재 사용자가 담당자인 과제만 표시
                 if (!isTaskManager(task)) return false;
@@ -627,13 +626,8 @@ function CollabTasks() {
                 return sortConfig.direction === 'asc' ? comparison : -comparison;
             }
 
-            // 정렬이 없으면 기본 정렬: 미입력 > 상태 > 1depth 카테고리 > 2depth 카테고리 > 과제명
-            // 1. 미입력 과제가 최상단
-            if (a.isInputted !== b.isInputted) {
-                return a.isInputted ? 1 : -1; // 미입력(false)이 먼저
-            }
-
-            // 2. 상태별 정렬
+            // 정렬이 없으면 기본 정렬: 상태 > 1depth 카테고리 > 2depth 카테고리 > 과제명
+            // 1. 상태별 정렬
             const statusOrder = {
                 'inProgress': 1,
                 'completed': 2,
@@ -648,7 +642,7 @@ function CollabTasks() {
                 return orderA - orderB;
             }
 
-            // 3. 1depth 카테고리 정렬
+            // 2. 1depth 카테고리 정렬
             const category1A = a.category1 || '';
             const category1B = b.category1 || '';
             const category1Comparison = category1A.localeCompare(category1B, 'ko');
@@ -656,7 +650,7 @@ function CollabTasks() {
                 return category1Comparison;
             }
 
-            // 4. 2depth 카테고리 정렬
+            // 3. 2depth 카테고리 정렬
             const category2A = a.category2 || '';
             const category2B = b.category2 || '';
             const category2Comparison = category2A.localeCompare(category2B, 'ko');
@@ -664,7 +658,7 @@ function CollabTasks() {
                 return category2Comparison;
             }
 
-            // 5. 과제명 정렬
+            // 4. 과제명 정렬
             const nameA = a.name || '';
             const nameB = b.name || '';
             return nameA.localeCompare(nameB, 'ko');
@@ -678,13 +672,7 @@ function CollabTasks() {
     // API에서 이미 사용자별 과제만 반환하므로 tasks를 그대로 사용
     const userTasks = tasks;
 
-    // 현재월 기준으로 진행중인 과제 중 활동내역이 입력되지 않은 것만 카운트
-    const notInputtedCount = userTasks.filter(t => {
-        const normalizedStatus = normalizeStatus(t.status);
-        const isInProgress = normalizedStatus === 'inProgress';
-        const isNotInputted = !t.isInputted;
-        return isInProgress && isNotInputted;
-    }).length;
+    const notInputtedCount = userTasks.filter(t => needsMonthlyActivityInput(t, normalizeStatus)).length;
 
     return (
         <div className="collab-tasks">
@@ -771,7 +759,7 @@ function CollabTasks() {
                         <span className="filter-btn-check" aria-hidden="true">
                             <Check size={16} />
                         </span>
-                        미입력 ({userTasks.filter(t => normalizeStatus(t.status) === 'inProgress' && !t.isInputted).length})
+                        미입력 ({userTasks.filter(t => needsMonthlyActivityInput(t, normalizeStatus)).length})
                     </button>
                     <button
                         className={filterStatus === 'inProgress' ? 'oi-filter-btn active' : 'oi-filter-btn'}
@@ -1131,7 +1119,7 @@ function CollabTasks() {
                                     return (
                                         <tr
                                             key={task.id}
-                                            className={`dashboard-table-row ${!task.isInputted ? 'oi-not-inputted-row' : ''} ${canView ? 'oi-clickable-row' : ''}`}
+                                            className={`dashboard-table-row ${needsMonthlyActivityInput(task, normalizeStatus) ? 'oi-not-inputted-row' : ''} ${canView ? 'oi-clickable-row' : ''}`}
                                             onClick={(e) => canView && handleRowClick(task, e)}
                                         >
                                             <td className="dashboard-table-status">
