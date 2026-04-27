@@ -49,9 +49,10 @@ export function formatAmountKorean(value) {
  * 테이블용 목표/실적 포맷 (소수 불필요 시 제거, 금액은 한글 단위)
  * @param {number|string} value - 값
  * @param {string} metric - 'count' | 'amount' | 'percent'
+ * @param {number} [decimals] - percent/숫자 계열 소수점 자릿수 (기본값: 1)
  * @returns {string}
  */
-export function formatTableValue(value, metric) {
+export function formatTableValue(value, metric, decimals) {
     if (value === null || value === undefined) return '0';
     const numValue = typeof value === 'number' ? value : parseFloat(value);
     if (isNaN(numValue)) return '0';
@@ -104,8 +105,13 @@ export function formatTableValue(value, metric) {
     }
 
     if (isPercent) {
-        const rounded = Math.round(numValue * 10) / 10;
-        return (rounded % 1 === 0 ? String(Math.round(rounded)) : rounded.toFixed(1)) + '%';
+        const d = (decimals !== undefined && decimals !== null) ? decimals : 1;
+        if (d === 0) {
+            return Math.round(numValue) + '%';
+        }
+        const factor = Math.pow(10, d);
+        const rounded = Math.round(numValue * factor) / factor;
+        return rounded.toFixed(d) + '%';
     }
     return numValue.toLocaleString('ko-KR');
 }

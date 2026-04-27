@@ -43,6 +43,12 @@ function AIReport() {
 
     const taskType = activeTab === 'oi' ? 'OI' : activeTab === 'collab' ? '협업' : activeTab === 'key' ? '중점추진' : 'KPI';
 
+    // 월간 보고서 기준 년/월 선택 상태
+    const now = new Date();
+    const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+    const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
+    const [isMonthSelectModalOpen, setIsMonthSelectModalOpen] = useState(false);
+
     // 과제 진행 상태 정규화
     const normalizeStatus = (status) => {
         if (!status) return 'inProgress';
@@ -145,8 +151,43 @@ function AIReport() {
         }
     }, [activeTab, user, isAdmin, taskType]);
 
-    // 보고서 유형 선택 시 모달 열기 및 이달 활동내역 확인
-    const handleReportTypeSelect = async (type) => {
+    // 활동내역 확인 후 과제 목록 정렬 (공통 헬퍼)
+    const loadActivityStatus = async (year, month) => {
+        if (tasks.length === 0) return;
+        try {
+            setLoadingActivities(true);
+            const [tasksWithActivityStatus] = await Promise.all([
+                Promise.all(
+                    tasks.map(async (task) => {
+                        try {
+                            const activity = await getTaskActivity(task.taskId, year, month);
+                            return {
+                                ...task,
+                                hasCurrentMonthActivity: activity && activity.activityContent && activity.activityContent.trim() !== ''
+                            };
+                        } catch (err) {
+                            console.error(`과제 ${task.taskName} 활동내역 확인 실패:`, err);
+                            return { ...task, hasCurrentMonthActivity: false };
+                        }
+                    })
+                ),
+                new Promise(resolve => setTimeout(resolve, 300))
+            ]);
+
+            const sortedTasks = [...tasksWithActivityStatus].sort((a, b) => {
+                if (a.hasCurrentMonthActivity === b.hasCurrentMonthActivity) return 0;
+                return a.hasCurrentMonthActivity ? -1 : 1;
+            });
+            setTasks(sortedTasks);
+        } catch (error) {
+            console.error('활동내역 확인 실패:', error);
+        } finally {
+            setLoadingActivities(false);
+        }
+    };
+
+    // 보고서 유형 선택
+    const handleReportTypeSelect = (type) => {
         setReportType(type);
         setSelectedTaskIds(new Set());
         setReport('');
@@ -154,58 +195,31 @@ function AIReport() {
         setModifyPrompt('');
         setStatusFilter('all');
         setSearchQuery('');
-        setIsTaskSelectModalOpen(true);
 
-        // 보고서 유형과 상관없이 이달 활동 입력 여부 확인
-        if (tasks.length > 0) {
-            try {
-                setLoadingActivities(true);
-                const now = new Date();
-                const currentYear = now.getFullYear();
-                const currentMonth = now.getMonth() + 1;
-
-                // 각 과제의 이달 활동내역 확인과 최소 딜레이를 병렬로 처리
-                const [tasksWithActivityStatus] = await Promise.all([
-                    Promise.all(
-                        tasks.map(async (task) => {
-                            try {
-                                const activity = await getTaskActivity(task.taskId, currentYear, currentMonth);
-                                return {
-                                    ...task,
-                                    hasCurrentMonthActivity: activity && activity.activityContent && activity.activityContent.trim() !== ''
-                                };
-                            } catch (err) {
-                                console.error(`과제 ${task.taskName} 활동내역 확인 실패:`, err);
-                                return {
-                                    ...task,
-                                    hasCurrentMonthActivity: false
-                                };
-                            }
-                        })
-                    ),
-                    new Promise(resolve => setTimeout(resolve, 300)) // 최소 300ms 딜레이
-                ]);
-
-                // 이달 입력된 과제 순으로 정렬
-                const sortedTasks = [...tasksWithActivityStatus].sort((a, b) => {
-                    if (a.hasCurrentMonthActivity === b.hasCurrentMonthActivity) return 0;
-                    return a.hasCurrentMonthActivity ? -1 : 1;
-                });
-
-                setTasks(sortedTasks);
-            } catch (error) {
-                console.error('활동내역 확인 실패:', error);
-            } finally {
-                setLoadingActivities(false);
-            }
+        if (type === 'monthly') {
+            // 월간 보고서: 먼저 기준 월 선택 화면 표시
+            setIsMonthSelectModalOpen(true);
+        } else {
+            // 종합 보고서: 바로 과제 선택 모달 열고 현재 월 활동내역 확인
+            setIsTaskSelectModalOpen(true);
+            const d = new Date();
+            loadActivityStatus(d.getFullYear(), d.getMonth() + 1);
         }
     };
 
-    // 진행상태 필터 + 검색어 적용된 과제 목록
+    // 월간 보고서 – 기준 월 확정 후 과제 선택 모달로 이동
+    const handleMonthConfirm = () => {
+        setIsMonthSelectModalOpen(false);
+        setIsTaskSelectModalOpen(true);
+        loadActivityStatus(selectedYear, selectedMonth);
+    };
+
+    // 진행상태 필터 + 검색어 + 월간 보고서 시 해당 월 활동내역 있는 과제만
     const filteredTasks = tasks.filter(t => {
         const matchesStatus = statusFilter === 'all' || normalizeStatus(t.status) === statusFilter;
         const matchesSearch = !searchQuery.trim() || t.taskName.toLowerCase().includes(searchQuery.trim().toLowerCase());
-        return matchesStatus && matchesSearch;
+        const matchesActivity = reportType !== 'monthly' || t.hasCurrentMonthActivity === true;
+        return matchesStatus && matchesSearch && matchesActivity;
     });
 
     // 전체 선택/해제 (필터된 목록 기준)
@@ -255,24 +269,19 @@ function AIReport() {
                         let activities = [];
 
                         if (reportType === 'monthly') {
-                            // 월간 보고서: 이번달 활동만
-                            const now = new Date();
-                            const currentYear = now.getFullYear();
-                            const currentMonth = now.getMonth() + 1;
-
-                            const activity = await getTaskActivity(task.taskId, currentYear, currentMonth);
+                            // 월간 보고서: 선택한 달 활동만
+                            const activity = await getTaskActivity(task.taskId, selectedYear, selectedMonth);
                             if (activity && activity.activityContent) {
                                 activities = [{
-                                    activityYear: currentYear,
-                                    activityMonth: currentMonth,
+                                    activityYear: selectedYear,
+                                    activityMonth: selectedMonth,
                                     activityContent: activity.activityContent
                                 }];
                             }
                         } else {
                             // 종합 보고서: 모든 활동내역 (현재 월 포함)
-                            const now = new Date();
-                            const currentYear = now.getFullYear();
-                            const currentMonth = now.getMonth() + 1;
+                            const currentYear = new Date().getFullYear();
+                            const currentMonth = new Date().getMonth() + 1;
 
                             // 현재 월 활동내역 조회
                             let currentActivity = null;
@@ -340,7 +349,7 @@ function AIReport() {
 
             if (filteredTasks.length === 0) {
                 if (reportType === 'monthly') {
-                    alert('이번달에 기입한 내용이 있는 과제가 없습니다.');
+                    alert(`${selectedYear}년 ${selectedMonth}월에 기입한 내용이 있는 과제가 없습니다.`);
                 } else {
                     alert('활동내역이 있는 과제가 없습니다.');
                 }
@@ -560,7 +569,11 @@ function AIReport() {
                                         <FileText size={18} />
                                         <div>
                                             <span>월간 보고서</span>
-                                            <small>이번달 활동내역</small>
+                                            <small>
+                                                {reportType === 'monthly'
+                                                    ? `${selectedYear}년 ${selectedMonth}월 활동내역`
+                                                    : '기준 월 선택 후 생성'}
+                                            </small>
                                         </div>
                                     </button>
                                     <button
@@ -815,7 +828,9 @@ function AIReport() {
                                 <div className="task-select-modal-header-text">
                                     <div className="task-select-modal-header-badges">
                                         <span className="task-select-modal-type-badge">
-                                            {reportType === 'monthly' ? '월간 보고서' : '종합 보고서'}
+                                            {reportType === 'monthly'
+                                                ? `월간 보고서 · ${selectedYear}년 ${selectedMonth}월`
+                                                : '종합 보고서'}
                                         </span>
                                         <span className="task-select-modal-tasktype-badge">{taskType}</span>
                                     </div>
@@ -857,6 +872,16 @@ function AIReport() {
                             ) : tasks.length === 0 ? (
                                 <div className="task-select-modal-empty">
                                     <p>과제가 없습니다.</p>
+                                </div>
+                            ) : filteredTasks.length === 0 && reportType === 'monthly' ? (
+                                <div className="task-select-modal-empty">
+                                    <AlertCircle size={32} style={{ color: '#9ca3af', marginBottom: '12px' }} />
+                                    <p style={{ fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
+                                        {selectedYear}년 {selectedMonth}월 활동내역이 없습니다
+                                    </p>
+                                    <p style={{ fontSize: '13px', color: '#9ca3af' }}>
+                                        해당 월에 활동내역이 입력된 과제가 없습니다.
+                                    </p>
                                 </div>
                             ) : (
                                 <>
@@ -963,12 +988,16 @@ function AIReport() {
                                                                 {task.hasCurrentMonthActivity ? (
                                                                     <span className="activity-status inputted">
                                                                         <CheckCircle size={11} />
-                                                                        이달 입력됨
+                                                                        {reportType === 'monthly'
+                                                                            ? `${selectedYear}년 ${selectedMonth}월 입력됨`
+                                                                            : '이달 입력됨'}
                                                                     </span>
                                                                 ) : (
                                                                     <span className="activity-status not-inputted">
                                                                         <AlertCircle size={11} />
-                                                                        이달 미입력
+                                                                        {reportType === 'monthly'
+                                                                            ? `${selectedYear}년 ${selectedMonth}월 미입력`
+                                                                            : '이달 미입력'}
                                                                     </span>
                                                                 )}
                                                             </div>
@@ -1001,6 +1030,89 @@ function AIReport() {
                                 disabled={selectedTaskIds.size === 0}
                             >
                                 확인 ({selectedTaskIds.size})
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* 월 선택 모달 (월간 보고서) */}
+            {isMonthSelectModalOpen && (
+                <div className="month-select-modal-overlay" onClick={(e) => {
+                    if (e.target === e.currentTarget) setIsMonthSelectModalOpen(false);
+                }}>
+                    <div className="month-select-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="task-select-modal-header">
+                            <div className="task-select-modal-header-left">
+                                <div className="task-select-modal-header-icon">
+                                    <FileText size={16} />
+                                </div>
+                                <div className="task-select-modal-header-text">
+                                    <div className="task-select-modal-header-badges">
+                                        <span className="task-select-modal-type-badge">월간 보고서</span>
+                                        <span className="task-select-modal-tasktype-badge">{taskType}</span>
+                                    </div>
+                                    <h3>보고서 기준 월을 선택하세요</h3>
+                                </div>
+                            </div>
+                            <button
+                                className="task-select-modal-close"
+                                onClick={() => setIsMonthSelectModalOpen(false)}
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="month-select-modal-content">
+                            {/* 년도 선택 */}
+                            <div className="month-select-year-row">
+                                {[now.getFullYear() - 2, now.getFullYear() - 1, now.getFullYear()].map(year => (
+                                    <button
+                                        key={year}
+                                        className={`month-year-btn ${selectedYear === year ? 'active' : ''}`}
+                                        onClick={() => setSelectedYear(year)}
+                                    >
+                                        {year}년
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* 월 선택 그리드 */}
+                            <div className="month-select-grid">
+                                {Array.from({ length: 12 }, (_, i) => i + 1).map(month => {
+                                    const isFuture = selectedYear === now.getFullYear() && month > now.getMonth() + 1;
+                                    return (
+                                        <button
+                                            key={month}
+                                            className={`month-btn ${selectedMonth === month ? 'active' : ''} ${isFuture ? 'future' : ''}`}
+                                            onClick={() => !isFuture && setSelectedMonth(month)}
+                                            disabled={isFuture}
+                                        >
+                                            {month}월
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="month-select-preview">
+                                <span className="month-select-preview-label">선택된 기준 월</span>
+                                <span className="month-select-preview-value">
+                                    {selectedYear}년 {selectedMonth}월
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="task-select-modal-footer">
+                            <button
+                                className="task-select-modal-cancel"
+                                onClick={() => setIsMonthSelectModalOpen(false)}
+                            >
+                                취소
+                            </button>
+                            <button
+                                className="task-select-modal-confirm"
+                                onClick={handleMonthConfirm}
+                            >
+                                {selectedYear}년 {selectedMonth}월로 계속
                             </button>
                         </div>
                     </div>

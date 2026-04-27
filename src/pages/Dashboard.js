@@ -58,6 +58,15 @@ function Dashboard() {
     // 상태별 통계 박스 클릭 필터 (진행중/완료/지연/중단) — 같은 박스 다시 클릭 시 해제
     const [statStatusFilter, setStatStatusFilter] = useState(null);
 
+    // 탭 전환 시 필터/정렬 초기화
+    const handleTabChange = (tab) => {
+        setActiveTab(tab);
+        setHeaderFilters({ status: [], category1: [], evaluation: [], dept: [] });
+        setSortConfig({ column: null, direction: null });
+        setStatStatusFilter(null);
+        setActiveFilterDropdown(null);
+    };
+
 
     // 과제 목록 조회
     const loadTasks = async () => {
@@ -685,7 +694,7 @@ function Dashboard() {
             <div className="tab-navigation">
                 <button
                     className={`tab-btn ${activeTab === 'oi' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('oi')}
+                    onClick={() => handleTabChange('oi')}
                 >
                     <Target size={16} />
                     <span>OI 과제</span>
@@ -704,7 +713,7 @@ function Dashboard() {
                 </button>
                 <button
                     className={`tab-btn ${activeTab === 'collab' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('collab')}
+                    onClick={() => handleTabChange('collab')}
                 >
                     <Handshake size={16} />
                     <span>협업 과제</span>
@@ -723,7 +732,7 @@ function Dashboard() {
                 </button>
                 <button
                     className={`tab-btn ${activeTab === 'key' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('key')}
+                    onClick={() => handleTabChange('key')}
                 >
                     <Briefcase size={16} />
                     <span>중점추진과제</span>
@@ -742,7 +751,7 @@ function Dashboard() {
                 </button>
                 <button
                     className={`tab-btn ${activeTab === 'kpi' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('kpi')}
+                    onClick={() => handleTabChange('kpi')}
                 >
                     <BarChart3 size={16} />
                     <span>KPI 과제</span>
@@ -1367,7 +1376,7 @@ function Dashboard() {
                                                     ) : (
                                                         <div className="dashboard-target-badge-wrapper">
                                                             <span className="dashboard-badge dashboard-badge-target">
-                                                                {formatTableValue(task.targetValue, task.metric)}
+                                                                {formatTableValue(task.targetValue, task.metric, activeTab === 'kpi' ? 2 : undefined)}
                                                             </span>
                                                             {task.targetDescription && task.targetDescription.trim() && (
                                                                 <span className="dashboard-target-tooltip">
@@ -1383,7 +1392,7 @@ function Dashboard() {
                                                     ) : (
                                                         <div className="dashboard-target-badge-wrapper">
                                                             <span className="dashboard-badge dashboard-badge-actual">
-                                                                {formatTableValue(task.actualValue, task.metric)}
+                                                                {formatTableValue(task.actualValue, task.metric, activeTab === 'kpi' ? 2 : undefined)}
                                                             </span>
                                                             <span className="dashboard-target-tooltip">
                                                                 {task.metric === 'percent' || task.metric === '%'
@@ -1413,7 +1422,7 @@ function Dashboard() {
                                                                         <span className="reverse-tooltip">역산</span>
                                                                     </>
                                                                 )}
-                                                                {Number(task.achievement ?? 0).toFixed(1)}%
+                                                                {Number(task.achievement ?? 0).toFixed(activeTab === 'kpi' ? 2 : 1)}%
                                                             </span>
                                                         </div>
                                                     )}
@@ -1748,7 +1757,7 @@ function Dashboard() {
                                                             </div>
                                                             {!isQualitative && (
                                                                 <span className="milestone-achievement-label">
-                                                                    {Number(task.achievement ?? 0).toFixed(1)}%
+                                                                    {Number(task.achievement ?? 0).toFixed(activeTab === 'kpi' ? 2 : 1)}%
                                                                 </span>
                                                             )}
                                                             {!isQualitative ? (
@@ -1760,15 +1769,15 @@ function Dashboard() {
                                                                     )}
                                                                     <div className="tooltip-row">
                                                                         <span className="tooltip-label">목표</span>
-                                                                        <span className="tooltip-value">{formatTableValue(task.targetValue, task.metric)}</span>
+                                                                        <span className="tooltip-value">{formatTableValue(task.targetValue, task.metric, activeTab === 'kpi' ? 2 : undefined)}</span>
                                                                     </div>
                                                                     <div className="tooltip-row">
                                                                         <span className="tooltip-label">실적</span>
-                                                                        <span className="tooltip-value">{formatTableValue(task.actualValue, task.metric)}</span>
+                                                                        <span className="tooltip-value">{formatTableValue(task.actualValue, task.metric, activeTab === 'kpi' ? 2 : undefined)}</span>
                                                                     </div>
                                                                     <div className="tooltip-row achievement">
                                                                         <span className="tooltip-label">달성률</span>
-                                                                        <span className="tooltip-value">{Number(task.achievement ?? 0).toFixed(1)}%</span>
+                                                                        <span className="tooltip-value">{Number(task.achievement ?? 0).toFixed(activeTab === 'kpi' ? 2 : 1)}%</span>
                                                                     </div>
                                                                 </div>
                                                             ) : (
@@ -1801,6 +1810,7 @@ function Dashboard() {
                 isOpen={isInputModalOpen}
                 onClose={handleInputModalClose}
                 task={inputTask}
+                taskType={taskType}
             />
         </div>
     );

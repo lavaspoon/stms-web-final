@@ -1323,7 +1323,7 @@ function KPITasks() {
                                                 {!isQualitative && (
                                                     <div className="dashboard-target-badge-wrapper">
                                                         <span className="dashboard-badge dashboard-badge-target">
-                                                            {formatTableValue(task.targetValue, taskMetric)}
+                                                            {formatTableValue(task.targetValue, taskMetric, 2)}
                                                         </span>
                                                         {task.targetDescription && task.targetDescription.trim() && (
                                                             <span className="dashboard-target-tooltip">
@@ -1337,7 +1337,7 @@ function KPITasks() {
                                                 {!isQualitative && (
                                                     <div className="dashboard-target-badge-wrapper">
                                                         <span className="dashboard-badge dashboard-badge-actual">
-                                                            {formatTableValue(task.actualValue, taskMetric)}
+                                                            {formatTableValue(task.actualValue, taskMetric, 2)}
                                                         </span>
                                                         <span className="dashboard-target-tooltip">
                                                             {taskMetric === 'percent' || taskMetric === '%'
@@ -1367,7 +1367,7 @@ function KPITasks() {
                                                                     <span className="reverse-tooltip">역산</span>
                                                                 </>
                                                             )}
-                                                            {Number(task.achievement ?? 0).toFixed(1)}%
+                                                            {Number(task.achievement ?? 0).toFixed(2)}%
                                                         </span>
                                                     </div>
                                                 )}
@@ -1458,6 +1458,7 @@ function KPITasks() {
                 isOpen={isInputModalOpen}
                 onClose={handleInputModalClose}
                 task={inputTask}
+                taskType="KPI"
             />
 
             <TaskDetailModal

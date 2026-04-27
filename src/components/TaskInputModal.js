@@ -31,7 +31,7 @@ const formatDateTime = (dateString) => {
     }
 };
 
-function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
+function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false, taskType: taskTypeProp }) {
     const { user } = useUserStore();
     const isAdmin = user?.role === '관리자' || user?.role === '매니저';
 
@@ -1415,6 +1415,9 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
     const evaluationType = task?.performance?.evaluation || task?.performanceOriginal?.evaluation || task?.evaluationType || '';
     const isQuantitative = evaluationType === 'quantitative' || evaluationType === '정량';
     const taskTypeBadges = getTaskTypeBadges(task?.taskType);
+    // prop으로 넘어온 taskType을 우선 사용, 없으면 task.taskType 에서 확인
+    const resolvedTaskType = taskTypeProp || task?.taskType || '';
+    const isKpiTask = String(resolvedTaskType).split(',').map(v => v.trim()).includes('KPI');
     const categoryPathParts = [task?.category1, task?.category2, task?.category3]
         .filter(v => v && String(v).trim() && String(v).trim() !== '-')
         .map(v => String(v).trim());
@@ -1950,7 +1953,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                     <div className="performance-row-box performance-actual-compact">
                                         <span className="performance-actual-label-compact">{isReadOnly ? viewingMonth : inputMonth}월 실적</span>
                                         {isReadOnly ? (
-                                            <span className="performance-actual-value-compact">{formatTableValue(actualValue, taskMetric)}</span>
+                                            <span className="performance-actual-value-compact">{formatTableValue(actualValue, taskMetric, isKpiTask ? 2 : undefined)}</span>
                                         ) : (
                                             <div className="performance-actual-input-wrapper">
                                                 <input
@@ -1974,7 +1977,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                     <div className="performance-row-box performance-actual-compact">
                                         <span className="performance-actual-label-compact">{isReadOnly ? `${viewingMonth}월 실적` : `${inputMonth}월 실적`}</span>
                                         {isReadOnly ? (
-                                            <span className="performance-actual-value-compact">{formatTableValue(currentMonthActualValue, taskMetric)}</span>
+                                            <span className="performance-actual-value-compact">{formatTableValue(currentMonthActualValue, taskMetric, isKpiTask ? 2 : undefined)}</span>
                                         ) : (
                                             <div className="performance-actual-input-wrapper">
                                                 <input
@@ -2001,7 +2004,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                         <div className="performance-ta-item">
                                             <span className="performance-ta-item-label">목표</span>
                                             <span className="performance-ta-item-value">
-                                                {formatTableValue(targetValue, taskMetric)}
+                                                {formatTableValue(targetValue, taskMetric, isKpiTask ? 2 : undefined)}
                                             </span>
                                         </div>
                                         <div className="performance-ta-item">
@@ -2019,7 +2022,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                                                     : '누적 합계')}
                                             </span>
                                             <span className="performance-ta-item-value">
-                                                {formatTableValue(aggregatedTaskActualValue, taskMetric)}
+                                                {formatTableValue(aggregatedTaskActualValue, taskMetric, isKpiTask ? 2 : undefined)}
                                             </span>
                                         </div>
                                         <div className="performance-ta-item performance-ta-item-achievement">
@@ -2028,7 +2031,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false }) {
                                                 className="performance-ta-item-value performance-ta-achievement-value"
                                                 style={{ color: progressColor }}
                                             >
-                                                {achievement != null ? Number(achievement).toFixed(1) : '0'}%
+                                                {achievement != null ? Number(achievement).toFixed(isKpiTask ? 2 : 1) : '0'}%
                                             </span>
                                         </div>
                                     </div>
