@@ -63,16 +63,19 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
         const metric = formData.metric;
         const reverse = formData.reverseYn === 'Y';
 
-        const isMonthlyAvgCountLike = metric === 'monthly_avg_count' || metric === 'monthly_avg_head' || metric === 'monthly_avg_minutes';
+        const isMonthlyAvgHeadOrMinutes = metric === 'monthly_avg_head' || metric === 'monthly_avg_minutes';
         const isMonthlyAvgAmount = metric === 'monthly_avg_amount';
 
-        // 월 평균(건수/인원/시간)은 역계산이 불가한 케이스
-        if (isMonthlyAvgCountLike) {
+        if (metric === 'monthly_avg_count') {
             return (
                 <>
-                    <div className="formula-section-title">산식</div>
+                    <div className="formula-section-title">{reverse ? '산식(역계산)' : '산식(일반)'}</div>
                     <div className="formula-text">
-                        <div>월별 달성률(%) = 월 실적 / 목표값 × 100</div>
+                        <div>
+                            {reverse
+                                ? '월별 달성률(%) = 목표값 / 월 실적 × 100'
+                                : '월별 달성률(%) = 월 실적 / 목표값 × 100'}
+                        </div>
                         <div>과제 달성률(%) = (월별 달성률 합) / 월 수</div>
                     </div>
                     <div className="formula-example-title">예시</div>
@@ -89,6 +92,25 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                                 달성률 = (80% + 120%) / 2 = 100%
                             </>
                         )}
+                    </div>
+                </>
+            );
+        }
+
+        // 월 평균(인원/시간)은 역계산 없음
+        if (isMonthlyAvgHeadOrMinutes) {
+            return (
+                <>
+                    <div className="formula-section-title">산식</div>
+                    <div className="formula-text">
+                        <div>월별 달성률(%) = 월 실적 / 목표값 × 100</div>
+                        <div>과제 달성률(%) = (월별 달성률 합) / 월 수</div>
+                    </div>
+                    <div className="formula-example-title">예시</div>
+                    <div className="formula-text">
+                        목표값 = 100, 월 실적 = 80(1월), 120(2월) <br />
+                        월별 달성률 = 80%, 120% <br />
+                        달성률 = (80% + 120%) / 2 = 100%
                     </div>
                 </>
             );
@@ -315,11 +337,10 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 targetValue: formatTargetValue(editData.targetValue || editData.target),
                 status: editData.status || 'inProgress',
                 visibleYn: editData.visibleYn || 'Y', // 공개여부
-                reverseYn: (editData.performance?.metric || editData.metric) === 'monthly_avg_count' ||
-                    (editData.performance?.metric || editData.metric) === 'monthly_avg_head' ||
-                    (editData.performance?.metric || editData.metric) === 'monthly_avg_minutes'
+                reverseYn: ((editData.performance?.metric || editData.metric) === 'monthly_avg_head' ||
+                    (editData.performance?.metric || editData.metric) === 'monthly_avg_minutes')
                     ? 'N'
-                    : (editData.reverseYn || 'N'), // 월 평균(건수/인원/시간)은 역산 불가
+                    : (editData.reverseYn || 'N'), // 월 평균 인원·시간만 역계산 불가
             }));
 
             // 부서 ID가 있으면 해당 부서의 담당자 목록 로드
@@ -607,10 +628,10 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 status: formData.status,
                 visibleYn: formData.visibleYn || 'Y', // 공개여부
                 reverseYn: formData.evaluationType === 'quantitative'
-                    ? (formData.metric === 'monthly_avg_count' || formData.metric === 'monthly_avg_head' || formData.metric === 'monthly_avg_minutes'
+                    ? (formData.metric === 'monthly_avg_head' || formData.metric === 'monthly_avg_minutes'
                         ? 'N'
                         : (formData.reverseYn || 'N'))
-                    : 'N', // 역계산 여부 (정량일 때만, 월 평균은 N 고정)
+                    : 'N', // 역계산 여부 (정량일 때만, 월 평균 인원·시간은 N 고정)
                 deptId: departmentToUse // 자동 설정된 부서 ID 사용
             };
 
@@ -922,8 +943,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                                                         checked={formData.metric === 'monthly_avg_count'}
                                                         onChange={() => setFormData(prev => ({
                                                             ...prev,
-                                                            metric: 'monthly_avg_count',
-                                                            reverseYn: 'N'
+                                                            metric: 'monthly_avg_count'
                                                         }))}
                                                     />
                                                     <span>월 평균 건수</span>
@@ -975,8 +995,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                                         <div className="criteria-card">
                                             <div className="criteria-sub-title">목표값 <span className="required">*</span></div>
                                             <div className="target-input-row">
-                                                {formData.metric !== 'monthly_avg_count' &&
-                                                    formData.metric !== 'monthly_avg_head' &&
+                                                {formData.metric !== 'monthly_avg_head' &&
                                                     formData.metric !== 'monthly_avg_minutes' && (
                                                         <label className="reverse-checkbox-label">
                                                             <input
@@ -1049,7 +1068,6 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                                         <div className="metric-formula-inline-title">
                                             {getMetricLabel(formData.metric)} · {
                                             formData.reverseYn === 'Y' &&
-                                            formData.metric !== 'monthly_avg_count' &&
                                             formData.metric !== 'monthly_avg_head' &&
                                             formData.metric !== 'monthly_avg_minutes'
                                                 ? '역계산'

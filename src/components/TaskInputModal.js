@@ -1053,7 +1053,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false, taskType
     } else if (taskMetric === 'monthly_avg_count'
         || taskMetric === 'monthly_avg_head'
         || taskMetric === 'monthly_avg_minutes') {
-        // 평균 목표: 월별 달성률 = 실적/월목표*100, 과제 달성률 = 실적이 있는 달만 평균
+        // 평균 목표: 월별 달성률 후 월 수 평균 — 월 평균 건수는 역계산 가능
         const currentInputYear = isReadOnly ? viewingYear : inputYear;
         const currentInputMonth = isReadOnly ? viewingMonth : inputMonth;
         const baseVals = monthlyActualValues.map(m => ({
@@ -1071,9 +1071,16 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false, taskType
         const allVals = baseVals.map(b => b.val).filter(v => v != null && !Number.isNaN(v));
         actualValue = allVals.length ? allVals.reduce((a, b) => a + b, 0) / allVals.length : 0;
         const monthlyTarget = targetValue || 1;
-        calculatedAchievement = allVals.length
-            ? allVals.map(v => (v / monthlyTarget) * 100).reduce((a, b) => a + b, 0) / allVals.length
-            : 0;
+        if (taskMetric === 'monthly_avg_count') {
+            calculatedAchievement = allVals.length && targetValue
+                ? allVals.map(v => calcAchievementRate(targetValue, v, isReverse, false))
+                    .reduce((a, b) => a + b, 0) / allVals.length
+                : 0;
+        } else {
+            calculatedAchievement = allVals.length
+                ? allVals.map(v => (v / monthlyTarget) * 100).reduce((a, b) => a + b, 0) / allVals.length
+                : 0;
+        }
     } else {
         const currentInputYear = isReadOnly ? viewingYear : inputYear;
         const currentInputMonth = isReadOnly ? viewingMonth : inputMonth;
