@@ -85,6 +85,7 @@ function CollabTasks() {
             'minutes': '분(min)',
             'amount': '금액',
             'percent': '%',
+            'score': '점수',
             'monthly_avg_count': '월 평균 건수',
             'monthly_avg_head': '월 평균 명(인원)',
             'monthly_avg_minutes': '월 평균 분(min)',

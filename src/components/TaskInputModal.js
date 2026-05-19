@@ -961,7 +961,9 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false, taskType
             'monthly_avg_head': 'monthly_avg_head',
             'monthly_avg_minutes': 'monthly_avg_minutes',
             'monthly_avg_amount': 'monthly_avg_amount',
-            '월 평균 금액': 'monthly_avg_amount'
+            '월 평균 금액': 'monthly_avg_amount',
+            '점수': 'score',
+            'score': 'score'
         };
         return metricMap[metric] || 'percent';
     };
@@ -977,7 +979,8 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false, taskType
             'monthly_avg_count': '건',
             'monthly_avg_head': '명',
             'monthly_avg_minutes': '분',
-            'monthly_avg_amount': '원'
+            'monthly_avg_amount': '원',
+            'score': '점'
         };
         return unitMap[normalizedMetric] || '%';
     };
@@ -992,7 +995,8 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false, taskType
             'monthly_avg_count': '월 평균 건수',
             'monthly_avg_head': '월 평균 명(인원)',
             'monthly_avg_minutes': '월 평균 분(min)',
-            'monthly_avg_amount': '월 평균 금액'
+            'monthly_avg_amount': '월 평균 금액',
+            'score': '점수'
         };
         return labelMap[normalizedMetric] || '%';
     };
@@ -1955,8 +1959,8 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false, taskType
 
                             <div className="performance-compact-row">
                                 {/* 실적값 입력 - 평가 기준에 따라 다르게 표시 */}
-                                {taskMetric === 'percent' ? (
-                                    // % 기준: 해당 월 실적 입력창
+                                {taskMetric === 'percent' || taskMetric === 'score' ? (
+                                    // %·점수 기준: 해당 월 실적 입력창 (소수 입력)
                                     <div className="performance-row-box performance-actual-compact">
                                         <span className="performance-actual-label-compact">{isReadOnly ? viewingMonth : inputMonth}월 실적</span>
                                         {isReadOnly ? (

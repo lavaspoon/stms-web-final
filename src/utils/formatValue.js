@@ -67,6 +67,7 @@ export function formatTableValue(value, metric, decimals) {
         || metric === '분(min)'
         || metric === '분'
         || metric === 'monthly_avg_minutes';
+    const isScore = metric === 'score' || metric === '점수';
 
     if (isAmount) {
         return formatKoreanUnit(numValue);
@@ -112,6 +113,15 @@ export function formatTableValue(value, metric, decimals) {
         const factor = Math.pow(10, d);
         const rounded = Math.round(numValue * factor) / factor;
         return rounded.toFixed(d) + '%';
+    }
+    if (isScore) {
+        const d = (decimals !== undefined && decimals !== null) ? decimals : 1;
+        const factor = Math.pow(10, d);
+        const rounded = Math.round(numValue * factor) / factor;
+        const formatted = (rounded % 1 === 0)
+            ? rounded.toLocaleString('ko-KR')
+            : rounded.toLocaleString('ko-KR', { minimumFractionDigits: 0, maximumFractionDigits: d });
+        return formatted + '점';
     }
     return numValue.toLocaleString('ko-KR');
 }

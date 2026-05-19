@@ -95,7 +95,8 @@ function KPITasks() {
             'monthly_avg_minutes': '월 평균 분(min)',
             'monthly_avg_amount': '월 평균 금액',
             'amount': '금액',
-            'percent': '%'
+            'percent': '%',
+            'score': '점수'
         };
         return map[metric] || metric;
     };

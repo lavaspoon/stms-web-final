@@ -51,6 +51,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
             'minutes': '분(min)',
             'amount': '금액',
             'percent': '%',
+            'score': '점수',
             'monthly_avg_count': '월 평균 건수',
             'monthly_avg_head': '월 평균 명(인원)',
             'monthly_avg_minutes': '월 평균 분(min)',
@@ -131,6 +132,38 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                         목표값 = 100, 월 실적 = 80(1월), 120(2월) <br />
                         월별 달성률 = 80%, 120% <br />
                         달성률 = (80% + 120%) / 2 = 100%
+                    </div>
+                </>
+            );
+        }
+
+        if (metric === 'score') {
+            if (reverse) {
+                return (
+                    <>
+                        <div className="formula-section-title">산식(역계산)</div>
+                        <div className="formula-text">
+                            <div>달성률(%) = 목표 / (월 실적 합) × 100</div>
+                        </div>
+                        <div className="formula-example-title">예시</div>
+                        <div className="formula-text">
+                            목표 = 2.1점, 월 실적 합 = 2.2 <br />
+                            달성률 = 2.1 / 2.2 × 100 = 95.5%
+                        </div>
+                    </>
+                );
+            }
+
+            return (
+                <>
+                    <div className="formula-section-title">산식(일반)</div>
+                    <div className="formula-text">
+                        <div>달성률(%) = (월 실적 합) / 목표 × 100</div>
+                    </div>
+                    <div className="formula-example-title">예시</div>
+                    <div className="formula-text">
+                        실적 2.2점 ÷ 목표 2.1점 × 100 = 104.8% <br />
+                        실적 1.8점 ÷ 목표 2.1점 × 100 = 85.7%
                     </div>
                 </>
             );
@@ -934,6 +967,16 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                                                     />
                                                     <span>%</span>
                                                 </label>
+                                                <label className="radio-label-compact">
+                                                    <input
+                                                        type="radio"
+                                                        name="metric"
+                                                        value="score"
+                                                        checked={formData.metric === 'score'}
+                                                        onChange={handleChange}
+                                                    />
+                                                    <span>점수</span>
+                                                </label>
                                                 <div className="metric-radio-break" />
                                                 <label className="radio-label-compact">
                                                     <input
@@ -1026,6 +1069,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                                                                                 : formData.metric === 'monthly_avg_head' ? '월 목표 인원을 입력하세요'
                                                                                     : formData.metric === 'monthly_avg_minutes' ? '월 목표 분(min)을 입력하세요'
                                                                                         : formData.metric === 'monthly_avg_amount' ? '월 목표 금액을 입력하세요'
+                                                                            : formData.metric === 'score' ? '목표 점수를 입력하세요'
                                                                                         : '목표 %를 입력하세요'
                                                         }
                                                         required={formData.evaluationType === 'quantitative'}
@@ -1036,6 +1080,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                                                             : formData.metric === 'headcount' || formData.metric === 'monthly_avg_head' ? '명'
                                                                 : formData.metric === 'minutes' || formData.metric === 'monthly_avg_minutes' ? '분'
                                                                     : formData.metric === 'amount' || formData.metric === 'monthly_avg_amount' ? '원'
+                                                                        : formData.metric === 'score' ? '점'
                                                                         : '%'}
                                                     </span>
                                                 </div>

@@ -129,7 +129,9 @@ function TaskDetailModal({ isOpen, onClose, taskId }) {
             '월 평균 분(시간)': 'monthly_avg_minutes',
             '월 평균 분(min)': 'monthly_avg_minutes',
             'monthly_avg_amount': 'monthly_avg_amount',
-            '월 평균 금액': 'monthly_avg_amount'
+            '월 평균 금액': 'monthly_avg_amount',
+            '점수': 'score',
+            'score': 'score'
         };
         return metricMap[metric] || 'percent';
     };
@@ -145,7 +147,8 @@ function TaskDetailModal({ isOpen, onClose, taskId }) {
             'monthly_avg_minutes': '분(min)',
             'amount': '원',
             'monthly_avg_amount': '원',
-            'percent': '%'
+            'percent': '%',
+            'score': '점'
         };
         return unitMap[normalizedMetric] || '%';
     };
@@ -160,7 +163,8 @@ function TaskDetailModal({ isOpen, onClose, taskId }) {
             'monthly_avg_minutes': '월 평균 분(min)',
             'amount': '금액',
             'monthly_avg_amount': '월 평균 금액',
-            'percent': '%'
+            'percent': '%',
+            'score': '점수'
         };
         return labelMap[normalizedMetric] || '%';
     };
@@ -192,7 +196,8 @@ function TaskDetailModal({ isOpen, onClose, taskId }) {
             'monthly_avg_minutes': '월 평균 분(min)',
             'amount': '금액',
             'monthly_avg_amount': '월 평균 금액',
-            'percent': '%'
+            'percent': '%',
+            'score': '점수'
         };
         return map[metric] || metric;
     };
