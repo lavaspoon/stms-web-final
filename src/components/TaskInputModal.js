@@ -3,7 +3,7 @@ import { X, FileText, TrendingUp, Calendar, ChevronDown, ChevronUp, ChevronLeft,
 import { getTask, getTaskActivity, getAllPreviousActivities, getTaskActivityFilesAll, downloadActivityFile, deleteActivityFile, getMonthlyActualValues } from '../api/taskApi';
 import { checkSpelling, improveContext, runDirectPrompt } from '../api/aiApi';
 import { formatDate } from '../utils/dateUtils';
-import { calcAchievementRate, isMeaningfulActual } from '../utils/achievementRate';
+import { calcAchievementRate, isMeaningfulActual, resolveMostRecentActual } from '../utils/achievementRate';
 import { formatKoreanUnit, formatTableValue } from '../utils/formatValue';
 import useUserStore from '../store/userStore';
 import './TaskInputModal.css';
@@ -962,8 +962,8 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false, taskType
             'monthly_avg_minutes': 'monthly_avg_minutes',
             'monthly_avg_amount': 'monthly_avg_amount',
             '월 평균 금액': 'monthly_avg_amount',
-            '점수': 'score',
-            'score': 'score'
+            '최근 실적 기반': 'recent_actual',
+            'recent_actual': 'recent_actual'
         };
         return metricMap[metric] || 'percent';
     };
@@ -980,7 +980,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false, taskType
             'monthly_avg_head': '명',
             'monthly_avg_minutes': '분',
             'monthly_avg_amount': '원',
-            'score': '점'
+            'recent_actual': '점'
         };
         return unitMap[normalizedMetric] || '%';
     };
@@ -996,7 +996,7 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false, taskType
             'monthly_avg_head': '월 평균 명(인원)',
             'monthly_avg_minutes': '월 평균 분(min)',
             'monthly_avg_amount': '월 평균 금액',
-            'score': '점수'
+            'recent_actual': '최근 실적 기반'
         };
         return labelMap[normalizedMetric] || '%';
     };
@@ -1054,6 +1054,16 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false, taskType
             ? allVals.map(v => calcAchievementRate(targetValue, v, isReverse, false))
                 .reduce((a, b) => a + b, 0) / allVals.length
             : 0;
+    } else if (taskMetric === 'recent_actual') {
+        const currentInputYear = isReadOnly ? viewingYear : inputYear;
+        const currentInputMonth = isReadOnly ? viewingMonth : inputMonth;
+        actualValue = resolveMostRecentActual(
+            monthlyActualValues,
+            currentInputYear,
+            currentInputMonth,
+            formData.actualValue
+        );
+        calculatedAchievement = calcAchievementRate(targetValue, actualValue, false, false);
     } else if (taskMetric === 'monthly_avg_count'
         || taskMetric === 'monthly_avg_head'
         || taskMetric === 'monthly_avg_minutes') {
@@ -1959,8 +1969,8 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false, taskType
 
                             <div className="performance-compact-row">
                                 {/* 실적값 입력 - 평가 기준에 따라 다르게 표시 */}
-                                {taskMetric === 'percent' || taskMetric === 'score' ? (
-                                    // %·점수 기준: 해당 월 실적 입력창 (소수 입력)
+                                {taskMetric === 'percent' || taskMetric === 'recent_actual' ? (
+                                    // %·최근 실적 기반: 해당 월 실적 입력창 (소수 입력)
                                     <div className="performance-row-box performance-actual-compact">
                                         <span className="performance-actual-label-compact">{isReadOnly ? viewingMonth : inputMonth}월 실적</span>
                                         {isReadOnly ? (
@@ -2030,7 +2040,9 @@ function TaskInputModal({ isOpen, onClose, task, forceReadOnly = false, taskType
                                                                 ? '월 평균 분(min)'
                                                                 : taskMetric === 'monthly_avg_amount'
                                                                     ? '월 평균 금액'
-                                                                    : '누적 합계')}
+                                                                    : taskMetric === 'recent_actual'
+                                                                        ? '최근 실적'
+                                                                        : '누적 합계')}
                                             </span>
                                             <span className="performance-ta-item-value">
                                                 {formatTableValue(aggregatedTaskActualValue, taskMetric, isKpiTask ? 2 : undefined)}

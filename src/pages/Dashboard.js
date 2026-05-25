@@ -1308,7 +1308,7 @@ function Dashboard() {
                                                         task.metric === 'minutes' ? '분(min)' :
                                                     task.metric === 'amount' ? '금액' :
                                                         task.metric === 'percent' ? '%' :
-                                                            task.metric === 'score' ? '점수' :
+                                                            task.metric === 'recent_actual' ? '최근 실적 기반' :
                                                             task.metric === 'monthly_avg_count' ? '월 평균 건수' :
                                                             task.metric === 'monthly_avg_head' ? '월 평균 명(인원)' :
                                                                             task.metric === 'monthly_avg_minutes' ? '월 평균 분(min)' :

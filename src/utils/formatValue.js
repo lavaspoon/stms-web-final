@@ -67,7 +67,7 @@ export function formatTableValue(value, metric, decimals) {
         || metric === '분(min)'
         || metric === '분'
         || metric === 'monthly_avg_minutes';
-    const isScore = metric === 'score' || metric === '점수';
+    const isRecentActual = metric === 'recent_actual' || metric === '최근 실적 기반';
 
     if (isAmount) {
         return formatKoreanUnit(numValue);
@@ -114,7 +114,7 @@ export function formatTableValue(value, metric, decimals) {
         const rounded = Math.round(numValue * factor) / factor;
         return rounded.toFixed(d) + '%';
     }
-    if (isScore) {
+    if (isRecentActual) {
         const d = (decimals !== undefined && decimals !== null) ? decimals : 1;
         const factor = Math.pow(10, d);
         const rounded = Math.round(numValue * factor) / factor;

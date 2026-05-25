@@ -51,7 +51,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
             'minutes': '분(min)',
             'amount': '금액',
             'percent': '%',
-            'score': '점수',
+            'recent_actual': '최근 실적 기반',
             'monthly_avg_count': '월 평균 건수',
             'monthly_avg_head': '월 평균 명(인원)',
             'monthly_avg_minutes': '월 평균 분(min)',
@@ -137,33 +137,19 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
             );
         }
 
-        if (metric === 'score') {
-            if (reverse) {
-                return (
-                    <>
-                        <div className="formula-section-title">산식(역계산)</div>
-                        <div className="formula-text">
-                            <div>달성률(%) = 목표 / (월 실적 합) × 100</div>
-                        </div>
-                        <div className="formula-example-title">예시</div>
-                        <div className="formula-text">
-                            목표 = 2.1점, 월 실적 합 = 2.2 <br />
-                            달성률 = 2.1 / 2.2 × 100 = 95.5%
-                        </div>
-                    </>
-                );
-            }
-
+        if (metric === 'recent_actual') {
             return (
                 <>
-                    <div className="formula-section-title">산식(일반)</div>
+                    <div className="formula-section-title">산식</div>
                     <div className="formula-text">
-                        <div>달성률(%) = (월 실적 합) / 목표 × 100</div>
+                        <div>과제 실적 = 가장 최근에 입력한 월별 실적</div>
+                        <div>달성률(%) = 최근 실적 ÷ 목표 × 100</div>
                     </div>
                     <div className="formula-example-title">예시</div>
                     <div className="formula-text">
-                        실적 2.2점 ÷ 목표 2.1점 × 100 = 104.8% <br />
-                        실적 1.8점 ÷ 목표 2.1점 × 100 = 85.7%
+                        목표 = 100점, 3월 실적 = 30, 5월 실적 = 100 <br />
+                        최근 실적 = 100 (5월) <br />
+                        달성률 = 100 ÷ 100 × 100 = 100%
                     </div>
                 </>
             );
@@ -370,10 +356,11 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 targetValue: formatTargetValue(editData.targetValue || editData.target),
                 status: editData.status || 'inProgress',
                 visibleYn: editData.visibleYn || 'Y', // 공개여부
-                reverseYn: ((editData.performance?.metric || editData.metric) === 'monthly_avg_head' ||
-                    (editData.performance?.metric || editData.metric) === 'monthly_avg_minutes')
-                    ? 'N'
-                    : (editData.reverseYn || 'N'), // 월 평균 인원·시간만 역계산 불가
+                reverseYn: (() => {
+                    const m = editData.performance?.metric || editData.metric;
+                    return (m === 'monthly_avg_head' || m === 'monthly_avg_minutes' || m === 'recent_actual')
+                        ? 'N' : (editData.reverseYn || 'N');
+                })(), // 월 평균 인원·시간·최근 실적 기반은 역계산 불가
             }));
 
             // 부서 ID가 있으면 해당 부서의 담당자 목록 로드
@@ -662,9 +649,10 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                 visibleYn: formData.visibleYn || 'Y', // 공개여부
                 reverseYn: formData.evaluationType === 'quantitative'
                     ? (formData.metric === 'monthly_avg_head' || formData.metric === 'monthly_avg_minutes'
+                        || formData.metric === 'recent_actual'
                         ? 'N'
                         : (formData.reverseYn || 'N'))
-                    : 'N', // 역계산 여부 (정량일 때만, 월 평균 인원·시간은 N 고정)
+                    : 'N', // 역계산 여부 (정량일 때만, 월 평균 인원·시간·최근 실적 기반은 N 고정)
                 deptId: departmentToUse // 자동 설정된 부서 ID 사용
             };
 
@@ -971,11 +959,15 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                                                     <input
                                                         type="radio"
                                                         name="metric"
-                                                        value="score"
-                                                        checked={formData.metric === 'score'}
-                                                        onChange={handleChange}
+                                                        value="recent_actual"
+                                                        checked={formData.metric === 'recent_actual'}
+                                                        onChange={() => setFormData(prev => ({
+                                                            ...prev,
+                                                            metric: 'recent_actual',
+                                                            reverseYn: 'N'
+                                                        }))}
                                                     />
-                                                    <span>점수</span>
+                                                    <span>최근 실적 기반</span>
                                                 </label>
                                                 <div className="metric-radio-break" />
                                                 <label className="radio-label-compact">
@@ -1039,7 +1031,8 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                                             <div className="criteria-sub-title">목표값 <span className="required">*</span></div>
                                             <div className="target-input-row">
                                                 {formData.metric !== 'monthly_avg_head' &&
-                                                    formData.metric !== 'monthly_avg_minutes' && (
+                                                    formData.metric !== 'monthly_avg_minutes' &&
+                                                    formData.metric !== 'recent_actual' && (
                                                         <label className="reverse-checkbox-label">
                                                             <input
                                                                 type="checkbox"
@@ -1069,7 +1062,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                                                                                 : formData.metric === 'monthly_avg_head' ? '월 목표 인원을 입력하세요'
                                                                                     : formData.metric === 'monthly_avg_minutes' ? '월 목표 분(min)을 입력하세요'
                                                                                         : formData.metric === 'monthly_avg_amount' ? '월 목표 금액을 입력하세요'
-                                                                            : formData.metric === 'score' ? '목표 점수를 입력하세요'
+                                                                            : formData.metric === 'recent_actual' ? '목표값을 입력하세요'
                                                                                         : '목표 %를 입력하세요'
                                                         }
                                                         required={formData.evaluationType === 'quantitative'}
@@ -1080,7 +1073,7 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                                                             : formData.metric === 'headcount' || formData.metric === 'monthly_avg_head' ? '명'
                                                                 : formData.metric === 'minutes' || formData.metric === 'monthly_avg_minutes' ? '분'
                                                                     : formData.metric === 'amount' || formData.metric === 'monthly_avg_amount' ? '원'
-                                                                        : formData.metric === 'score' ? '점'
+                                                                        : formData.metric === 'recent_actual' ? '점'
                                                                         : '%'}
                                                     </span>
                                                 </div>

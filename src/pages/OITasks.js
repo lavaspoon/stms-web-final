@@ -88,7 +88,7 @@ function OITasks() {
             'monthly_avg_amount': '월 평균 금액',
             'amount': '금액',
             'percent': '%',
-            'score': '점수'
+            'recent_actual': '최근 실적 기반'
         };
         return map[metric] || metric;
     };

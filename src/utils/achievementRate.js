@@ -31,3 +31,34 @@ export function calcAchievementRate(targetVal, actualVal, isReverse = false, rou
   const rate = (actual / target) * 100;
   return rounded ? Math.round(rate) : rate;
 }
+
+/**
+ * 최근 실적 기반: 연·월 기준 가장 최근 의미 있는 월별 실적값
+ * @param {Array<{year?: number, month: number, actualValue: *}>} monthlyEntries
+ * @param {number} currentYear
+ * @param {number} currentMonth
+ * @param {*} currentFormValue - 현재 입력 중인 월 실적
+ */
+export function resolveMostRecentActual(monthlyEntries, currentYear, currentMonth, currentFormValue) {
+  const entries = (monthlyEntries || [])
+    .filter((m) => isMeaningfulActual(m.actualValue))
+    .map((m) => ({
+      year: m.year != null ? m.year : currentYear,
+      month: m.month,
+      val: Number(m.actualValue),
+    }));
+
+  if (isMeaningfulActual(currentFormValue)) {
+    const val = Number(currentFormValue);
+    const idx = entries.findIndex((e) => e.year === currentYear && e.month === currentMonth);
+    if (idx >= 0) {
+      entries[idx].val = val;
+    } else {
+      entries.push({ year: currentYear, month: currentMonth, val });
+    }
+  }
+
+  if (!entries.length) return 0;
+  entries.sort((a, b) => (a.year !== b.year ? b.year - a.year : b.month - a.month));
+  return entries[0].val;
+}
