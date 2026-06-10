@@ -543,7 +543,8 @@ function Dashboard() {
     let averageAchievement = 0;
     if (quantitativeTasks.length > 0) {
         const totalAchievement = quantitativeTasks.reduce((sum, task) => {
-            return sum + (task.achievement || 0);
+            const achievement = task.achievement || 0;
+            return sum + Math.min(achievement, 100);
         }, 0);
         // 전체 평균 달성률을 정수(소수점 없음)로 표시
         averageAchievement = Math.round(totalAchievement / quantitativeTasks.length);
