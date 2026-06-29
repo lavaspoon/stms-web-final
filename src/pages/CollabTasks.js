@@ -7,6 +7,9 @@ import TaskDetailModal from '../components/TaskDetailModal';
 import { getTasksByType } from '../api/taskApi';
 import { formatTableValue } from '../utils/formatValue';
 import { needsMonthlyActivityInput } from '../utils/taskActivityHelpers';
+import { getDefaultViewYear, PERIOD_FILTER_OPTIONS, matchesPeriodFilter, comparePeriodSort } from '../constants/taskYearConstants';
+import YearSelector from '../components/YearSelector';
+import PeriodBadge from '../components/PeriodBadge';
 import { TableSkeleton } from '../components/Skeleton';
 import './OITasks.css';
 import './CollabTasks.css';
@@ -42,13 +45,15 @@ function CollabTasks() {
     const [isInputModalOpen, setIsInputModalOpen] = useState(false);
     const [detailTaskId, setDetailTaskId] = useState(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [selectedYear, setSelectedYear] = useState(getDefaultViewYear());
 
     // 테이블 헤더 필터 상태
     const [headerFilters, setHeaderFilters] = useState({
         status: [],
         category1: [],
         evaluation: [],
-        dept: []
+        dept: [],
+        period: []
     });
     const [activeFilterDropdown, setActiveFilterDropdown] = useState(null);
     const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
@@ -167,7 +172,7 @@ function CollabTasks() {
             setLoading(true);
             // 관리자는 모든 과제 조회, 담당자는 본부 전체 과제 조회
             const [data] = await Promise.all([
-                getTasksByType('협업', null), // 협업 과제 조회
+                getTasksByType('협업', null, selectedYear), // 협업 과제 조회
                 new Promise(resolve => setTimeout(resolve, 300)) // 최소 300ms 딜레이
             ]);
 
@@ -224,7 +229,9 @@ function CollabTasks() {
                 actualValue: task.actualValue || 0, // 실적값
                 targetDescription: task.targetDescription || '', // 목표 설명
                 visibleYn: task.visibleYn || 'Y', // 공개여부
-                reverseYn: task.reverseYn || 'N' // 역계산 여부
+                reverseYn: task.reverseYn || 'N', // 역계산 여부
+                baseYear: task.baseYear || '',
+                periodDivision: task.periodDivision || ''
             }));
 
             // 공개여부 필터링: 공개여부가 N인 경우 관리자와 담당자만 볼 수 있음
@@ -274,7 +281,7 @@ function CollabTasks() {
         if (user) {
             loadTasks();
         }
-    }, [user]);
+    }, [user, selectedYear]);
 
     // 필터 드롭다운 외부 클릭 / 스크롤 감지
     useEffect(() => {
@@ -347,7 +354,7 @@ function CollabTasks() {
 
     // 모든 필터 초기화
     const clearAllFilters = () => {
-        setHeaderFilters({ status: [], category1: [], evaluation: [], dept: [] });
+        setHeaderFilters({ status: [], category1: [], evaluation: [], dept: [], period: [] });
     };
 
     // 필터 적용 여부 확인
@@ -355,7 +362,8 @@ function CollabTasks() {
         return headerFilters.status.length > 0 ||
             headerFilters.category1.length > 0 ||
             headerFilters.evaluation.length > 0 ||
-            headerFilters.dept.length > 0;
+            headerFilters.dept.length > 0 ||
+            headerFilters.period.length > 0;
     };
 
     // 헤더 클릭 정렬 핸들러
@@ -468,6 +476,8 @@ function CollabTasks() {
             targetDescription: task.targetDescription || '', // 목표 설명 추가
             visibleYn: task.visibleYn || 'Y', // 공개여부
             reverseYn: task.reverseYn || 'N', // 역계산 여부
+            baseYear: task.baseYear || '',
+            periodDivision: task.periodDivision || '',
             taskType: task.taskType,
             // 수정 모드에서는 원본 영어 값 사용
             performance: task.performanceOriginal || task.performance
@@ -557,6 +567,11 @@ function CollabTasks() {
                 if (!headerFilters.evaluation.includes(evaluationValue)) return false;
             }
 
+            // 헤더 필터: 분기
+            if (headerFilters.period.length > 0) {
+                if (!matchesPeriodFilter(task.periodDivision, headerFilters.period)) return false;
+            }
+
             // 헤더 필터: 담당 본부
             if (headerFilters.dept.length > 0) {
                 const taskDepts = new Set();
@@ -614,6 +629,10 @@ function CollabTasks() {
         .sort((a, b) => {
             // 정렬 설정이 있으면 해당 정렬 적용
             if (sortConfig.column && sortConfig.direction) {
+                if (sortConfig.column === 'period') {
+                    return comparePeriodSort(a.periodDivision, b.periodDivision, sortConfig.direction);
+                }
+
                 const aValue = getSortValue(a, sortConfig.column);
                 const bValue = getSortValue(b, sortConfig.column);
 
@@ -682,7 +701,8 @@ function CollabTasks() {
                     <h1>협업 과제</h1>
                     <p className="oi-page-subtitle">부서 간 협업으로 수행되는 과제를 관리합니다</p>
                 </div>
-                <div style={{ display: 'flex', gap: '12px' }}>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <YearSelector selectedYear={selectedYear} onChange={setSelectedYear} />
                     {isAdmin && (
                         <button className="oi-primary-btn" onClick={() => setIsRegisterModalOpen(true)}>
                             <Plus size={18} />
@@ -803,7 +823,7 @@ function CollabTasks() {
 
             <div className="oi-tasks-table-container">
                 {loading ? (
-                    <TableSkeleton rows={8} columns={isAdmin ? 8 : 7} />
+                    <TableSkeleton rows={8} columns={isAdmin ? 9 : 8} />
                 ) : (
                     <table className="oi-tasks-table dashboard-table">
                         <thead>
@@ -869,6 +889,64 @@ function CollabTasks() {
                                                             </label>
                                                         );
                                                     })}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </th>
+                                <th>
+                                    <div className="table-header-filter">
+                                        <span
+                                            className="sortable-header"
+                                            onClick={() => handleSort('period')}
+                                        >
+                                            분기
+                                        </span>
+                                        <button
+                                            ref={el => filterButtonRefs.current['period'] = el}
+                                            className={`filter-icon-btn ${headerFilters.period.length > 0 ? 'active' : ''}`}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleFilterDropdown('period', e);
+                                            }}
+                                        >
+                                            <Filter size={14} />
+                                            {headerFilters.period.length > 0 && (
+                                                <span className="filter-count">{headerFilters.period.length}</span>
+                                            )}
+                                        </button>
+                                        {activeFilterDropdown === 'period' && (
+                                            <div
+                                                className="filter-dropdown"
+                                                ref={filterDropdownRef}
+                                                style={{
+                                                    top: `${dropdownPosition.top}px`,
+                                                    left: `${dropdownPosition.left}px`,
+                                                    transform: 'translateX(-50%)'
+                                                }}
+                                            >
+                                                <div className="filter-dropdown-header">
+                                                    <span>분기 필터</span>
+                                                    {headerFilters.period.length > 0 && (
+                                                        <button
+                                                            className="filter-clear-btn"
+                                                            onClick={() => clearFilter('period')}
+                                                        >
+                                                            <X size={12} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <div className="filter-options">
+                                                    {PERIOD_FILTER_OPTIONS.map(option => (
+                                                        <label key={option} className="filter-option">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={headerFilters.period.includes(option)}
+                                                                onChange={() => toggleFilterOption('period', option)}
+                                                            />
+                                                            <span>{option}</span>
+                                                        </label>
+                                                    ))}
                                                 </div>
                                             </div>
                                         )}
@@ -1084,7 +1162,7 @@ function CollabTasks() {
                         <tbody>
                             {filteredTasks.length === 0 ? (
                                 <tr>
-                                    <td colSpan={8} className="empty-table-message">
+                                    <td colSpan={9} className="empty-table-message">
                                         <div className="empty-table-content">
                                             <Filter size={32} />
                                             <p>조건에 맞는 과제가 없습니다.</p>
@@ -1128,6 +1206,9 @@ function CollabTasks() {
                                                     <StatusIcon size={14} />
                                                     {statusInfo.text}
                                                 </span>
+                                            </td>
+                                            <td className="dashboard-table-period">
+                                                <PeriodBadge periodDivision={task.periodDivision} />
                                             </td>
                                             <td className="dashboard-table-task-name">
                                                 <div className="task-name-wrapper">

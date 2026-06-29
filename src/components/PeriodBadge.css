@@ -1,0 +1,33 @@
+.period-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 52px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    line-height: 1.2;
+}
+
+.period-badge-first {
+    background: rgba(0, 122, 255, 0.1);
+    color: #0071e3;
+    border: 1px solid rgba(0, 122, 255, 0.2);
+}
+
+.period-badge-second {
+    background: rgba(255, 149, 0, 0.12);
+    color: #c93400;
+    border: 1px solid rgba(255, 149, 0, 0.24);
+}
+
+.period-badge-empty {
+    min-width: auto;
+    padding: 0;
+    font-size: 13px;
+    font-weight: 500;
+    color: #c7c7cc;
+}

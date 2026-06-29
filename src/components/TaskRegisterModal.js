@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Calendar, User, Target, TrendingUp, ChevronRight, ChevronDown, Search } from 'lucide-react';
 import { getAllDepts, getDeptMembers, getAllMembers } from '../api/deptApi';
 import { createTask, updateTask, deleteTask } from '../api/taskApi';
+import { BASE_YEAR_OPTIONS, PERIOD_DIVISION_OPTIONS } from '../constants/taskYearConstants';
 import './TaskRegisterModal.css';
 
 function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
@@ -16,6 +17,8 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
     const getDefaultTaskTypes = () => (TASK_TYPE_OPTIONS.includes(taskType) ? [taskType] : ['중점추진']);
 
     const [formData, setFormData] = useState({
+        baseYear: '',
+        periodDivision: '전체',
         taskTypes: getDefaultTaskTypes(),
         category1: '',
         category2: '',
@@ -337,6 +340,8 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
 
             setFormData(prev => ({
                 ...prev,
+                baseYear: editData.baseYear || '',
+                periodDivision: editData.periodDivision || '전체',
                 taskTypes: (() => {
                     const fromEdit = parseTaskTypes(editData.taskType);
                     return fromEdit.length > 0 ? fromEdit : getDefaultTaskTypes();
@@ -370,6 +375,8 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
         } else if (isOpen && !editData) {
             // 등록 모드일 때 폼 초기화
             setFormData({
+                baseYear: '',
+                periodDivision: '전체',
                 taskTypes: getDefaultTaskTypes(),
                 category1: '',
                 category2: '',
@@ -393,6 +400,8 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
         } else if (!isOpen) {
             // 모달이 닫힐 때 폼 초기화
             setFormData({
+                baseYear: '',
+                periodDivision: '전체',
                 taskTypes: getDefaultTaskTypes(),
                 category1: '',
                 category2: '',
@@ -611,6 +620,11 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
             }
         }
 
+        if (!formData.baseYear) {
+            alert('과제 기준 연도를 선택해주세요.');
+            return;
+        }
+
         if (!formData.taskName || !formData.category1 || !formData.category2) {
             alert('필수 항목을 모두 입력해주세요.');
             return;
@@ -632,6 +646,8 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
 
             // 백엔드 API 형식에 맞게 데이터 변환
             const taskData = {
+                baseYear: formData.baseYear,
+                periodDivision: formData.periodDivision || '전체',
                 taskType: formData.taskTypes.join(','),
                 category1: formData.category1,
                 category2: formData.category2,
@@ -673,6 +689,8 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
 
             // 폼 초기화
             setFormData({
+                baseYear: '',
+                periodDivision: '전체',
                 taskTypes: getDefaultTaskTypes(),
                 category1: '',
                 category2: '',
@@ -726,6 +744,39 @@ function TaskRegisterModal({ isOpen, onClose, taskType, editData = null }) {
                         <div className="task-register-section-header">
                             <Target size={18} />
                             <h3>과제 정보</h3>
+                        </div>
+
+                        <div className="form-row">
+                            <div className="form-group">
+                                <label>과제 기준 연도 <span className="required">*</span></label>
+                                <select
+                                    name="baseYear"
+                                    value={formData.baseYear}
+                                    onChange={handleChange}
+                                    required
+                                >
+                                    <option value="">선택</option>
+                                    {BASE_YEAR_OPTIONS.map((yearOption) => (
+                                        <option key={yearOption} value={yearOption}>
+                                            {yearOption}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label>분기</label>
+                                <select
+                                    name="periodDivision"
+                                    value={formData.periodDivision}
+                                    onChange={handleChange}
+                                >
+                                    {PERIOD_DIVISION_OPTIONS.map((option) => (
+                                        <option key={option} value={option}>
+                                            {option}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
 
                         <div className="form-row">

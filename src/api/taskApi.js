@@ -37,12 +37,16 @@ export const getAllTasks = async () => {
  * 과제 타입별 조회
  * @param {String} taskType - 과제 타입 (OI, 중점추진)
  * @param {String} skid - 사용자 ID (선택, 담당자인 경우 필수)
+ * @param {Number|String} year - 조회 연도 (선택)
  * @returns {Promise} 과제 목록
  */
-export const getTasksByType = async (taskType, skid = null) => {
+export const getTasksByType = async (taskType, skid = null, year = null) => {
     const params = { type: taskType };
     if (skid) {
         params.skid = skid;
+    }
+    if (year !== null && year !== undefined) {
+        params.year = String(year);
     }
     const response = await axios.get(`${API_BASE_URL}/tasks`, { params });
     return response.data;

@@ -7,6 +7,9 @@ import { getTasksByType } from '../api/taskApi';
 import { getLatestKpiImage, getKpiImageUrl } from '../api/kpiImageApi';
 import { formatDate } from '../utils/dateUtils';
 import { formatTableValue } from '../utils/formatValue';
+import { getDefaultViewYear, PERIOD_FILTER_OPTIONS, matchesPeriodFilter, comparePeriodSort } from '../constants/taskYearConstants';
+import YearSelector from '../components/YearSelector';
+import PeriodBadge from '../components/PeriodBadge';
 import { TableSkeleton, StatBoxSkeleton } from '../components/Skeleton';
 import './Dashboard.css';
 
@@ -42,7 +45,8 @@ function Dashboard() {
         status: [],
         category1: [],
         evaluation: [],
-        dept: []
+        dept: [],
+        period: []
     });
     const [activeFilterDropdown, setActiveFilterDropdown] = useState(null);
     const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
@@ -57,11 +61,12 @@ function Dashboard() {
 
     // 상태별 통계 박스 클릭 필터 (진행중/완료/지연/중단) — 같은 박스 다시 클릭 시 해제
     const [statStatusFilter, setStatStatusFilter] = useState(null);
+    const [selectedYear, setSelectedYear] = useState(getDefaultViewYear());
 
     // 탭 전환 시 필터/정렬 초기화
     const handleTabChange = (tab) => {
         setActiveTab(tab);
-        setHeaderFilters({ status: [], category1: [], evaluation: [], dept: [] });
+        setHeaderFilters({ status: [], category1: [], evaluation: [], dept: [], period: [] });
         setSortConfig({ column: null, direction: null });
         setStatStatusFilter(null);
         setActiveFilterDropdown(null);
@@ -73,10 +78,10 @@ function Dashboard() {
         try {
             setLoading(true);
             const [oiData, collabData, keyData, kpiData] = await Promise.all([
-                getTasksByType('OI'),
-                getTasksByType('협업'),
-                getTasksByType('중점추진'),
-                getTasksByType('KPI')
+                getTasksByType('OI', null, selectedYear),
+                getTasksByType('협업', null, selectedYear),
+                getTasksByType('중점추진', null, selectedYear),
+                getTasksByType('KPI', null, selectedYear)
             ]);
 
             // 최소 딜레이 보장 (스켈레톤 UI가 보이도록)
@@ -104,7 +109,9 @@ function Dashboard() {
                 actualValue: task.actualValue || 0,
                 targetDescription: task.targetDescription || '',
                 reverseYn: task.reverseYn || 'N',
-                performanceType: task.performanceType || 'nonFinancial' // 재무(financial), 비재무(nonFinancial)
+                performanceType: task.performanceType || 'nonFinancial', // 재무(financial), 비재무(nonFinancial)
+                baseYear: task.baseYear || '',
+                periodDivision: task.periodDivision || ''
             });
 
             const formattedOiTasks = oiData.map(formatTask);
@@ -141,7 +148,7 @@ function Dashboard() {
             loadTasks();
             loadKpiLatestImage();
         }
-    }, [user]);
+    }, [user, selectedYear]);
 
     // 필터 드롭다운 외부 클릭 / 스크롤 감지
     useEffect(() => {
@@ -300,7 +307,7 @@ function Dashboard() {
 
     // 모든 필터 초기화
     const clearAllFilters = () => {
-        setHeaderFilters({ status: [], category1: [], evaluation: [], dept: [] });
+        setHeaderFilters({ status: [], category1: [], evaluation: [], dept: [], period: [] });
     };
 
     // 필터 적용 여부 확인
@@ -308,7 +315,8 @@ function Dashboard() {
         return headerFilters.status.length > 0 ||
             headerFilters.category1.length > 0 ||
             headerFilters.evaluation.length > 0 ||
-            headerFilters.dept.length > 0;
+            headerFilters.dept.length > 0 ||
+            headerFilters.period.length > 0;
     };
 
     // 대주제(category1) 옵션 목록 추출
@@ -374,6 +382,11 @@ function Dashboard() {
             const evaluationType = task.evaluationType || 'quantitative';
             const evaluationValue = evaluationType === 'qualitative' || evaluationType === '정성' ? '정성' : '정량';
             if (!headerFilters.evaluation.includes(evaluationValue)) return false;
+        }
+
+        // 헤더 필터: 분기
+        if (headerFilters.period.length > 0) {
+            if (!matchesPeriodFilter(task.periodDivision, headerFilters.period)) return false;
         }
 
         // 헤더 필터: 담당 본부
@@ -451,6 +464,10 @@ function Dashboard() {
     const sortedTasks = [...filteredTasks].sort((a, b) => {
         // 정렬 설정이 있으면 해당 정렬 적용
         if (sortConfig.column && sortConfig.direction) {
+            if (sortConfig.column === 'period') {
+                return comparePeriodSort(a.periodDivision, b.periodDivision, sortConfig.direction);
+            }
+
             const aValue = getSortValue(a, sortConfig.column);
             const bValue = getSortValue(b, sortConfig.column);
 
@@ -770,6 +787,9 @@ function Dashboard() {
                     </span>
                 </button>
                 <div className="tab-spacer"></div>
+                <div className="dashboard-year-selector">
+                    <YearSelector selectedYear={selectedYear} onChange={setSelectedYear} />
+                </div>
             </div>
 
             {/* 탭 컨텐츠 영역 */}
@@ -1009,7 +1029,7 @@ function Dashboard() {
                 {/* 컴팩트 카드 그리드 */}
                 <div className="tasks-section-in-tab">
                     {loading ? (
-                        <TableSkeleton rows={8} columns={7} />
+                        <TableSkeleton rows={8} columns={8} />
                     ) : displayedTasks.length === 0 ? (
                         <div className="dashboard-empty-state">
                             <div className="dashboard-empty-icon">📭</div>
@@ -1081,6 +1101,64 @@ function Dashboard() {
                                                                     </label>
                                                                 );
                                                             })}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </th>
+                                        <th>
+                                            <div className="table-header-filter">
+                                                <span
+                                                    className="sortable-header"
+                                                    onClick={() => handleSort('period')}
+                                                >
+                                                    분기
+                                                </span>
+                                                <button
+                                                    ref={el => filterButtonRefs.current['period'] = el}
+                                                    className={`filter-icon-btn ${headerFilters.period.length > 0 ? 'active' : ''}`}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        toggleFilterDropdown('period', e);
+                                                    }}
+                                                >
+                                                    <Filter size={14} />
+                                                    {headerFilters.period.length > 0 && (
+                                                        <span className="filter-count">{headerFilters.period.length}</span>
+                                                    )}
+                                                </button>
+                                                {activeFilterDropdown === 'period' && (
+                                                    <div
+                                                        className="filter-dropdown"
+                                                        ref={filterDropdownRef}
+                                                        style={{
+                                                            top: `${dropdownPosition.top}px`,
+                                                            left: `${dropdownPosition.left}px`,
+                                                            transform: 'translateX(-50%)'
+                                                        }}
+                                                    >
+                                                        <div className="filter-dropdown-header">
+                                                            <span>분기 필터</span>
+                                                            {headerFilters.period.length > 0 && (
+                                                                <button
+                                                                    className="filter-clear-btn"
+                                                                    onClick={() => clearFilter('period')}
+                                                                >
+                                                                    <X size={12} />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                        <div className="filter-options">
+                                                            {PERIOD_FILTER_OPTIONS.map(option => (
+                                                                <label key={option} className="filter-option">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={headerFilters.period.includes(option)}
+                                                                        onChange={() => toggleFilterOption('period', option)}
+                                                                    />
+                                                                    <span>{option}</span>
+                                                                </label>
+                                                            ))}
                                                         </div>
                                                     </div>
                                                 )}
@@ -1340,6 +1418,9 @@ function Dashboard() {
                                                         <StatusIcon size={13} />
                                                         {statusInfo.text}
                                                     </span>
+                                                </td>
+                                                <td className="dashboard-table-period">
+                                                    <PeriodBadge periodDivision={task.periodDivision} />
                                                 </td>
                                                 <td className="dashboard-table-task-name">
                                                     <div className="task-name-wrapper">

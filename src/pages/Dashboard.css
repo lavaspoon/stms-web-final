@@ -393,6 +393,20 @@
     flex: 1;
 }
 
+.dashboard-year-selector {
+    display: flex;
+    align-items: center;
+    padding-right: 8px;
+}
+
+.dashboard-table-period {
+    width: 72px;
+    text-align: center;
+    font-size: 13px;
+    color: #636366;
+    white-space: nowrap;
+}
+
 /* ===== 탭 컨텐츠 ===== */
 .tab-content {
     background: white;
